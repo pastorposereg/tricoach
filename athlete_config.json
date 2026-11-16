@@ -1,0 +1,56 @@
+{
+  "garmin_email": "",
+  "garmin_password": "",
+  "garmin_token_dir": "C:\\Users\\Pastor\\AppData\\Local\\garmin-mcp\\garmin-mcp\\Cache\\garth",
+  "garmin_connected": true,
+  "garmin_athlete_name": "pastor",
+  "intervals_athlete_id": "i260114",
+  "intervals_api_key": "5gfgaz9zjgc83i4wf22h7exw3",
+  "intervals_connected": true,
+  "gemini_api_key": "AQ.Ab8RN6KWyfWwUj6BwtHM7YGk3pmcZhX9EiE7M9Irru5xX-6y6g",
+  "athlete_phase": "Periodo de Base (Aerobic Base)",
+  "athlete_discipline": "Triatlón (Natación, Ciclismo, Carrera, Fuerza)",
+  "ftp": 348,
+  "css_pace": "1:29.0",
+  "run_threshold_pace": "3:40",
+  "max_hr": 183,
+  "rest_hr_baseline": 36,
+  "lthr": 159,
+  "weight": 75.2,
+  "thresholds_source": "intervals.icu",
+  "thresholds_last_sync": "2026-11-16 16:37:57",
+  "disciplines_thresholds": {
+    "cycling": {
+      "ftp": 348,
+      "lthr": 159,
+      "max_hr": 183,
+      "hr_zones": [127, 142, 148, 158, 162, 167, 183],
+      "hr_zone_names": ["Recovery", "Aerobic", "Tempo", "SubThreshold", "SuperThreshold", "Aerobic Capacity", "Anaerobic"],
+      "power_zones": [
+        {"zone": 1, "name": "Active Recovery", "percent_max": 55, "min_watts": 0, "max_watts": 191},
+        {"zone": 2, "name": "Endurance", "percent_max": 75, "min_watts": 192, "max_watts": 261},
+        {"zone": 3, "name": "Tempo", "percent_max": 90, "min_watts": 262, "max_watts": 313},
+        {"zone": 4, "name": "Threshold", "percent_max": 105, "min_watts": 314, "max_watts": 365},
+        {"zone": 5, "name": "VO2 Max", "percent_max": 120, "min_watts": 366, "max_watts": 418},
+        {"zone": 6, "name": "Anaerobic", "percent_max": 150, "min_watts": 419, "max_watts": 522},
+        {"zone": 7, "name": "Neuromuscular", "percent_max": 999, "min_watts": 523, "max_watts": 999}
+      ]
+    },
+    "running": {
+      "threshold_pace": "3:40",
+      "threshold_speed_mps": 4.545,
+      "lthr": 159,
+      "max_hr": 183,
+      "hr_zones": [134, 142, 150, 158, 162, 167, 183],
+      "hr_zone_names": ["Recovery", "Aerobic", "Tempo", "SubThreshold", "SuperThreshold", "Aerobic Capacity", "Anaerobic"]
+    },
+    "swimming": {
+      "css_pace": "1:29.0",
+      "threshold_speed_mps": 1.124,
+      "lthr": 159,
+      "max_hr": 183,
+      "hr_zones": [134, 142, 149, 158, 162, 167, 183],
+      "hr_zone_names": ["Recovery", "Aerobic", "Tempo", "SubThreshold", "SuperThreshold", "Aerobic Capacity", "Anaerobic"]
+    }
+  }
+}

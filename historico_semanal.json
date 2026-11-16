@@ -1,0 +1,180 @@
+{
+  "semanas": [
+    {
+      "semana": "2026-W42",
+      "rango": "2026-10-12 al 2026-10-18",
+      "fase": "Periodo de Base (Aerobic Base)",
+      "volumen_total": {
+        "tiempo_horas": 15.13,
+        "sesiones": 13,
+        "calorias": 10735,
+        "minutos_intensidad": 1532
+      },
+      "carga_fisiologica": {
+        "atl_fin_semana": 843,
+        "ctl_fin_semana": 605,
+        "acwr_percent": 57,
+        "estado": "PRODUCTIVE_2",
+        "training_readiness_domingo": 41
+      },
+      "biomarcadores_salud": {
+        "rhr_medio_semanal_bpm": 37.0,
+        "hrv_status": "BALANCED",
+        "hrv_medio_ms": 104.0,
+        "observaciones_salud": "Frecuencia cardíaca en reposo muy baja y estable (35-38 bpm); gran tono parasimpático."
+      },
+      "ciclismo": {
+        "sesiones": 3,
+        "distancia_km": 202.09,
+        "tiempo_horas": 6.84,
+        "salida_larga": {
+          "fecha": "2026-10-17",
+          "distancia_km": 87.96,
+          "tiempo": "3h 04m 34s",
+          "desnivel_m": 1207,
+          "potencia_media": 210.0,
+          "potencia_normalizada": 222.0,
+          "fc_media": 111.0,
+          "fec_ef": 2.00,
+          "pw_hr_desacople_percent": 2.52,
+          "iv_variabilidad": 1.057,
+          "mitad_1": { "potencia": 212.3, "fc": 110.7, "ef": 1.917 },
+          "mitad_2": { "potencia": 207.1, "fc": 110.8, "ef": 1.869 }
+        }
+      },
+      "carrera": {
+        "sesiones": 3,
+        "distancia_km": 35.74,
+        "tiempo_horas": 3.11,
+        "tirada_control": {
+          "fecha": "2026-10-18",
+          "distancia_km": 13.23,
+          "tiempo": "1h 04m 50s",
+          "ritmo_medio": "4:54 min/km",
+          "fc_media": 127.0,
+          "fecp_ref": 1.61,
+          "pa_hr_desacople_percent": 0.0,
+          "bloque_1": { "ritmo": "4:39 min/km", "fc": 133.0, "fecp": 1.613 },
+          "bloque_2": { "ritmo": "4:36 min/km", "fc": 133.0, "fecp": 1.634 }
+        }
+      },
+      "natacion": {
+        "sesiones": 4,
+        "distancia_m": 9575,
+        "tiempo_horas": 3.15,
+        "series_umbral": {
+          "fecha": "2026-10-12",
+          "serie": "5x100m con 10'' descanso",
+          "ritmo_medio": "1:33.0 / 100m",
+          "fc_media": 117.0
+        },
+        "sesion_control_domingo": {
+          "fecha": "2026-10-18",
+          "distancia_m": 1500,
+          "tiempo": "27:25 min",
+          "ritmo_medio": "1:49.7 / 100m",
+          "fc_media": 107.0,
+          "brazadas_por_largo": 13.7,
+          "swolf_medio": 41.0,
+          "dps_metros": 1.82,
+          "desglose_500m": [
+            { "tramo": "0-500m", "ritmo": "1:46.1 / 100m", "brazadas": 13.1, "swolf": 39.6 },
+            { "tramo": "500-1000m", "ritmo": "1:50.4 / 100m", "brazadas": 13.1, "swolf": 40.6 },
+            { "tramo": "1000-1500m", "ritmo": "1:52.5 / 100m", "brazadas": 15.1, "swolf": 43.2 }
+          ]
+        }
+      },
+      "fuerza": {
+        "sesiones": 3,
+        "tiempo_horas": 2.05
+      }
+    },
+    {
+      "semana": "2026-W43",
+      "rango": "2026-10-19 al 2026-10-25",
+      "fase": "Periodo de Base (Aerobic Base)",
+      "volumen_total": {
+        "tiempo_horas": 14.22,
+        "sesiones": 12,
+        "calorias": 11194,
+        "minutos_intensidad": 1520
+      },
+      "carga_fisiologica": {
+        "atl_fin_semana": 1004,
+        "ctl_fin_semana": 716,
+        "acwr_percent": 42,
+        "estado": "UNPRODUCTIVE_3",
+        "training_readiness_domingo": 42
+      },
+      "biomarcadores_salud": {
+        "rhr_medio_semanal_bpm": 36.9,
+        "rhr_rango_bpm": "36-38 bpm",
+        "hrv_status": "BALANCED",
+        "hrv_medio_ms": 102.0,
+        "hrv_rango_basal_ms": "86-121 ms",
+        "observaciones_salud": "VFC equilibrada durante toda la semana a pesar de la carga alta; recuperación nocturna eficiente."
+      },
+      "ciclismo": {
+        "sesiones": 3,
+        "distancia_km": 184.81,
+        "tiempo_horas": 6.50,
+        "salida_larga": {
+          "fecha": "2026-10-24",
+          "distancia_km": 88.38,
+          "tiempo": "3h 00m 00s",
+          "desnivel_m": 1200,
+          "potencia_media": 208.0,
+          "potencia_normalizada": 217.0,
+          "fc_media": 111.0,
+          "fec_ef": 1.95,
+          "pw_hr_desacople_percent": 0.29,
+          "iv_variabilidad": 1.043,
+          "mitad_1": { "potencia": 208.4, "fc": 111.3, "ef": 1.872 },
+          "mitad_2": { "potencia": 206.3, "fc": 110.5, "ef": 1.867 }
+        }
+      },
+      "carrera": {
+        "sesiones": 3,
+        "distancia_km": 38.80,
+        "tiempo_horas": 3.25,
+        "tirada_control": {
+          "fecha": "2026-10-25",
+          "distancia_km": 13.42,
+          "tiempo": "1h 05m 17s",
+          "ritmo_medio": "4:51 min/km",
+          "fc_media": 131.0,
+          "fecp_ref": 1.57,
+          "pa_hr_desacople_percent": 0.82,
+          "bloque_1": { "ritmo": "4:38 min/km", "fc": 136.0, "fecp": 1.586 },
+          "bloque_2": { "ritmo": "4:32 min/km", "fc": 140.0, "fecp": 1.573 }
+        }
+      },
+      "natacion": {
+        "sesiones": 3,
+        "distancia_m": 8400,
+        "tiempo_horas": 2.68,
+        "series_umbral": {
+          "fecha": "2026-10-19",
+          "serie": "Test CSS: 400m (5:53.2 @ 1:28.3) + 200m (2:54.4 @ 1:27.2)",
+          "ritmo_css_calculado": "1:29.4 / 100m",
+          "fc_media": 132.0
+        },
+        "sesion_control_domingo": {
+          "fecha": "2026-10-25",
+          "distancia_m": 2825,
+          "tiempo": "54:27 min (moving)",
+          "ritmo_medio": "1:49.0 / 100m",
+          "fc_media": 111.0,
+          "brazadas_por_largo": 13.4,
+          "swolf_medio": 41.0,
+          "dps_metros": 1.87,
+          "series_destacadas": "200m a 1:36-1:41/100m con 12.5-12.8 brazadas/largo (SWOLF 37-38)"
+        }
+      },
+      "fuerza": {
+        "sesiones": 3,
+        "tiempo_horas": 1.78
+      }
+    }
+  ]
+}
