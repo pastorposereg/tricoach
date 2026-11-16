@@ -111,7 +111,7 @@ def open_browser(url: str):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    is_cloud = bool(os.environ.get("RENDER") or os.environ.get("RAILWAY_STATIC_URL") or os.environ.get("DYNO") or os.environ.get("FLY_ALLOC_ID") or os.environ.get("KOYEB_APP_NAME"))
+    is_cloud = bool(os.environ.get("PORT") or os.environ.get("RENDER") or os.environ.get("RAILWAY_STATIC_URL") or os.environ.get("DYNO") or os.environ.get("FLY_ALLOC_ID") or os.environ.get("KOYEB_APP_NAME"))
 
     if not is_cloud:
         local_ip = get_local_ip()
