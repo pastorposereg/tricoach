@@ -198,6 +198,61 @@ function renderPMCChart(canvasId, seriesData) {
   });
 }
 
+const INTERVALS_ZONE_COLORS = {
+  1: '#009e80', // Z1 Recuperación Activa (Teal)
+  2: '#009e00', // Z2 Fondo Aeróbico (Green)
+  3: '#ffcb0e', // Z3 Tempo (Yellow)
+  4: '#ff7f0e', // Z4 Umbral Anaeróbico / Threshold (Orange)
+  5: '#dd0447', // Z5 VO2 Máx (Crimson)
+  6: '#6633cc', // Z6 Capacidad Anaeróbica (Purple)
+  7: '#504861'  // Z7 Neuromuscular / Sprint (Deep Violet)
+};
+
+function getLapZoneInfo(sportType, s, ftp = 348) {
+  if (sportType === 'cycling') {
+    const pwr = s.avg_power || s.normalised_power || 0;
+    const pct = (pwr / ftp) * 100;
+    let z = 1, name = 'Z1 Recuperación Activa';
+    if (pct < 56) { z = 1; name = 'Z1 Recuperación Activa'; }
+    else if (pct < 76) { z = 2; name = 'Z2 Fondo Aeróbico'; }
+    else if (pct < 91) { z = 3; name = 'Z3 Tempo'; }
+    else if (pct < 106) { z = 4; name = 'Z4 Umbral'; }
+    else if (pct < 121) { z = 5; name = 'Z5 VO2 Máx'; }
+    else if (pct < 151) { z = 6; name = 'Z6 Capacidad Anaeróbica'; }
+    else { z = 7; name = 'Z7 Neuromuscular / Sprint'; }
+    return { zone: z, name, color: INTERVALS_ZONE_COLORS[z] };
+  }
+
+  if (sportType === 'running') {
+    const secKm = (s.avg_speed_mps && s.avg_speed_mps > 0) ? (1000 / s.avg_speed_mps) : 0;
+    let z = 1, name = 'Z1 Recuperación Activa';
+    if (secKm > 285) { z = 1; name = 'Z1 Recuperación Activa'; }
+    else if (secKm >= 251) { z = 2; name = 'Z2 Fondo Aeróbico'; }
+    else if (secKm >= 233) { z = 3; name = 'Z3 Tempo'; }
+    else if (secKm >= 220) { z = 4; name = 'Z4 Umbral'; }
+    else if (secKm >= 198) { z = 5; name = 'Z5 VO2 Máx'; }
+    else if (secKm >= 180) { z = 6; name = 'Z6 Capacidad Anaeróbica'; }
+    else { z = 7; name = 'Z7 Neuromuscular / Sprint'; }
+    return { zone: z, name, color: INTERVALS_ZONE_COLORS[z] };
+  }
+
+  if (sportType === 'swimming') {
+    const sec100 = (s.avg_speed_mps && s.avg_speed_mps > 0) ? (100 / s.avg_speed_mps) : 0;
+    let z = 1, name = 'Z1 Suave / Técnica';
+    if (sec100 > 114) { z = 1; name = 'Z1 Suave / Técnica'; }
+    else if (sec100 >= 102) { z = 2; name = 'Z2 Fondo Aeróbico'; }
+    else if (sec100 >= 94) { z = 3; name = 'Z3 Tempo'; }
+    else if (sec100 >= 89) { z = 4; name = 'Z4 CSS Umbral'; }
+    else if (sec100 >= 86) { z = 5; name = 'Z5 VO2 Máx'; }
+    else if (sec100 >= 80) { z = 6; name = 'Z6 Capacidad Anaeróbica'; }
+    else { z = 7; name = 'Z7 Sprint / All-Out'; }
+    return { zone: z, name, color: INTERVALS_ZONE_COLORS[z] };
+  }
+
+  return { zone: 2, name: 'Z2', color: '#0284c7' };
+}
+window.getLapZoneInfo = getLapZoneInfo;
+
 function renderWorkoutSplitsChart(canvasId, splits, sportType) {
   const ctx = document.getElementById(canvasId);
   if (!ctx || !splits || splits.length === 0) return;
@@ -209,6 +264,8 @@ function renderWorkoutSplitsChart(canvasId, splits, sportType) {
   const isCycling = sportType === 'cycling';
   const isRunning = sportType === 'running';
   const isSwim = sportType === 'swimming';
+
+  const ftp = (window.state && window.state.athleteStatus && window.state.athleteStatus.thresholds && window.state.athleteStatus.thresholds.ftp) || 348;
 
   const labels = splits.map((s, idx) => {
     const lapNum = s.lap_index || (idx + 1);
@@ -226,54 +283,122 @@ function renderWorkoutSplitsChart(canvasId, splits, sportType) {
 
   if (isCycling) {
     outputValues = splits.map(s => s.avg_power ? Math.round(s.avg_power) : (s.normalised_power ? Math.round(s.normalised_power) : 0));
-    yAxisLabel = 'Potencia (W)';
-    yAxisColor = '#f59e0b'; // TrainingPeaks Bike (Amber)
+    yAxisLabel = 'Potencia Media (W)';
+    yAxisColor = '#f59e0b';
   } else if (isRunning) {
-    // Pace in seconds per km (smaller is faster)
     outputValues = splits.map(s => s.avg_speed_mps && s.avg_speed_mps > 0 ? Math.round(1000 / s.avg_speed_mps) : null);
-    yAxisLabel = 'Ritmo (min/km)';
-    yAxisColor = '#10b981'; // TrainingPeaks Run (Emerald)
+    yAxisLabel = 'Ritmo Medio (min/km)';
+    yAxisColor = '#059669';
   } else if (isSwim) {
-    // Pace in seconds per 100m
     outputValues = splits.map(s => s.avg_speed_mps && s.avg_speed_mps > 0 ? Math.round(100 / s.avg_speed_mps) : null);
-    yAxisLabel = 'Ritmo (min/100m)';
-    yAxisColor = '#00a8cc'; // TrainingPeaks Swim (Cyan)
+    yAxisLabel = 'Ritmo Medio (min/100m)';
+    yAxisColor = '#00a8cc';
   } else {
     outputValues = splits.map(s => s.avg_speed_mps ? Math.round(s.avg_speed_mps * 60) : 0);
     yAxisLabel = 'Velocidad';
   }
 
+  // Calculate zone and individual color for each lap
+  const zoneInfoList = splits.map(s => getLapZoneInfo(sportType, s, ftp));
+  const barColors = zoneInfoList.map(z => z.color);
+
   const validOutputs = outputValues.filter(v => v !== null && v > 0);
   const minOut = validOutputs.length ? Math.min(...validOutputs) : 0;
   const maxOut = validOutputs.length ? Math.max(...validOutputs) : 100;
+
+  // Build datasets:
+  // - Cycling & Running: Bars colored by training zone + Line with Heart Rate
+  // - Swimming: ONLY the average pace bars colored by training zone (no HR line)
+  const datasets = [
+    {
+      label: yAxisLabel,
+      data: outputValues,
+      backgroundColor: barColors,
+      borderColor: barColors,
+      borderWidth: 1.5,
+      borderRadius: 4,
+      yAxisID: 'y'
+    }
+  ];
+
+  if (!isSwim) {
+    datasets.push({
+      label: 'FC Media (ppm)',
+      data: hrValues,
+      type: 'line',
+      borderColor: '#ef4444',
+      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+      borderWidth: 2,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      tension: 0.25,
+      yAxisID: 'y1'
+    });
+  }
+
+  const scalesConfig = {
+    x: {
+      grid: { color: 'rgba(0, 0, 0, 0.05)' },
+      ticks: { color: '#64748b', font: { family: 'Inter, sans-serif', size: 10 } }
+    },
+    y: {
+      position: 'left',
+      reverse: isRunning || isSwim,
+      min: (isRunning || isSwim) ? Math.max(0, minOut - 15) : undefined,
+      max: (isRunning || isSwim) ? maxOut + 15 : undefined,
+      grid: { color: 'rgba(0, 0, 0, 0.05)' },
+      ticks: {
+        color: yAxisColor,
+        font: { family: 'Inter, sans-serif', size: 10 },
+        callback: function(val) {
+          if (isCycling) return `${val} W`;
+          if (isRunning) {
+            const m = Math.floor(val / 60);
+            const s = Math.round(val % 60);
+            return `${m}:${s.toString().padStart(2, '0')}/km`;
+          }
+          if (isSwim) {
+            const m = Math.floor(val / 60);
+            const s = Math.round(val % 60);
+            return `${m}:${s.toString().padStart(2, '0')}`;
+          }
+          return val;
+        }
+      },
+      title: {
+        display: true,
+        text: yAxisLabel,
+        color: yAxisColor,
+        font: { family: 'Inter, sans-serif', size: 10, weight: 600 }
+      }
+    }
+  };
+
+  if (!isSwim) {
+    scalesConfig.y1 = {
+      position: 'right',
+      grid: { drawOnChartArea: false },
+      ticks: {
+        color: '#ef4444',
+        font: { family: 'Inter, sans-serif', size: 10 },
+        callback: function(val) {
+          return `${val} ppm`;
+        }
+      },
+      title: {
+        display: true,
+        text: 'FC (ppm)',
+        color: '#ef4444',
+        font: { family: 'Inter, sans-serif', size: 10, weight: 600 }
+      }
+    };
+  }
 
   workoutSplitsChartInstance = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: labels,
-      datasets: [
-        {
-          label: yAxisLabel,
-          data: outputValues,
-          backgroundColor: isCycling ? 'rgba(245, 158, 11, 0.45)' : (isRunning ? 'rgba(16, 185, 129, 0.45)' : 'rgba(0, 168, 204, 0.45)'),
-          borderColor: yAxisColor,
-          borderWidth: 1.5,
-          borderRadius: 4,
-          yAxisID: 'y'
-        },
-        {
-          label: 'FC Media (bpm)',
-          data: hrValues,
-          type: 'line',
-          borderColor: '#ef4444',
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-          borderWidth: 2,
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          tension: 0.25,
-          yAxisID: 'y1'
-        }
-      ]
+      datasets: datasets
     },
     options: {
       responsive: true,
@@ -299,79 +424,29 @@ function renderWorkoutSplitsChart(canvasId, splits, sportType) {
           callbacks: {
             label: function(context) {
               if (context.dataset.yAxisID === 'y1') {
-                return `FC Media: ${context.parsed.y} bpm`;
+                return `❤️ FC Media: ${context.parsed.y} ppm`;
               }
+              const idx = context.dataIndex;
+              const zInfo = zoneInfoList[idx];
+              const zTag = zInfo ? ` • ${zInfo.name}` : '';
               const val = context.parsed.y;
               if (isCycling) {
-                return `Potencia: ${val} W`;
+                return `⚡ Potencia: ${val} W${zTag}`;
               } else if (isRunning) {
                 const m = Math.floor(val / 60);
                 const s = Math.round(val % 60);
-                return `Ritmo: ${m}:${s.toString().padStart(2, '0')}/km`;
+                return `🏃 Ritmo: ${m}:${s.toString().padStart(2, '0')}/km${zTag}`;
               } else if (isSwim) {
                 const m = Math.floor(val / 60);
                 const s = Math.round(val % 60);
-                return `Ritmo: ${m}:${s.toString().padStart(2, '0')}/100m`;
+                return `🏊 Ritmo: ${m}:${s.toString().padStart(2, '0')}/100m${zTag}`;
               }
-              return `${context.dataset.label}: ${val}`;
+              return `${context.dataset.label}: ${val}${zTag}`;
             }
           }
         }
       },
-      scales: {
-        x: {
-          grid: { color: 'rgba(0, 0, 0, 0.05)' },
-          ticks: { color: '#64748b', font: { family: 'Inter, sans-serif', size: 10 } }
-        },
-        y: {
-          position: 'left',
-          reverse: isRunning || isSwim,
-          min: (isRunning || isSwim) ? Math.max(0, minOut - 15) : undefined,
-          max: (isRunning || isSwim) ? maxOut + 15 : undefined,
-          grid: { color: 'rgba(0, 0, 0, 0.05)' },
-          ticks: {
-            color: yAxisColor,
-            font: { family: 'Inter, sans-serif', size: 10 },
-            callback: function(val) {
-              if (isCycling) return `${val} W`;
-              if (isRunning) {
-                const m = Math.floor(val / 60);
-                const s = Math.round(val % 60);
-                return `${m}:${s.toString().padStart(2, '0')}/km`;
-              }
-              if (isSwim) {
-                const m = Math.floor(val / 60);
-                const s = Math.round(val % 60);
-                return `${m}:${s.toString().padStart(2, '0')}`;
-              }
-              return val;
-            }
-          },
-          title: {
-            display: true,
-            text: yAxisLabel,
-            color: yAxisColor,
-            font: { family: 'Inter, sans-serif', size: 10, weight: 600 }
-          }
-        },
-        y1: {
-          position: 'right',
-          grid: { drawOnChartArea: false },
-          ticks: {
-            color: '#ef4444',
-            font: { family: 'Inter, sans-serif', size: 10 },
-            callback: function(val) {
-              return `${val} bpm`;
-            }
-          },
-          title: {
-            display: true,
-            text: 'FC (bpm)',
-            color: '#ef4444',
-            font: { family: 'Inter, sans-serif', size: 10, weight: 600 }
-          }
-        }
-      }
+      scales: scalesConfig
     }
   });
 }

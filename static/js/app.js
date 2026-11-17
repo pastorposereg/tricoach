@@ -929,6 +929,7 @@ function renderProportionalLapsSection(act) {
     const durFormatted = formatLapDuration(durSec);
     const distFormatted = formatLapDistance(s.distance_meters, act.sport_type);
     const hrVal = s.avg_heart_rate ? `${Math.round(s.avg_heart_rate)} bpm` : '--';
+    const zInfo = window.getLapZoneInfo ? window.getLapZoneInfo(act.sport_type, s, state.athleteStatus?.thresholds?.ftp || 348) : null;
 
     let primaryVal = '--';
     if (isCycling) {
@@ -941,12 +942,17 @@ function renderProportionalLapsSection(act) {
       primaryVal = s.avg_speed_mps ? `${(s.avg_speed_mps * 3.6).toFixed(1)} km/h` : '--';
     }
 
+    const cardTopStyle = zInfo ? `border-top: 3.5px solid ${zInfo.color};` : '';
+
     return `
       <div class="group relative flex flex-col justify-between p-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer shrink-0 shadow-2xs"
-           style="flex: ${Math.max(15, durSec)} 1 0; min-width: 96px;"
-           title="Lap ${lapNum}: ${durFormatted} • ${distFormatted} • ${primaryVal} • ${hrVal}">
+           style="flex: ${Math.max(15, durSec)} 1 0; min-width: 96px; ${cardTopStyle}"
+           title="Lap ${lapNum}: ${durFormatted} • ${distFormatted} • ${primaryVal}${!isSwim ? ` • ${hrVal}` : ''}${zInfo ? ` • ${zInfo.name}` : ''}">
         <div class="flex items-center justify-between gap-1 mb-1 pb-1 border-b border-slate-100">
-          <span class="text-[10px] font-mono font-bold text-slate-800">L${lapNum}</span>
+          <div class="flex items-center gap-1">
+            <span class="text-[10px] font-mono font-bold text-slate-800">L${lapNum}</span>
+            ${zInfo ? `<span class="px-1 py-0.5 rounded text-[8.5px] font-mono font-bold" style="background-color: ${zInfo.color}20; color: ${zInfo.color};">${zInfo.name.split(' ')[0]}</span>` : ''}
+          </div>
           <span class="text-[10px] font-mono text-slate-500">${durFormatted}</span>
         </div>
         <div class="space-y-1 my-1">
@@ -954,12 +960,13 @@ function renderProportionalLapsSection(act) {
             <span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">${isCycling ? 'Pot' : 'Ritmo'}</span>
             <span class="text-xs font-mono font-bold ${primaryColorClass}">${primaryVal}</span>
           </div>
+          ${!isSwim ? `
           <div class="flex items-baseline justify-between gap-1">
             <span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">FC</span>
             <span class="text-[11px] font-mono font-semibold text-rose-600 flex items-center gap-0.5">
               <span class="text-[9px] text-rose-500">❤️</span>${hrVal}
             </span>
-          </div>
+          </div>` : ''}
         </div>
         <div class="mt-1 pt-1 border-t border-slate-100 flex justify-between text-[9px] font-mono text-slate-500">
           <span>${distFormatted}</span>
@@ -1634,16 +1641,25 @@ function enrichBlockTargetDetails(b, sportType) {
       b.secondaryIcon = '⚡';
       b.physioFocus = 'Test de potencia máxima y agotamiento glucolítico de alta intensidad.';
     } else if (sportType === 'swimming') {
-      const sec100 = dist > 0 ? (dur / dist) * 100 : 89;
-      const m100 = Math.floor(sec100 / 60);
-      const s100 = (sec100 % 60).toFixed(1);
-      b.targetRange = `${m100}:${s100 < 10 ? '0' : ''}${s100} min/100m (${dist}m Test All-Out)`;
-      b.targetMetricType = 'Ritmo Test Máximo';
-      b.targetSubtext = `CSS de referencia: ${swimCssPace}/100m`;
+      let lowLimit = '1:25';
+      let highLimit = '1:29';
+      if (dist === 200) {
+        lowLimit = '1:20';
+        highLimit = '1:24';
+      } else if (dist === 400) {
+        lowLimit = '1:25';
+        highLimit = '1:29';
+      } else if (dist > 0 && dist <= 100) {
+        lowLimit = '1:15';
+        highLimit = '1:20';
+      }
+      b.targetRange = `${lowLimit} - ${highLimit} min/100m`;
+      b.targetMetricType = 'Rango Objetivo Test Máximo';
+      b.targetSubtext = `Límite inferior: ${lowLimit}/100m  •  Límite superior: ${highLimit}/100m  •  CSS: ${swimCssPace}/100m`;
       b.secondaryLabel = 'Estrategia';
-      b.secondaryTarget = 'Ritmo máximo constante sin decaer';
+      b.secondaryTarget = 'Ritmo máximo sostenido dentro del rango';
       b.secondaryIcon = '🏊';
-      b.physioFocus = `Test crítico de velocidad aeróbica máxima (CSS) en ${dist}m.`;
+      b.physioFocus = dist > 0 ? `Test crítico de velocidad aeróbica máxima (CSS) en ${dist}m.` : 'Esfuerzo máximo all-out.';
     } else {
       b.targetRange = `< 3:15 min/km (Sprint All-Out)`;
       b.targetMetricType = 'Ritmo Máximo (min/km)';
@@ -1710,30 +1726,39 @@ function enrichBlockTargetDetails(b, sportType) {
   }
 
   if (sportType === 'swimming') {
-    if (dist > 0 && dur > 0) {
-      const sec100 = (dur / dist) * 100;
-      const m100 = Math.floor(sec100 / 60);
-      const s100 = Math.round(sec100 % 60);
-      const paceStr = `${m100}:${s100 < 10 ? '0' : ''}${s100} min/100m`;
-      b.targetRange = `${paceStr} (${dist}m en ${formatSecsToMinSec(dur)})`;
-      b.targetMetricType = 'Ritmo Objetivo de Nado';
-      b.targetSubtext = `CSS de referencia: ${swimCssPace}/100m`;
-      b.secondaryLabel = 'Distancia del Bloque';
-      b.secondaryTarget = `${dist} metros`;
-      b.secondaryIcon = '🏊';
-      b.physioFocus = dist >= 400 ? 'Volumen aeróbico y continuidad de nado continuo.' : 'Series fraccionadas de técnica y ritmo.';
-      return;
-    }
-    const swimPaces = {
-      1: { pace: '> 1:45 min/100m (Suave / Técnica)', focus: 'Sensación de agarre, rolido y nado regenerativo.' },
-      2: { pace: '1:38 - 1:45 min/100m (Fondo Aeróbico)', focus: 'Capacidad aeróbica y eficiencia de brazada (SWOLF).' },
-      3: { pace: '1:32 - 1:37 min/100m (Tempo)', focus: 'Resistencia aeróbica media continua.' },
-      4: { pace: '1:29 - 1:31 min/100m (CSS Umbral)', focus: 'Ritmo crítico de nado (velocidad umbral aeróbico).' },
-      5: { pace: '< 1:29 min/100m (Velocidad / Sub-CSS)', focus: 'Potencia aeróbica máxima y frecuencia de brazada.' }
+    const swimZoneRanges = {
+      1: { low: '1:55', high: '2:05', name: 'Z1 Suave / Técnica', focus: 'Sensación de agarre, rolido y nado regenerativo suave.' },
+      2: { low: '1:42', high: '1:54', name: 'Z2 Fondo Aeróbico', focus: 'Capacidad aeróbica mitocondrial y eficiencia de brazada (SWOLF).' },
+      3: { low: '1:34', high: '1:41', name: 'Z3 Tempo', focus: 'Resistencia aeróbica media y ritmo crucero continuo.' },
+      4: { low: '1:29', high: '1:33', name: 'Z4 CSS Umbral', focus: 'Velocidad crítica de nado (CSS), estado estable de lactato.' },
+      5: { low: '1:26', high: '1:28', name: 'Z5 VO2 Máx', focus: 'Potencia aeróbica máxima y frecuencia de ciclo alta.' },
+      6: { low: '1:20', high: '1:25', name: 'Z6 Capacidad Anaeróbica', focus: 'Tolerancia a la acidosis y ritmos de prueba corta.' },
+      7: { low: '1:12', high: '1:19', name: 'Z7 Sprint / All-Out', focus: 'Potencia neuromuscular pura y velocidad máxima all-out.' }
     };
-    const zNum = typeof zone === 'number' ? zone : 2;
-    const sp = swimPaces[zNum] || swimPaces[2];
-    b.targetRange = b.targetRange || sp.pace;
+
+    let zNum = typeof zone === 'number' ? zone : 2;
+    if (dist > 0 && dur > 0) {
+      const avgSec100 = (dur / dist) * 100;
+      if (avgSec100 > 114) zNum = 1;
+      else if (avgSec100 >= 102) zNum = 2;
+      else if (avgSec100 >= 94) zNum = 3;
+      else if (avgSec100 >= 89) zNum = 4;
+      else if (avgSec100 >= 86) zNum = 5;
+      else if (avgSec100 >= 80) zNum = 6;
+      else zNum = 7;
+    }
+
+    const zr = swimZoneRanges[zNum] || swimZoneRanges[2];
+    b.targetRange = `${zr.low} - ${zr.high} min/100m`;
+    b.targetMetricType = `Ritmo Planificado (${zr.name})`;
+    b.targetSubtext = `Límite inferior: ${zr.low}/100m  •  Límite superior: ${zr.high}/100m  •  CSS: ${swimCssPace}/100m`;
+    b.secondaryLabel = 'Distancia / Bloque';
+    b.secondaryTarget = dist > 0 ? `${dist}m (${formatSecsToMinSec(dur)})` : formatSecsToMinSec(dur);
+    b.secondaryIcon = '🏊';
+    b.physioFocus = zr.focus;
+    return;
+
+
     b.targetMetricType = b.targetMetricType || `Ritmo Natación Z${zNum}`;
     b.targetSubtext = b.targetSubtext || `CSS de referencia: ${swimCssPace}/100m`;
     b.secondaryLabel = b.secondaryLabel || 'CSS Umbral';
@@ -2236,13 +2261,28 @@ window.showWorkoutStepTip = function(e, stepIdx) {
   const b = blocks[stepIdx];
   if (!b) return;
 
+  const isClick = e.type === 'click';
+  if (isClick) {
+    window._workoutStepTipPinned = true;
+  }
+
   let tip = document.getElementById('planned-workout-tooltip');
   if (!tip) {
     tip = document.createElement('div');
     tip.id = 'planned-workout-tooltip';
-    tip.className = 'fixed pointer-events-none z-[9999] hidden shadow-2xl transition-opacity duration-75';
     document.body.appendChild(tip);
+
+    document.addEventListener('click', (evt) => {
+      if (!evt.target.closest('svg') && !evt.target.closest('#planned-workout-tooltip')) {
+        window._workoutStepTipPinned = false;
+        window.hideWorkoutStepTip(true);
+      }
+    });
   }
+
+  tip.className = window._workoutStepTipPinned
+    ? 'fixed pointer-events-auto z-[9999] hidden shadow-2xl transition-opacity duration-75'
+    : 'fixed pointer-events-none z-[9999] hidden shadow-2xl transition-opacity duration-75';
 
   const title = b.repInfo
     ? `${b.repInfo.groupLabel} (Rep ${b.repInfo.repIndex}/${b.repInfo.repTotal})`
@@ -2256,9 +2296,12 @@ window.showWorkoutStepTip = function(e, stepIdx) {
           <span class="w-3 h-3 rounded-full shrink-0 shadow" style="background-color: ${b.color};"></span>
           <span class="font-bold text-slate-100 truncate">${title}</span>
         </div>
-        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold shrink-0" style="background-color: ${b.color}22; color: ${b.color}; border: 1px solid ${b.color}55;">
-          ${b.zoneName}
-        </span>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold shrink-0" style="background-color: ${b.color}22; color: ${b.color}; border: 1px solid ${b.color}55;">
+            ${b.zoneName}
+          </span>
+          <button onclick="window._workoutStepTipPinned=false; window.hideWorkoutStepTip(true);" class="text-slate-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-slate-800 text-xs font-bold leading-none cursor-pointer" title="Cerrar">✕</button>
+        </div>
       </div>
 
       <!-- Duration & Distance / Rep Pill Grid -->
@@ -2322,6 +2365,7 @@ window.showWorkoutStepTip = function(e, stepIdx) {
 };
 
 window.moveWorkoutStepTip = function(e) {
+  if (window._workoutStepTipPinned) return;
   const tip = document.getElementById('planned-workout-tooltip');
   if (!tip || tip.classList.contains('hidden')) return;
 
@@ -2343,7 +2387,8 @@ window.moveWorkoutStepTip = function(e) {
   tip.style.top = `${y}px`;
 };
 
-window.hideWorkoutStepTip = function() {
+window.hideWorkoutStepTip = function(force = false) {
+  if (window._workoutStepTipPinned && !force) return;
   const tip = document.getElementById('planned-workout-tooltip');
   if (tip) tip.classList.add('hidden');
 };
