@@ -27,8 +27,9 @@ function renderPMCChart(canvasId, seriesData) {
         {
           label: 'Forma / Fitness (CTL)',
           data: ctlValues,
-          borderColor: '#00A3E0',
-          backgroundColor: 'rgba(0, 163, 224, 0.1)',
+          borderColor: '#0284c7', // TrainingPeaks Blue
+          backgroundColor: 'rgba(2, 132, 199, 0.12)',
+          fill: true,
           borderWidth: 2.5,
           pointRadius: seriesData.length > 60 ? 0 : 2,
           pointHoverRadius: 5,
@@ -38,8 +39,9 @@ function renderPMCChart(canvasId, seriesData) {
         {
           label: 'Fatiga (ATL)',
           data: atlValues,
-          borderColor: '#EC4899',
+          borderColor: '#ec4899', // TrainingPeaks Magenta
           backgroundColor: 'rgba(236, 72, 153, 0.05)',
+          fill: false,
           borderWidth: 2,
           pointRadius: seriesData.length > 60 ? 0 : 2,
           pointHoverRadius: 5,
@@ -47,11 +49,11 @@ function renderPMCChart(canvasId, seriesData) {
           yAxisID: 'y'
         },
         {
-          label: 'Frescura / Forma (TSB)',
+          label: 'Frescura / Balance (TSB)',
           data: tsbValues,
-          borderColor: '#10B981',
+          borderColor: '#f59e0b', // TrainingPeaks Amber/Gold Form
           borderWidth: 2,
-          borderDash: [4, 4],
+          borderDash: [4, 3],
           pointRadius: 0,
           pointHoverRadius: 5,
           tension: 0.2,
@@ -71,18 +73,20 @@ function renderPMCChart(canvasId, seriesData) {
           position: 'top',
           labels: {
             color: '#94a3b8',
-            font: { family: 'Inter', size: 12, weight: 600 },
+            font: { family: 'Inter, sans-serif', size: 12, weight: 600 },
             usePointStyle: true,
             boxWidth: 8
           }
         },
         tooltip: {
-          backgroundColor: '#0f172a',
+          backgroundColor: '#0c1424',
           titleColor: '#f8fafc',
           bodyColor: '#cbd5e1',
-          borderColor: '#334155',
+          borderColor: '#1e3052',
           borderWidth: 1,
           padding: 12,
+          bodyFont: { family: 'Inter, sans-serif' },
+          titleFont: { family: 'Inter, sans-serif', weight: 600 },
           callbacks: {
             label: function(context) {
               const label = context.dataset.label || '';
@@ -94,23 +98,23 @@ function renderPMCChart(canvasId, seriesData) {
       },
       scales: {
         x: {
-          grid: { color: 'rgba(51, 65, 85, 0.25)' },
+          grid: { color: 'rgba(30, 48, 82, 0.4)' },
           ticks: {
             color: '#64748b',
             maxTicksLimit: 10,
-            font: { family: 'Inter', size: 11 }
+            font: { family: 'Inter, sans-serif', size: 11 }
           }
         },
         y: {
           position: 'left',
-          grid: { color: 'rgba(51, 65, 85, 0.25)' },
+          grid: { color: 'rgba(30, 48, 82, 0.4)' },
           title: {
             display: true,
             text: 'Carga (CTL / ATL)',
             color: '#94a3b8',
-            font: { family: 'Inter', size: 11 }
+            font: { family: 'Inter, sans-serif', size: 11, weight: 600 }
           },
-          ticks: { color: '#64748b' }
+          ticks: { color: '#64748b', font: { family: 'Inter, sans-serif' } }
         },
         y1: {
           position: 'right',
@@ -118,10 +122,10 @@ function renderPMCChart(canvasId, seriesData) {
           title: {
             display: true,
             text: 'TSB (Balance)',
-            color: '#10B981',
-            font: { family: 'Inter', size: 11 }
+            color: '#f59e0b',
+            font: { family: 'Inter, sans-serif', size: 11, weight: 600 }
           },
-          ticks: { color: '#10B981' }
+          ticks: { color: '#f59e0b', font: { family: 'Inter, sans-serif' } }
         }
       }
     }
@@ -157,17 +161,17 @@ function renderWorkoutSplitsChart(canvasId, splits, sportType) {
   if (isCycling) {
     outputValues = splits.map(s => s.avg_power ? Math.round(s.avg_power) : (s.normalised_power ? Math.round(s.normalised_power) : 0));
     yAxisLabel = 'Potencia (W)';
-    yAxisColor = '#F59E0B'; // amber
+    yAxisColor = '#f59e0b'; // TrainingPeaks Bike (Amber)
   } else if (isRunning) {
     // Pace in seconds per km (smaller is faster)
     outputValues = splits.map(s => s.avg_speed_mps && s.avg_speed_mps > 0 ? Math.round(1000 / s.avg_speed_mps) : null);
     yAxisLabel = 'Ritmo (min/km)';
-    yAxisColor = '#10B981'; // emerald
+    yAxisColor = '#10b981'; // TrainingPeaks Run (Emerald)
   } else if (isSwim) {
     // Pace in seconds per 100m
     outputValues = splits.map(s => s.avg_speed_mps && s.avg_speed_mps > 0 ? Math.round(100 / s.avg_speed_mps) : null);
     yAxisLabel = 'Ritmo (min/100m)';
-    yAxisColor = '#06B6D4'; // cyan
+    yAxisColor = '#00a8cc'; // TrainingPeaks Swim (Cyan)
   } else {
     outputValues = splits.map(s => s.avg_speed_mps ? Math.round(s.avg_speed_mps * 60) : 0);
     yAxisLabel = 'Velocidad';
@@ -185,7 +189,7 @@ function renderWorkoutSplitsChart(canvasId, splits, sportType) {
         {
           label: yAxisLabel,
           data: outputValues,
-          backgroundColor: isCycling ? 'rgba(245, 158, 11, 0.45)' : (isRunning ? 'rgba(16, 185, 129, 0.45)' : 'rgba(6, 182, 212, 0.45)'),
+          backgroundColor: isCycling ? 'rgba(245, 158, 11, 0.45)' : (isRunning ? 'rgba(16, 185, 129, 0.45)' : 'rgba(0, 168, 204, 0.45)'),
           borderColor: yAxisColor,
           borderWidth: 1.5,
           borderRadius: 4,
@@ -195,7 +199,7 @@ function renderWorkoutSplitsChart(canvasId, splits, sportType) {
           label: 'FC Media (bpm)',
           data: hrValues,
           type: 'line',
-          borderColor: '#EF4444',
+          borderColor: '#ef4444',
           backgroundColor: 'rgba(239, 68, 68, 0.1)',
           borderWidth: 2,
           pointRadius: 4,
@@ -215,15 +219,17 @@ function renderWorkoutSplitsChart(canvasId, splits, sportType) {
       plugins: {
         legend: {
           position: 'top',
-          labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 }, usePointStyle: true, boxWidth: 6 }
+          labels: { color: '#94a3b8', font: { family: 'Inter, sans-serif', size: 11, weight: 600 }, usePointStyle: true, boxWidth: 6 }
         },
         tooltip: {
-          backgroundColor: '#0f172a',
+          backgroundColor: '#0c1424',
           titleColor: '#f8fafc',
           bodyColor: '#cbd5e1',
-          borderColor: '#334155',
+          borderColor: '#1e3052',
           borderWidth: 1,
           padding: 10,
+          titleFont: { family: 'Inter, sans-serif', weight: 600 },
+          bodyFont: { family: 'Inter, sans-serif' },
           callbacks: {
             label: function(context) {
               if (context.dataset.yAxisID === 'y1') {
@@ -248,18 +254,18 @@ function renderWorkoutSplitsChart(canvasId, splits, sportType) {
       },
       scales: {
         x: {
-          grid: { color: 'rgba(51, 65, 85, 0.2)' },
-          ticks: { color: '#64748b', font: { size: 10 } }
+          grid: { color: 'rgba(30, 48, 82, 0.35)' },
+          ticks: { color: '#64748b', font: { family: 'Inter, sans-serif', size: 10 } }
         },
         y: {
           position: 'left',
           reverse: isRunning || isSwim,
           min: (isRunning || isSwim) ? Math.max(0, minOut - 15) : undefined,
           max: (isRunning || isSwim) ? maxOut + 15 : undefined,
-          grid: { color: 'rgba(51, 65, 85, 0.2)' },
+          grid: { color: 'rgba(30, 48, 82, 0.35)' },
           ticks: {
             color: yAxisColor,
-            font: { size: 10 },
+            font: { family: 'Inter, sans-serif', size: 10 },
             callback: function(val) {
               if (isCycling) return `${val} W`;
               if (isRunning) {
@@ -279,15 +285,15 @@ function renderWorkoutSplitsChart(canvasId, splits, sportType) {
             display: true,
             text: yAxisLabel,
             color: yAxisColor,
-            font: { size: 10, weight: 600 }
+            font: { family: 'Inter, sans-serif', size: 10, weight: 600 }
           }
         },
         y1: {
           position: 'right',
           grid: { drawOnChartArea: false },
           ticks: {
-            color: '#EF4444',
-            font: { size: 10 },
+            color: '#ef4444',
+            font: { family: 'Inter, sans-serif', size: 10 },
             callback: function(val) {
               return `${val} bpm`;
             }
@@ -295,8 +301,8 @@ function renderWorkoutSplitsChart(canvasId, splits, sportType) {
           title: {
             display: true,
             text: 'FC (bpm)',
-            color: '#EF4444',
-            font: { size: 10, weight: 600 }
+            color: '#ef4444',
+            font: { family: 'Inter, sans-serif', size: 10, weight: 600 }
           }
         }
       }

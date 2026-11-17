@@ -64,16 +64,16 @@ function setupEventListeners() {
   document.getElementById('btn-close-activity-modal')?.addEventListener('click', () => closeActivityModal());
   document.getElementById('btn-close-planned-modal')?.addEventListener('click', () => closePlannedModal());
 
-  // PMC Range Pills
+  // PMC Range Pills (TrainingPeaks Blue)
   document.querySelectorAll('[data-pmc-days]').forEach(pill => {
     pill.addEventListener('click', (e) => {
       const days = parseInt(pill.getAttribute('data-pmc-days'), 10);
       document.querySelectorAll('[data-pmc-days]').forEach(p => {
-        p.classList.remove('bg-sky-500', 'text-white');
+        p.classList.remove('bg-[#0284c7]', 'text-white');
         p.classList.add('bg-slate-800', 'text-slate-400');
       });
       pill.classList.remove('bg-slate-800', 'text-slate-400');
-      pill.classList.add('bg-sky-500', 'text-white');
+      pill.classList.add('bg-[#0284c7]', 'text-white');
       loadPMC(days);
     });
   });
@@ -101,15 +101,26 @@ function switchTab(tabId) {
   const page1 = document.getElementById('page-calendar');
   const page2 = document.getElementById('page-form');
 
-  // Desktop tab buttons
+  // Desktop & mobile tab buttons
   document.querySelectorAll('[data-tab-target]').forEach(btn => {
     const isTarget = btn.getAttribute('data-tab-target') === tabId;
-    if (isTarget) {
-      btn.classList.add('text-sky-400', 'border-b-2', 'border-sky-400', 'bg-sky-950/20');
-      btn.classList.remove('text-slate-400', 'border-transparent');
+    const isMobile = btn.closest('nav.md\\:hidden') || btn.classList.contains('flex-col');
+    if (isMobile) {
+      if (isTarget) {
+        btn.classList.add('text-[#0284c7]');
+        btn.classList.remove('text-slate-400');
+      } else {
+        btn.classList.remove('text-[#0284c7]');
+        btn.classList.add('text-slate-400');
+      }
     } else {
-      btn.classList.remove('text-sky-400', 'border-b-2', 'border-sky-400', 'bg-sky-950/20');
-      btn.classList.add('text-slate-400', 'border-transparent');
+      if (isTarget) {
+        btn.classList.add('text-white', 'bg-[#0284c7]', 'shadow-sm');
+        btn.classList.remove('text-slate-400', 'hover:text-slate-100');
+      } else {
+        btn.classList.remove('text-white', 'bg-[#0284c7]', 'shadow-sm');
+        btn.classList.add('text-slate-400', 'hover:text-slate-100');
+      }
     }
   });
 
@@ -242,7 +253,7 @@ function renderCalendarGrid(days) {
     const isToday = day.is_today;
     const dayCard = document.createElement('div');
     dayCard.className = `flex flex-col rounded-xl overflow-hidden glass-panel border transition-all ${
-      isToday ? 'border-sky-500/50 shadow-lg shadow-sky-500/10 ring-1 ring-sky-500/30' : 'border-slate-800'
+      isToday ? 'border-[#0284c7] shadow-lg shadow-[#0284c7]/15 ring-1 ring-[#0284c7]/40' : 'border-[#1c2d4a]'
     }`;
 
     // Day Header
@@ -252,9 +263,9 @@ function renderCalendarGrid(days) {
     const hrvBadge = w.hrv_ms ? `<span title="VFC">${w.hrv_ms} ms</span>` : (w.hrv_status ? `<span title="VFC">${w.hrv_status}</span>` : '');
 
     dayCard.innerHTML = `
-      <div class="px-3 py-2 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between">
+      <div class="px-3 py-2 bg-[#0e172a] border-b border-[#1c2d4a] flex items-center justify-between">
         <div class="flex items-center gap-1.5">
-          <span class="text-xs uppercase tracking-wider font-semibold ${isToday ? 'text-sky-400' : 'text-slate-300'}">${day.day_name}</span>
+          <span class="text-xs uppercase tracking-wider font-semibold ${isToday ? 'text-[#38bdf8]' : 'text-slate-300'}">${day.day_name}</span>
           <span class="text-xs font-mono text-slate-500">${formattedDate}</span>
         </div>
         <div class="flex items-center gap-2">
@@ -269,7 +280,7 @@ function renderCalendarGrid(days) {
           </button>
         </div>
       </div>
-      <div class="p-2.5 flex-1 flex flex-col gap-2.5 bg-slate-950/40">
+      <div class="p-2.5 flex-1 flex flex-col gap-2.5 bg-[#0a101f]/60">
         <!-- Planned Section -->
         <div>
           <div class="text-[10px] uppercase font-bold text-slate-500 mb-1 flex items-center justify-between">
@@ -282,7 +293,7 @@ function renderCalendarGrid(days) {
         </div>
 
         <!-- Completed Section -->
-        <div class="pt-2 border-t border-slate-800/80 flex-1">
+        <div class="pt-2 border-t border-[#1c2d4a] flex-1">
           <div class="text-[10px] uppercase font-bold text-slate-400 mb-1 flex items-center justify-between">
             <span class="flex items-center gap-1 text-emerald-400 font-semibold">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
@@ -303,7 +314,7 @@ function renderCalendarGrid(days) {
 
 function renderPlannedItems(items) {
   if (!items || items.length === 0) {
-    return `<div class="text-xs text-slate-600 italic py-1 text-center">Descanso o libre</div>`;
+    return `<div class="text-xs text-slate-500 italic py-1.5 text-center">Descanso o libre</div>`;
   }
 
   return items.map(it => {
@@ -311,14 +322,14 @@ function renderPlannedItems(items) {
     if (it.is_note) {
       const descPreview = (it.description || '').substring(0, 80);
       return `
-        <div class="p-2 rounded-lg bg-amber-950/25 hover:bg-amber-900/35 border border-amber-500/30 text-xs transition-all group shadow-sm flex items-start justify-between gap-1.5">
+        <div class="p-2 rounded-lg bg-[#141b2d] hover:bg-[#1a233a] border border-amber-500/30 border-l-[3.5px] border-l-amber-500 text-xs transition-all group shadow-sm flex items-start justify-between gap-1.5">
           <div onclick="openPlannedModal('${it.id}')" class="flex-1 cursor-pointer min-w-0">
             <div class="flex items-center justify-between gap-1 mb-0.5">
               <div class="flex items-center gap-1.5 min-w-0">
                 <span class="text-amber-400 text-[10px]">📝</span>
                 <span class="font-medium text-amber-200 text-[11px] truncate">${it.name}</span>
               </div>
-              <span class="text-[9px] text-amber-400/70 group-hover:text-amber-300 transition-colors shrink-0">Ver ↗</span>
+              <span class="text-[9px] text-amber-400/80 group-hover:text-amber-300 transition-colors shrink-0">Ver ↗</span>
             </div>
             ${descPreview ? `<div class="text-[10px] text-slate-400 leading-snug line-clamp-2">${descPreview}</div>` : ''}
           </div>
@@ -331,7 +342,8 @@ function renderPlannedItems(items) {
       `;
     }
 
-    const sportIcon = getSportIcon(it.sport_type);
+    const sportBadge = getSportBadge(it.sport_type, 'sm');
+    const borderLeftClass = getSportBorderLeftClass(it.sport_type);
     const durMins = Math.round((it.planned_duration_seconds || 0) / 60);
     const distKm = it.planned_distance_meters > 0 
       ? (it.planned_distance_meters / (it.sport_type === 'swimming' ? 1 : 1000)).toFixed(it.sport_type === 'swimming' ? 0 : 1) + (it.sport_type === 'swimming' ? 'm' : 'km') 
@@ -339,17 +351,17 @@ function renderPlannedItems(items) {
 
     return `
       <div onclick="openPlannedModal('${it.id}')"
-           class="p-2 rounded-lg bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800/80 hover:border-amber-500/60 text-xs cursor-pointer transition-all group shadow-sm">
-        <div class="flex items-start justify-between gap-1 mb-1">
-          <div class="font-medium text-slate-200 group-hover:text-amber-300 transition-colors line-clamp-1">${it.name}</div>
-          <span class="text-xs shrink-0">${sportIcon}</span>
+           class="p-2 rounded-lg bg-[#131f36] hover:bg-[#192742] border border-[#1e3052] ${borderLeftClass} text-xs cursor-pointer transition-all group shadow-sm">
+        <div class="flex items-center justify-between gap-1.5 mb-1.5">
+          <div class="flex items-center gap-1.5 min-w-0">
+            ${sportBadge}
+            <div class="font-medium text-slate-100 group-hover:text-[#38bdf8] transition-colors truncate text-xs">${it.name}</div>
+          </div>
+          <span class="text-[9px] text-slate-500 group-hover:text-sky-400 opacity-60 group-hover:opacity-100 transition-opacity shrink-0">↗</span>
         </div>
         <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono">
           <span>${durMins ? durMins + ' min' : ''}${distKm ? ` • ${distKm}` : ''}</span>
-          <div class="flex items-center gap-1">
-            ${it.planned_load ? `<span class="text-amber-400/90">${it.planned_load} TSS</span>` : ''}
-            <span class="text-[9px] text-slate-500 group-hover:text-amber-400 opacity-60 group-hover:opacity-100 transition-opacity">↗</span>
-          </div>
+          ${it.planned_load ? `<span class="text-[#f59e0b] font-semibold">${it.planned_load} TSS</span>` : ''}
         </div>
       </div>
     `;
@@ -358,11 +370,12 @@ function renderPlannedItems(items) {
 
 function renderCompletedItems(items) {
   if (!items || items.length === 0) {
-    return `<div class="text-xs text-slate-600 italic py-1 text-center">Sin actividades registradas</div>`;
+    return `<div class="text-xs text-slate-500 italic py-1.5 text-center">Sin actividades registradas</div>`;
   }
 
   return items.map(act => {
-    const sportIcon = getSportIcon(act.sport_type);
+    const sportBadge = getSportBadge(act.sport_type, 'sm');
+    const borderLeftClass = getSportBorderLeftClass(act.sport_type);
     const durMins = Math.round((act.duration_seconds || 0) / 60);
     const dist = act.distance_meters > 0 
       ? (act.distance_meters / (act.sport_type === 'swimming' ? 1 : 1000)).toFixed(act.sport_type === 'swimming' ? 0 : 1) + (act.sport_type === 'swimming' ? 'm' : 'km')
@@ -373,26 +386,40 @@ function renderCompletedItems(items) {
     let effBadge = '';
     const eff = act.efficiency || {};
     if (act.sport_type === 'cycling' && eff.fec) {
-      effBadge = `<span class="text-sky-400 font-mono font-medium">FEc: ${eff.fec}</span>`;
+      effBadge = `<span class="text-[#f59e0b] font-mono font-medium">FEc: ${eff.fec}</span>`;
     } else if (act.sport_type === 'running' && eff.fecp) {
-      effBadge = `<span class="text-emerald-400 font-mono font-medium">FEcp: ${eff.fecp}</span>`;
+      effBadge = `<span class="text-[#10b981] font-mono font-medium">FEcp: ${eff.fecp}</span>`;
     } else if (act.sport_type === 'swimming' && eff.pace_str) {
-      effBadge = `<span class="text-cyan-400 font-mono font-medium">${eff.pace_str}</span>`;
+      effBadge = `<span class="text-[#00a8cc] font-mono font-medium">${eff.pace_str}</span>`;
     }
 
     return `
       <div onclick="openActivityModal('${act.activity_id}')" 
-           class="p-2.5 rounded-lg glass-panel-interactive cursor-pointer border border-slate-700/60 hover:border-sky-400/60 shadow-sm transition-all group">
-        <div class="flex items-center justify-between gap-1 mb-1">
-          <div class="font-semibold text-slate-100 group-hover:text-sky-300 text-xs line-clamp-1 transition-colors">
-            ${act.name}
+           class="p-2.5 rounded-lg bg-[#131f36] hover:bg-[#192742] border border-[#1e3052] ${borderLeftClass} cursor-pointer shadow-sm transition-all group">
+        <div class="flex items-center justify-between gap-1.5 mb-1.5">
+          <div class="flex items-center gap-1.5 min-w-0">
+            ${sportBadge}
+            <div class="font-semibold text-slate-100 group-hover:text-[#38bdf8] text-xs truncate transition-colors">
+              ${act.name}
+            </div>
           </div>
-          <span class="text-sm">${sportIcon}</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-400/20 shrink-0" title="Completado"></span>
         </div>
-        <div class="flex items-center justify-between text-[11px] text-slate-300 font-mono mb-1">
+        <div class="flex items-center justify-between text-[11px] text-slate-300 font-mono mb-1.5">
           <span>${durMins} min ${dist ? `• ${dist}` : ''}</span>
-          ${hr ? `<span class="text-rose-400">${hr}</span>` : ''}
+          ${hr ? `<span class="text-rose-400 font-medium">${hr}</span>` : ''}
         </div>
+        <div class="flex items-center justify-between text-[10px] pt-1.5 border-t border-[#1e3052]">
+          ${effBadge || '<span class="text-slate-500 font-mono">OK</span>'}
+          <span class="text-[#0284c7] hover:text-[#38bdf8] flex items-center gap-0.5 group-hover:underline font-medium">
+            Análisis Experto
+            <svg class="w-3 h-3 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+          </span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
         <div class="flex items-center justify-between text-[10px] pt-1 border-t border-slate-800/80">
           ${effBadge}
           <span class="text-sky-400 flex items-center gap-0.5 group-hover:underline">
@@ -410,36 +437,36 @@ function renderWeeklyZoneSummary(zoneSummary, totals) {
   if (!container) return;
 
   const sports = [
-    { key: 'swimming', label: 'Natación', icon: '🏊', color: 'from-cyan-500 to-blue-600' },
-    { key: 'cycling', label: 'Ciclismo', icon: '🚴', color: 'from-amber-500 to-orange-600' },
-    { key: 'running', label: 'Carrera a Pie', icon: '🏃', color: 'from-emerald-500 to-green-600' },
-    { key: 'strength', label: 'Fuerza & Core', icon: '🏋️', color: 'from-purple-500 to-indigo-600' }
+    { key: 'swimming', label: 'Natación', color: 'from-[#00a8cc] to-blue-600' },
+    { key: 'cycling', label: 'Ciclismo', color: 'from-[#f59e0b] to-orange-600' },
+    { key: 'running', label: 'Carrera a Pie', color: 'from-[#10b981] to-emerald-600' },
+    { key: 'strength', label: 'Fuerza & Core', color: 'from-[#8b5cf6] to-indigo-600' }
   ];
 
   let html = `
     <!-- Totals Header -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-      <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col">
+      <div class="p-3.5 rounded-xl bg-[#131f36] border border-[#1e3052] flex flex-col">
         <span class="text-xs text-slate-400 mb-1">Tiempo Planificado</span>
         <span class="text-lg font-bold font-mono text-slate-100">${totals.planned_hours} h</span>
       </div>
-      <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col">
+      <div class="p-3.5 rounded-xl bg-[#131f36] border border-[#1e3052] flex flex-col">
         <span class="text-xs text-slate-400 mb-1">Tiempo Realizado</span>
         <span class="text-lg font-bold font-mono text-emerald-400">${totals.completed_hours} h</span>
       </div>
-      <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col">
+      <div class="p-3.5 rounded-xl bg-[#131f36] border border-[#1e3052] flex flex-col">
         <span class="text-xs text-slate-400 mb-1">Carga Planificada</span>
         <span class="text-lg font-bold font-mono text-amber-400">${totals.planned_load} TSS</span>
       </div>
-      <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col">
+      <div class="p-3.5 rounded-xl bg-[#131f36] border border-[#1e3052] flex flex-col">
         <span class="text-xs text-slate-400 mb-1">Carga Realizada</span>
-        <span class="text-lg font-bold font-mono text-sky-400">${totals.completed_load} TSS</span>
+        <span class="text-lg font-bold font-mono text-[#38bdf8]">${totals.completed_load} TSS</span>
       </div>
     </div>
 
     <!-- Summary Table: Totales Semanales por Disciplina (Tiempo & Km) -->
-    <div class="mb-6 overflow-hidden rounded-xl border border-slate-800 bg-slate-950/80 p-3 sm:p-4 shadow-lg">
-      <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
+    <div class="mb-6 overflow-hidden rounded-xl border border-[#1c2d4a] bg-[#0c1424] p-3 sm:p-4 shadow-lg">
+      <div class="flex items-center justify-between mb-3 pb-2 border-b border-[#1c2d4a]">
         <div class="flex items-center gap-2">
           <span class="text-base text-amber-400">📊</span>
           <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider">Totales de la Semana por Disciplina</h4>
@@ -450,7 +477,7 @@ function renderWeeklyZoneSummary(zoneSummary, totals) {
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs">
           <thead>
-            <tr class="text-[10px] uppercase font-mono text-slate-500 border-b border-slate-800/80">
+            <tr class="text-[10px] uppercase font-mono text-slate-400 border-b border-[#1c2d4a]">
               <th class="pb-2 font-semibold">Disciplina</th>
               <th class="pb-2 font-semibold text-right">Tiempo Plan</th>
               <th class="pb-2 font-semibold text-right">Tiempo Real</th>
@@ -460,7 +487,7 @@ function renderWeeklyZoneSummary(zoneSummary, totals) {
               <th class="pb-2 font-semibold text-right">Cumplimiento</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-800/60 font-mono text-[11px]">
+          <tbody class="divide-y divide-[#1c2d4a]/60 font-mono text-[11px]">
             ${renderDisciplineTotalRows(zoneSummary, totals)}
           </tbody>
         </table>
@@ -479,11 +506,11 @@ function renderWeeklyZoneSummary(zoneSummary, totals) {
     const cDist = data.completed_distance_formatted || (sp.key === 'strength' ? '-' : '0 km');
 
     html += `
-      <div class="p-4 rounded-xl glass-panel border border-slate-800 flex flex-col justify-between">
+      <div class="p-4 rounded-xl glass-panel border border-[#1c2d4a] bg-[#101b30]/60 flex flex-col justify-between">
         <div>
           <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-            <div class="flex items-center gap-2">
-              <span class="text-lg">${sp.icon}</span>
+            <div class="flex items-center gap-2.5">
+              ${getSportBadge(sp.key, 'md')}
               <div>
                 <span class="font-bold text-slate-100 text-sm block">${sp.label}</span>
                 <span class="text-[10px] text-slate-400 font-mono">
@@ -590,10 +617,10 @@ function renderZoneRows(zones) {
 
 function renderDisciplineTotalRows(zoneSummary, totals) {
   const sports = [
-    { key: 'swimming', label: 'Natación', icon: '🏊', isSwim: true },
-    { key: 'cycling', label: 'Ciclismo', icon: '🚴' },
-    { key: 'running', label: 'Carrera a Pie', icon: '🏃' },
-    { key: 'strength', label: 'Fuerza & Core', icon: '🏋️', isStrength: true }
+    { key: 'swimming', label: 'Natación', isSwim: true },
+    { key: 'cycling', label: 'Ciclismo' },
+    { key: 'running', label: 'Carrera a Pie' },
+    { key: 'strength', label: 'Fuerza & Core', isStrength: true }
   ];
 
   let rows = '';
@@ -608,15 +635,15 @@ function renderDisciplineTotalRows(zoneSummary, totals) {
     const pct = d.compliance_percent || 0;
 
     rows += `
-      <tr class="hover:bg-slate-900/60 transition-colors">
+      <tr class="hover:bg-[#142036]/60 transition-colors">
         <td class="py-2.5 flex items-center gap-2">
-          <span class="text-base">${sp.icon}</span>
+          ${getSportBadge(sp.key, 'sm')}
           <span class="font-bold text-slate-200">${sp.label}</span>
         </td>
         <td class="py-2.5 text-right text-slate-400 font-mono">${pHours.toFixed(1)} h</td>
         <td class="py-2.5 text-right font-mono font-bold ${cHours >= pHours && pHours > 0 ? 'text-emerald-400' : 'text-slate-100'}">${cHours.toFixed(1)} h</td>
         <td class="py-2.5 text-right text-slate-400 font-mono">${pDist}</td>
-        <td class="py-2.5 text-right font-mono font-bold ${!sp.isStrength ? 'text-sky-400' : 'text-slate-500'}">${cDist}</td>
+        <td class="py-2.5 text-right font-mono font-bold ${!sp.isStrength ? 'text-[#0284c7]' : 'text-slate-500'}">${cDist}</td>
         <td class="py-2.5 text-right text-slate-400 font-mono">${pLoad} / <span class="text-amber-400">${cLoad}</span></td>
         <td class="py-2.5 text-right">
           <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono ${pct >= 90 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
@@ -1271,10 +1298,10 @@ function renderActivityModalContent(data) {
 
   content.innerHTML = `
     <!-- Header -->
-    <div class="flex items-start justify-between pb-4 mb-4 border-b border-slate-800">
+    <div class="flex items-start justify-between pb-4 mb-4 border-b border-[#1c2d4a]">
       <div>
         <div class="flex items-center gap-2 mb-1 flex-wrap">
-          <span class="text-xl">${getSportIcon(act.sport_type)}</span>
+          ${getSportBadge(act.sport_type, 'md')}
           <h2 class="text-lg font-bold text-slate-100">${act.name}</h2>
           ${data._isLoading ? `
             <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-sky-500/10 text-sky-400 border border-sky-500/20 flex items-center gap-1">
@@ -2431,10 +2458,10 @@ function renderPlannedModalContent(ev) {
 
   content.innerHTML = `
     <!-- Header -->
-    <div class="flex items-start justify-between pb-4 mb-4 border-b border-slate-800">
+    <div class="flex items-start justify-between pb-4 mb-4 border-b border-[#1c2d4a]">
       <div>
         <div class="flex items-center gap-2 mb-1.5 flex-wrap">
-          <span class="text-2xl">${sportIcon}</span>
+          ${getSportBadge(ev.sport_type, 'md')}
           <h2 class="text-lg font-bold text-slate-100">${ev.name}</h2>
           <span class="px-2.5 py-0.5 rounded-full text-[10px] font-medium border ${badgeColor}">
             ${badgeText}
@@ -3049,15 +3076,49 @@ async function syncAllData() {
   if (btn) btn.classList.remove('animate-spin');
 }
 
-// Helpers
-function getSportIcon(type) {
+// Helpers & Sport Presentation (TrainingPeaks Aesthetic)
+function getSportIcon(type, size = 'sm') {
   const t = (type || '').toLowerCase();
-  if (t === 'swimming') return '🏊';
-  if (t === 'cycling') return '🚴';
-  if (t === 'running') return '🏃';
-  if (t === 'strength') return '🏋️';
-  if (t === 'other') return '📋';
-  return '⚡';
+  const dim = size === 'lg' ? 'w-6 h-6' : (size === 'md' ? 'w-5 h-5' : 'w-4 h-4');
+
+  if (t === 'swimming') {
+    return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 17c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.2 0 1.9.5 2.5 1"></path><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.2 0 1.9.5 2.5 1"></path><circle cx="18" cy="7" r="2"></circle><path d="m9 10 3-2.5 3 2.5-2 3.5"></path></svg>`;
+  }
+  if (t === 'cycling') {
+    return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="3.5"></circle><circle cx="18.5" cy="17.5" r="3.5"></circle><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5L8.5 9.5l3.5-3.5 3 3.5h3.5"></path><path d="M12 17.5V14l-3-4"></path></svg>`;
+  }
+  if (t === 'running') {
+    return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 7-3 4-2-1.5 1-3.5L11 4"></path><path d="m14 11-4 4-4-1"></path><path d="m10 15 2 4.5 4-2"></path><circle cx="15" cy="4" r="1.5"></circle></svg>`;
+  }
+  if (t === 'strength') {
+    return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6.5 6.5 11 11"></path><path d="m21 21-1-1a2 2 0 0 0-2.8 0l-.7.7a2 2 0 0 1-2.8 0L9.4 16.4a2 2 0 0 1 0-2.8l.7-.7a2 2 0 0 0 0-2.8L9 9"></path><path d="m3 3 1 1a2 2 0 0 0 2.8 0l.7-.7a2 2 0 0 1 2.8 0l4.3 4.3a2 2 0 0 1 0 2.8l-.7.7a2 2 0 0 0 0 2.8L15 15"></path></svg>`;
+  }
+  if (t === 'other' || t === 'note') {
+    return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"></path></svg>`;
+  }
+  return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"></path></svg>`;
+}
+
+function getSportBadge(type, size = 'sm') {
+  const t = (type || '').toLowerCase();
+  const icon = getSportIcon(t, size);
+  let colorClass = 'bg-slate-800 text-slate-300 border-slate-700';
+  if (t === 'swimming') colorClass = 'bg-[#00a8cc]/15 text-[#00a8cc] border-[#00a8cc]/35';
+  else if (t === 'cycling') colorClass = 'bg-[#f59e0b]/15 text-[#f59e0b] border-[#f59e0b]/35';
+  else if (t === 'running') colorClass = 'bg-[#10b981]/15 text-[#10b981] border-[#10b981]/35';
+  else if (t === 'strength') colorClass = 'bg-[#8b5cf6]/15 text-[#8b5cf6] border-[#8b5cf6]/35';
+
+  const pad = size === 'lg' ? 'p-2 rounded-xl' : (size === 'md' ? 'p-1.5 rounded-lg' : 'p-1 rounded-md');
+  return `<span class="inline-flex items-center justify-center ${pad} border ${colorClass} shadow-xs shrink-0">${icon}</span>`;
+}
+
+function getSportBorderLeftClass(type) {
+  const t = (type || '').toLowerCase();
+  if (t === 'swimming') return 'border-l-[3.5px] border-l-[#00a8cc]';
+  if (t === 'cycling') return 'border-l-[3.5px] border-l-[#f59e0b]';
+  if (t === 'running') return 'border-l-[3.5px] border-l-[#10b981]';
+  if (t === 'strength') return 'border-l-[3.5px] border-l-[#8b5cf6]';
+  return 'border-l-[3.5px] border-l-slate-600';
 }
 
 function formatCoachReport(text) {

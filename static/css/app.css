@@ -1,68 +1,95 @@
-/* Custom styling for Triathlon Performance App */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+/* Custom styling for Triathlon Performance App (TrainingPeaks Aesthetic) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root {
   --color-garmin: #00A3E0;
   --color-intervals: #F36C21;
-  --color-swim: #06B6D4;
-  --color-bike: #F59E0B;
-  --color-run: #10B981;
-  --color-strength: #8B5CF6;
+  
+  /* TrainingPeaks Sport Theme Palette */
+  --tp-blue: #0284c7;
+  --tp-blue-hover: #0369a1;
+  --tp-dark: #0a0f1d;
+  --tp-navy: #0e172a;
+  --tp-card: #131f36;
+  --tp-card-hover: #192742;
+  --tp-border: #1e3052;
+  --tp-border-subtle: #16243d;
+
+  --color-swim: #00a8cc;
+  --color-bike: #f59e0b;
+  --color-run: #10b981;
+  --color-strength: #8b5cf6;
+  
+  /* PMC TrainingPeaks Iconic Palette */
+  --color-ctl: #0284c7;
+  --color-atl: #ec4899;
+  --color-tsb: #f59e0b;
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
-  background-color: #0b0f19;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #0a0f1d;
   color: #f1f5f9;
   overscroll-behavior-y: none;
+  letter-spacing: -0.011em;
 }
 
 .font-mono {
   font-family: 'JetBrains Mono', monospace;
+  font-feature-settings: 'tnum' on, 'zero' on;
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar (Sleek Dark TP Style) */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(10, 15, 29, 0.8);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(71, 85, 105, 0.6);
+  background: #253859;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.9);
+  background: #3b5278;
 }
 
-/* Glassmorphism Cards */
+/* TrainingPeaks Card Surfaces */
 .glass-panel {
-  background: rgba(17, 24, 39, 0.75);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #131f36;
+  border: 1px solid #1e3052;
+  box-shadow: 0 4px 16px rgba(5, 10, 20, 0.35);
 }
 
 .glass-panel-interactive {
-  background: rgba(22, 31, 50, 0.7);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: #14213a;
+  border: 1px solid #1f3356;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(5, 10, 20, 0.25);
 }
 .glass-panel-interactive:hover {
-  background: rgba(30, 41, 69, 0.85);
-  border-color: rgba(0, 163, 224, 0.4);
+  background: #1a2a49;
+  border-color: #0284c7;
   transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(2, 132, 199, 0.18);
+}
+
+/* TrainingPeaks Header Bar */
+header.glass-panel {
+  background: rgba(12, 19, 35, 0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid #1c2d4a;
 }
 
 /* Glowing borders */
 .glow-garmin {
-  box-shadow: 0 0 15px rgba(0, 163, 224, 0.25);
+  box-shadow: 0 0 14px rgba(0, 163, 224, 0.2);
 }
 .glow-intervals {
-  box-shadow: 0 0 15px rgba(243, 108, 33, 0.25);
+  box-shadow: 0 0 14px rgba(243, 108, 33, 0.2);
 }
 
 /* Mobile Safe Areas */
