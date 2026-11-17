@@ -1576,6 +1576,158 @@ function formatSecsToMinSec(seconds) {
   return `${m}m ${s < 10 ? '0' : ''}${s}s`;
 }
 
+function enrichBlockTargetDetails(b, sportType) {
+  const ftp = state.athleteStatus?.thresholds?.ftp || 348;
+  const athThresholds = state.athleteStatus?.thresholds || {};
+  const runThreshPace = athThresholds.run_threshold_pace || '3:40';
+  const swimCssPace = athThresholds.css_pace || '1:29.0';
+  const maxHr = athThresholds.max_hr || 183;
+  const lthr = athThresholds.lthr || 159;
+
+  const dur = b.duration || 0;
+  const dist = b.distance || 0;
+  const zone = b.zone || 2;
+
+  if (b.isRest) {
+    b.targetRange = `Pausa / Descanso completo (${formatSecsToMinSec(dur)})`;
+    b.targetMetricType = 'Recuperación / Pausa';
+    b.targetSubtext = 'Recuperación de fosfágenos (PCr) y descanso activo';
+    b.secondaryLabel = 'FC Objetivo';
+    b.secondaryTarget = 'Descenso progresivo (< 120 ppm)';
+    b.secondaryIcon = '❤️';
+    b.physioFocus = 'Estabilización cardiorrespiratoria y recarga energética antes del siguiente bloque.';
+    return;
+  }
+
+  if (b.isMax) {
+    if (sportType === 'cycling') {
+      const minW = Math.round(ftp * 1.2);
+      b.targetRange = `> ${minW} W (Esfuerzo Máximo / All-Out > 120% FTP)`;
+      b.targetMetricType = 'Potencia Pico (Vatios)';
+      b.targetSubtext = `FTP de referencia: ${ftp} W`;
+      b.secondaryLabel = 'FC Esperada';
+      b.secondaryTarget = `165 - ${maxHr} ppm (FC Máxima)`;
+      b.secondaryIcon = '⚡';
+      b.physioFocus = 'Test de potencia máxima y agotamiento glucolítico de alta intensidad.';
+    } else if (sportType === 'swimming') {
+      const sec100 = dist > 0 ? (dur / dist) * 100 : 89;
+      const m100 = Math.floor(sec100 / 60);
+      const s100 = (sec100 % 60).toFixed(1);
+      b.targetRange = `${m100}:${s100 < 10 ? '0' : ''}${s100} min/100m (${dist}m Test All-Out)`;
+      b.targetMetricType = 'Ritmo Test Máximo';
+      b.targetSubtext = `CSS de referencia: ${swimCssPace}/100m`;
+      b.secondaryLabel = 'Estrategia';
+      b.secondaryTarget = 'Ritmo máximo constante sin decaer';
+      b.secondaryIcon = '🏊';
+      b.physioFocus = `Test crítico de velocidad aeróbica máxima (CSS) en ${dist}m.`;
+    } else {
+      b.targetRange = `< 3:15 min/km (Sprint All-Out)`;
+      b.targetMetricType = 'Ritmo Máximo (min/km)';
+      b.targetSubtext = `Umbral: ${runThreshPace}/km`;
+      b.secondaryLabel = 'FC Esperada';
+      b.secondaryTarget = `> 165 ppm`;
+      b.secondaryIcon = '🏃';
+      b.physioFocus = 'Máxima velocidad anaeróbica y reclutamiento de unidades motoras rápidas.';
+    }
+    return;
+  }
+
+  if (sportType === 'cycling') {
+    if (b.isRamp) {
+      b.targetMetricType = 'Potencia (Rampa Progresiva)';
+      b.secondaryLabel = 'FC Esperada';
+      b.secondaryTarget = '115 - 145 ppm';
+      b.secondaryIcon = '📈';
+      b.physioFocus = 'Activación neuromuscular progresiva y calentamiento gradual.';
+      return;
+    }
+
+    const pzRanges = {
+      1: { w: `0 - ${Math.round(ftp * 0.55)} W`, pct: '0% - 55% FTP', hr: '< 127 ppm', focus: 'Recuperación activa, capilarización y aclarado de lactato.' },
+      2: { w: `${Math.round(ftp * 0.55) + 1} - ${Math.round(ftp * 0.75)} W`, pct: '56% - 75% FTP', hr: '128 - 142 ppm', focus: 'Construcción mitocondrial, eficiencia aeróbica y metabolismo lipídico.' },
+      3: { w: `${Math.round(ftp * 0.75) + 1} - ${Math.round(ftp * 0.90)} W`, pct: '76% - 90% FTP', hr: '143 - 148 ppm', focus: 'Ritmo tempo crucero y resistencia a la fatiga muscular.' },
+      4: { w: `${Math.round(ftp * 0.90) + 1} - ${Math.round(ftp * 1.05)} W`, pct: '91% - 105% FTP', hr: '149 - 158 ppm', focus: 'Potencia umbral anaeróbico funcional (FTP) y estado estacionario.' },
+      5: { w: `${Math.round(ftp * 1.05) + 1} - ${Math.round(ftp * 1.20)} W`, pct: '106% - 120% FTP', hr: '159 - 162 ppm', focus: 'Consumo máximo de oxígeno (VO2 Máx) y gasto cardíaco pico.' },
+      6: { w: `${Math.round(ftp * 1.20) + 1} - ${Math.round(ftp * 1.50)} W`, pct: '121% - 150% FTP', hr: '163 - 167 ppm', focus: 'Capacidad glucolítica anaeróbica láctica y tolerancia a la acidosis.' },
+      7: { w: `> ${Math.round(ftp * 1.50)} W`, pct: '> 150% FTP', hr: '> 168 ppm', focus: 'Potencia neuromuscular explosiva y sprint sin limitación aeróbica.' }
+    };
+    const zNum = typeof zone === 'number' ? zone : 2;
+    const rInfo = pzRanges[zNum] || pzRanges[2];
+    b.targetRange = b.targetRange || `${rInfo.w} (${rInfo.pct})`;
+    b.targetMetricType = b.targetMetricType || `Potencia Zona ${zNum}`;
+    b.targetSubtext = b.targetSubtext || `FTP de referencia: ${ftp} W`;
+    b.secondaryLabel = b.secondaryLabel || 'FC Esperada';
+    b.secondaryTarget = b.secondaryTarget || rInfo.hr;
+    b.secondaryIcon = b.secondaryIcon || '❤️';
+    b.physioFocus = b.physioFocus || rInfo.focus;
+    return;
+  }
+
+  if (sportType === 'running') {
+    const runRanges = {
+      1: { pace: '> 4:45 min/km (4:45 - 5:30)', hr: '< 134 ppm', focus: 'Regeneración y carrera suave de asimilación.' },
+      2: { pace: '4:11 - 4:44 min/km', hr: '135 - 142 ppm', focus: 'Fondo aeróbico, densidad capilar y economía de zancada.' },
+      3: { pace: '3:53 - 4:10 min/km', hr: '143 - 150 ppm', focus: 'Ritmo tempo continuo sin elevación brusca de lactato.' },
+      4: { pace: '3:40 - 3:52 min/km', hr: '151 - 158 ppm', focus: 'Ritmo umbral anaeróbico funcional de carrera.' },
+      5: { pace: '3:18 - 3:37 min/km', hr: '159 - 162 ppm', focus: 'Series de potencia aeróbica y VO2 Máx.' },
+      6: { pace: '< 3:17 min/km', hr: '163 - 167 ppm', focus: 'Velocidad anaeróbica láctica y cambios de ritmo.' },
+      7: { pace: 'Sprint Máximo (< 3:00)', hr: '> 168 ppm', focus: 'Capacidad neuromuscular y sprint final.' }
+    };
+    const zNum = typeof zone === 'number' ? zone : 2;
+    const rr = runRanges[zNum] || runRanges[2];
+    b.targetRange = b.targetRange || rr.pace;
+    b.targetMetricType = b.targetMetricType || `Ritmo Zona ${zNum} (Pace)`;
+    b.targetSubtext = b.targetSubtext || `Umbral de referencia: ${runThreshPace}/km`;
+    b.secondaryLabel = b.secondaryLabel || 'FC Esperada';
+    b.secondaryTarget = b.secondaryTarget || rr.hr;
+    b.secondaryIcon = b.secondaryIcon || '❤️';
+    b.physioFocus = b.physioFocus || rr.focus;
+    return;
+  }
+
+  if (sportType === 'swimming') {
+    if (dist > 0 && dur > 0) {
+      const sec100 = (dur / dist) * 100;
+      const m100 = Math.floor(sec100 / 60);
+      const s100 = Math.round(sec100 % 60);
+      const paceStr = `${m100}:${s100 < 10 ? '0' : ''}${s100} min/100m`;
+      b.targetRange = `${paceStr} (${dist}m en ${formatSecsToMinSec(dur)})`;
+      b.targetMetricType = 'Ritmo Objetivo de Nado';
+      b.targetSubtext = `CSS de referencia: ${swimCssPace}/100m`;
+      b.secondaryLabel = 'Distancia del Bloque';
+      b.secondaryTarget = `${dist} metros`;
+      b.secondaryIcon = '🏊';
+      b.physioFocus = dist >= 400 ? 'Volumen aeróbico y continuidad de nado continuo.' : 'Series fraccionadas de técnica y ritmo.';
+      return;
+    }
+    const swimPaces = {
+      1: { pace: '> 1:45 min/100m (Suave / Técnica)', focus: 'Sensación de agarre, rolido y nado regenerativo.' },
+      2: { pace: '1:38 - 1:45 min/100m (Fondo Aeróbico)', focus: 'Capacidad aeróbica y eficiencia de brazada (SWOLF).' },
+      3: { pace: '1:32 - 1:37 min/100m (Tempo)', focus: 'Resistencia aeróbica media continua.' },
+      4: { pace: '1:29 - 1:31 min/100m (CSS Umbral)', focus: 'Ritmo crítico de nado (velocidad umbral aeróbico).' },
+      5: { pace: '< 1:29 min/100m (Velocidad / Sub-CSS)', focus: 'Potencia aeróbica máxima y frecuencia de brazada.' }
+    };
+    const zNum = typeof zone === 'number' ? zone : 2;
+    const sp = swimPaces[zNum] || swimPaces[2];
+    b.targetRange = b.targetRange || sp.pace;
+    b.targetMetricType = b.targetMetricType || `Ritmo Natación Z${zNum}`;
+    b.targetSubtext = b.targetSubtext || `CSS de referencia: ${swimCssPace}/100m`;
+    b.secondaryLabel = b.secondaryLabel || 'CSS Umbral';
+    b.secondaryTarget = b.secondaryTarget || `${swimCssPace}/100m`;
+    b.secondaryIcon = b.secondaryIcon || '🏊';
+    b.physioFocus = b.physioFocus || sp.focus;
+    return;
+  }
+
+  // Generic other sport
+  b.targetRange = b.targetRange || `${formatSecsToMinSec(dur)} en Zona Aeróbica`;
+  b.targetMetricType = b.targetMetricType || 'Intervalo de Tiempo';
+  b.secondaryLabel = b.secondaryLabel || 'Zona';
+  b.secondaryTarget = b.secondaryTarget || `Z${zone}`;
+  b.secondaryIcon = b.secondaryIcon || '⏱️';
+  b.physioFocus = b.physioFocus || 'Mantenimiento del ritmo y adaptación aeróbica.';
+}
+
 function flattenWorkoutSteps(rawSteps, sportType, athleteFtp) {
   const blocks = [];
   const ftp = athleteFtp || (state.athleteStatus?.thresholds?.ftp || 348);
@@ -1647,7 +1799,6 @@ function flattenWorkoutSteps(rawSteps, sportType, athleteFtp) {
         const startW = Math.round(ftp * (startP / 100));
         const endW = Math.round(ftp * (endP / 100));
 
-        // 100% FTP corresponds to height 92px
         heightStart = Math.min(142, Math.max(14, Math.round((startP / 100) * 92)));
         heightEnd = Math.min(142, Math.max(14, Math.round((endP / 100) * 92)));
 
@@ -1707,7 +1858,7 @@ function flattenWorkoutSteps(rawSteps, sportType, athleteFtp) {
       shortLabel = dur > 0 ? `${Math.round(dur/60)}'` : '';
     }
 
-    blocks.push({
+    const blockObj = {
       duration: dur > 0 ? dur : (dist > 0 ? dist * 1.5 : 60),
       distance: dist,
       zone,
@@ -1721,7 +1872,10 @@ function flattenWorkoutSteps(rawSteps, sportType, athleteFtp) {
       isRest,
       isMax,
       repInfo
-    });
+    };
+
+    enrichBlockTargetDetails(blockObj, sportType);
+    blocks.push(blockObj);
   }
 
   for (const s of rawSteps) {
@@ -1739,7 +1893,7 @@ function parseDescriptionWorkoutSteps(desc, name, sportType, plannedDurSec, targ
       if (secs > 0) {
         const zNum = zMap[zKey] || 2;
         const hMap = { 1: 38, 2: 60, 3: 78, 4: 92, 5: 110, 6: 128, 7: 140 };
-        blocks.push({
+        const b = {
           duration: secs,
           distance: 0,
           zone: zNum,
@@ -1753,7 +1907,9 @@ function parseDescriptionWorkoutSteps(desc, name, sportType, plannedDurSec, targ
           isRest: false,
           isMax: false,
           repInfo: null
-        });
+        };
+        enrichBlockTargetDetails(b, sportType);
+        blocks.push(b);
       }
     }
     if (blocks.length > 0) return blocks;
@@ -1776,7 +1932,7 @@ function parseDescriptionWorkoutSteps(desc, name, sportType, plannedDurSec, targ
     else if (zStr.includes('z7')) zNum = 7;
 
     const hMap = { 1: 38, 2: 60, 3: 78, 4: 92, 5: 110, 6: 128, 7: 140 };
-    parsedBlocks.push({
+    const b = {
       duration: mins * 60,
       distance: 0,
       zone: zNum,
@@ -1790,7 +1946,9 @@ function parseDescriptionWorkoutSteps(desc, name, sportType, plannedDurSec, targ
       isRest: false,
       isMax: false,
       repInfo: null
-    });
+    };
+    enrichBlockTargetDetails(b, sportType);
+    parsedBlocks.push(b);
   }
 
   if (parsedBlocks.length > 0) return parsedBlocks;
@@ -1800,53 +1958,58 @@ function parseDescriptionWorkoutSteps(desc, name, sportType, plannedDurSec, targ
   const main = Math.round(total * 0.65);
   const cd = total - wu - main;
 
-  return [
-    {
-      duration: wu,
-      distance: 0,
-      zone: 1,
-      color: INTERVALS_COLORS[1],
-      zoneName: INTERVALS_ZONE_NAMES[1],
-      label: `Calentamiento (${Math.round(wu/60)} min)`,
-      shortLabel: `${Math.round(wu/60)}' Z1`,
-      isRamp: false,
-      heightStart: 38,
-      heightEnd: 38,
-      isRest: false,
-      isMax: false,
-      repInfo: null
-    },
-    {
-      duration: main,
-      distance: 0,
-      zone: 2,
-      color: INTERVALS_COLORS[2],
-      zoneName: INTERVALS_ZONE_NAMES[2],
-      label: `Parte Principal Aeróbica (${Math.round(main/60)} min)`,
-      shortLabel: `${Math.round(main/60)}' Z2`,
-      isRamp: false,
-      heightStart: 60,
-      heightEnd: 60,
-      isRest: false,
-      isMax: false,
-      repInfo: null
-    },
-    {
-      duration: cd,
-      distance: 0,
-      zone: 1,
-      color: INTERVALS_COLORS[1],
-      zoneName: INTERVALS_ZONE_NAMES[1],
-      label: `Enfriamiento / Vuelta a la Calma (${Math.round(cd/60)} min)`,
-      shortLabel: `${Math.round(cd/60)}' Z1`,
-      isRamp: false,
-      heightStart: 38,
-      heightEnd: 38,
-      isRest: false,
-      isMax: false,
-      repInfo: null
-    }
-  ];
+  const bWu = {
+    duration: wu,
+    distance: 0,
+    zone: 1,
+    color: INTERVALS_COLORS[1],
+    zoneName: INTERVALS_ZONE_NAMES[1],
+    label: `Calentamiento (${Math.round(wu/60)} min)`,
+    shortLabel: `${Math.round(wu/60)}' Z1`,
+    isRamp: false,
+    heightStart: 38,
+    heightEnd: 38,
+    isRest: false,
+    isMax: false,
+    repInfo: null
+  };
+  enrichBlockTargetDetails(bWu, sportType);
+
+  const bMain = {
+    duration: main,
+    distance: 0,
+    zone: 2,
+    color: INTERVALS_COLORS[2],
+    zoneName: INTERVALS_ZONE_NAMES[2],
+    label: `Parte Principal Aeróbica (${Math.round(main/60)} min)`,
+    shortLabel: `${Math.round(main/60)}' Z2`,
+    isRamp: false,
+    heightStart: 60,
+    heightEnd: 60,
+    isRest: false,
+    isMax: false,
+    repInfo: null
+  };
+  enrichBlockTargetDetails(bMain, sportType);
+
+  const bCd = {
+    duration: cd,
+    distance: 0,
+    zone: 1,
+    color: INTERVALS_COLORS[1],
+    zoneName: INTERVALS_ZONE_NAMES[1],
+    label: `Enfriamiento / Vuelta a la Calma (${Math.round(cd/60)} min)`,
+    shortLabel: `${Math.round(cd/60)}' Z1`,
+    isRamp: false,
+    heightStart: 38,
+    heightEnd: 38,
+    isRest: false,
+    isMax: false,
+    repInfo: null
+  };
+  enrichBlockTargetDetails(bCd, sportType);
+
+  return [bWu, bMain, bCd];
 }
 
 function renderPlannedWorkoutChart(ev) {
@@ -1864,6 +2027,9 @@ function renderPlannedWorkoutChart(ev) {
 
   if (blocks.length === 0) return '';
 
+  // Store globally so the interactive tooltip card can access all target details
+  window._currentWorkoutBlocks = blocks;
+
   const totalDuration = blocks.reduce((sum, b) => sum + (b.duration || 60), 0);
   const totalDist = wdoc.distance || ev.planned_distance_meters || 0;
 
@@ -1880,9 +2046,6 @@ function renderPlannedWorkoutChart(ev) {
     const x = currentX;
     currentX += blockW;
 
-    const tipTitle = b.repInfo ? `${b.repInfo.groupLabel} (${b.repInfo.repIndex}/${b.repInfo.repTotal})` : `Intervalo #${idx + 1}`;
-    const tipExtra = b.distance > 0 ? `${b.distance}m` : (b.label || '');
-
     if (b.isRamp) {
       const y1 = baselineY - b.heightStart;
       const y2 = baselineY - b.heightEnd;
@@ -1890,8 +2053,10 @@ function renderPlannedWorkoutChart(ev) {
       stepElements.push(`
         <polygon points="${pts}" fill="${b.color}" fill-opacity="0.9" stroke="#0f172a" stroke-width="1"
           class="transition-opacity hover:opacity-100 cursor-pointer"
-          onmouseenter="window.showWorkoutStepTip(event, '${tipTitle}', '${b.zoneName}', '${formatSecsToMinSec(b.duration)}', '${tipExtra}', '${b.color}')"
-          onmouseleave="window.hideWorkoutStepTip()" />
+          onmouseenter="window.showWorkoutStepTip(event, ${idx})"
+          onmousemove="window.moveWorkoutStepTip(event)"
+          onmouseleave="window.hideWorkoutStepTip()"
+          onclick="window.showWorkoutStepTip(event, ${idx})" />
       `);
     } else {
       const y = baselineY - b.heightStart;
@@ -1900,8 +2065,10 @@ function renderPlannedWorkoutChart(ev) {
         <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1, blockW).toFixed(1)}" height="${h.toFixed(1)}"
           fill="${b.color}" fill-opacity="0.9" stroke="#0f172a" stroke-width="1" rx="1.5"
           class="transition-opacity hover:opacity-100 cursor-pointer"
-          onmouseenter="window.showWorkoutStepTip(event, '${tipTitle}', '${b.zoneName}', '${formatSecsToMinSec(b.duration)}', '${tipExtra}', '${b.color}')"
-          onmouseleave="window.hideWorkoutStepTip()" />
+          onmouseenter="window.showWorkoutStepTip(event, ${idx})"
+          onmousemove="window.moveWorkoutStepTip(event)"
+          onmouseleave="window.hideWorkoutStepTip()"
+          onclick="window.showWorkoutStepTip(event, ${idx})" />
       `);
     }
 
@@ -1983,7 +2150,7 @@ function renderPlannedWorkoutChart(ev) {
               Estructura Planificada Intervals.icu
               <span class="text-[10px] px-2 py-0.5 rounded font-mono font-normal bg-sky-500/10 text-sky-400 border border-sky-500/20">Zonas & Perfil</span>
             </h4>
-            <p class="text-[10px] text-slate-400">Desglose secuencial de pasos, zonas de intensidad y umbral.</p>
+            <p class="text-[10px] text-slate-400">Pasa el cursor por cada bloque para ver sus rangos objetivo exactos de potencia, ritmo y pulso.</p>
           </div>
         </div>
         
@@ -2039,29 +2206,115 @@ function renderPlannedWorkoutChart(ev) {
   `;
 }
 
-// Tooltip handlers
-window.showWorkoutStepTip = function(e, title, zoneStr, durStr, extraStr, colorHex) {
+// Interactive Floating Card Handlers
+window.showWorkoutStepTip = function(e, stepIdx) {
+  const blocks = window._currentWorkoutBlocks || [];
+  const b = blocks[stepIdx];
+  if (!b) return;
+
   let tip = document.getElementById('planned-workout-tooltip');
   if (!tip) {
     tip = document.createElement('div');
     tip.id = 'planned-workout-tooltip';
-    tip.className = 'fixed pointer-events-none z-[9999] hidden px-3 py-2 rounded-lg bg-slate-950/95 border border-slate-700 shadow-2xl text-xs backdrop-blur-md';
+    tip.className = 'fixed pointer-events-none z-[9999] hidden shadow-2xl transition-opacity duration-75';
     document.body.appendChild(tip);
   }
+
+  const title = b.repInfo
+    ? `${b.repInfo.groupLabel} (Rep ${b.repInfo.repIndex}/${b.repInfo.repTotal})`
+    : (b.label || `Intervalo #${stepIdx + 1}`);
+
   tip.innerHTML = `
-    <div class="flex items-center gap-1.5 mb-1">
-      <span class="w-2.5 h-2.5 rounded-full inline-block" style="background-color: ${colorHex || '#009e00'};"></span>
-      <span class="font-bold text-slate-100">${title}</span>
-    </div>
-    <div class="font-mono text-[11px] text-slate-300 space-y-0.5">
-      <div><span class="text-slate-500">Zona:</span> <span class="font-semibold text-slate-200">${zoneStr}</span></div>
-      <div><span class="text-slate-500">Duración:</span> <span class="font-semibold text-amber-400">${durStr}</span></div>
-      ${extraStr ? `<div><span class="text-slate-500">Objetivo:</span> <span class="font-semibold text-sky-400">${extraStr}</span></div>` : ''}
+    <div class="p-3.5 bg-slate-950/95 border border-slate-700/80 rounded-xl shadow-2xl backdrop-blur-md w-72 sm:w-80 text-xs">
+      <!-- Card Header -->
+      <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="w-3 h-3 rounded-full shrink-0 shadow" style="background-color: ${b.color};"></span>
+          <span class="font-bold text-slate-100 truncate">${title}</span>
+        </div>
+        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold shrink-0" style="background-color: ${b.color}22; color: ${b.color}; border: 1px solid ${b.color}55;">
+          ${b.zoneName}
+        </span>
+      </div>
+
+      <!-- Duration & Distance / Rep Pill Grid -->
+      <div class="grid grid-cols-2 gap-2 mb-2.5 font-mono text-[11px]">
+        <div class="bg-slate-900/90 px-2.5 py-1.5 rounded-lg border border-slate-800/80">
+          <span class="text-[9.5px] text-slate-500 block uppercase font-semibold">⏱️ Duración</span>
+          <span class="font-bold text-amber-400">${formatSecsToMinSec(b.duration)}</span>
+        </div>
+        <div class="bg-slate-900/90 px-2.5 py-1.5 rounded-lg border border-slate-800/80">
+          <span class="text-[9.5px] text-slate-500 block uppercase font-semibold">📏 ${b.distance > 0 ? 'Distancia' : (b.repInfo ? 'Repetición' : 'Tipo')}</span>
+          <span class="font-bold text-sky-400">${b.distance > 0 ? b.distance + ' m' : (b.repInfo ? b.repInfo.repIndex + '/' + b.repInfo.repTotal : (b.isRest ? 'Pausa' : 'Intervalo'))}</span>
+        </div>
+      </div>
+
+      <!-- Target Range Highlight Box -->
+      <div class="p-2.5 rounded-lg bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-900 border border-amber-500/30 mb-2 shadow-inner">
+        <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-1">
+          <span class="flex items-center gap-1"><span>🎯</span> Rango Objetivo</span>
+          <span class="text-[9px] font-mono font-normal text-slate-400">${b.targetMetricType || 'Intensidad'}</span>
+        </div>
+        <div class="text-[12.5px] font-mono font-bold text-slate-100 leading-snug">
+          ${b.targetRange}
+        </div>
+        ${b.targetSubtext ? `<div class="text-[10px] font-mono text-slate-400 mt-0.5">${b.targetSubtext}</div>` : ''}
+      </div>
+
+      <!-- Secondary Target / Expected HR -->
+      ${b.secondaryTarget ? `
+        <div class="flex items-center justify-between text-[10.5px] font-mono px-2.5 py-1.5 rounded-lg bg-slate-900/70 border border-slate-800/80 text-slate-300 mb-2">
+          <span class="text-slate-400 flex items-center gap-1"><span>${b.secondaryIcon || '❤️'}</span> ${b.secondaryLabel}:</span>
+          <span class="font-bold text-emerald-400">${b.secondaryTarget}</span>
+        </div>
+      ` : ''}
+
+      <!-- Physiological Focus / Purpose -->
+      <div class="text-[10px] text-slate-400 leading-snug flex items-start gap-1.5 pt-1.5 border-t border-slate-800/80">
+        <span class="text-amber-400 shrink-0 text-xs">💡</span>
+        <span>${b.physioFocus || 'Adaptación al estímulo de entrenamiento'}</span>
+      </div>
     </div>
   `;
+
   tip.classList.remove('hidden');
-  const x = Math.min(window.innerWidth - 220, e.clientX + 12);
-  const y = Math.max(10, e.clientY - 70);
+
+  const tipWidth = 320;
+  const tipHeight = 230;
+  let x = e.clientX + 14;
+  let y = e.clientY - 110;
+
+  if (x + tipWidth > window.innerWidth - 10) {
+    x = e.clientX - tipWidth - 14;
+  }
+  if (x < 10) x = 10;
+  if (y + tipHeight > window.innerHeight - 10) {
+    y = window.innerHeight - tipHeight - 10;
+  }
+  if (y < 10) y = 10;
+
+  tip.style.left = `${x}px`;
+  tip.style.top = `${y}px`;
+};
+
+window.moveWorkoutStepTip = function(e) {
+  const tip = document.getElementById('planned-workout-tooltip');
+  if (!tip || tip.classList.contains('hidden')) return;
+
+  const tipWidth = 320;
+  const tipHeight = 230;
+  let x = e.clientX + 14;
+  let y = e.clientY - 110;
+
+  if (x + tipWidth > window.innerWidth - 10) {
+    x = e.clientX - tipWidth - 14;
+  }
+  if (x < 10) x = 10;
+  if (y + tipHeight > window.innerHeight - 10) {
+    y = window.innerHeight - tipHeight - 10;
+  }
+  if (y < 10) y = 10;
+
   tip.style.left = `${x}px`;
   tip.style.top = `${y}px`;
 };
