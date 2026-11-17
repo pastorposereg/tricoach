@@ -287,6 +287,52 @@ def delete_calendar_event(event_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/planned/{event_id}/chat")
+def chat_planned_workout(event_id: str, payload: ChatRequest):
+    """Interactive coaching focused on a planned workout from Intervals.icu."""
+    try:
+        cfg = load_config()
+        svc = IntervalsService(cfg)
+        event_detail = svc.get_event_detail(event_id)
+        if not event_detail:
+            # Fallback search in week view
+            week = dm.get_week_view(offset_weeks=0)
+            for day in week.get("days", []):
+                for pl in day.get("planned", []):
+                    if str(pl.get("id")) == str(event_id):
+                        event_detail = pl
+                        break
+        if not event_detail:
+            event_detail = {"id": event_id, "name": "Sesión Planificada"}
+
+        pmc = dm.get_pmc_data(range_days=14)
+        athlete_context = {
+            "athlete_name": cfg.garmin_athlete_name or "Pastor",
+            "phase": cfg.athlete_phase,
+            "ftp": cfg.ftp,
+            "css": cfg.css_pace,
+            "run_threshold": cfg.run_threshold_pace,
+            "lthr": cfg.lthr,
+            "max_hr": cfg.max_hr,
+            "rest_hr": cfg.rest_hr_baseline,
+            "current_ctl": pmc.get("current_ctl", 96),
+            "current_atl": pmc.get("current_atl", 104),
+            "current_tsb": pmc.get("current_tsb", -8),
+            "acwr": pmc.get("acwr", 1.1),
+        }
+        coach_service = AICoachService(cfg.gemini_api_key)
+        reply = coach_service.chat_about_planned_workout(
+            event_data=event_detail,
+            athlete_context=athlete_context,
+            user_message=payload.message,
+            chat_history=payload.history or [],
+        )
+        return {"reply": reply}
+    except Exception as e:
+        logger.error(f"Error in planned workout chat: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/activity/{activity_id}")
 def get_activity_analysis(activity_id: str):
     """Returns activity details, decoupling calculation, and AI Coach evaluation."""

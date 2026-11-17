@@ -824,6 +824,223 @@ async function openActivityModal(activityId) {
   }
 }
 
+// ==========================================
+// Device Laps & Timeline Visualization Helpers
+// ==========================================
+function formatLapDuration(seconds) {
+  if (!seconds || seconds <= 0) return '0s';
+  const total = Math.round(seconds);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  if (m >= 60) {
+    const h = Math.floor(m / 60);
+    const remM = m % 60;
+    return `${h}h ${remM}m`;
+  }
+  if (m > 0) {
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+  return `${s}s`;
+}
+
+function formatPace(speedMps) {
+  if (!speedMps || speedMps <= 0) return '--:--';
+  const paceSec = 1000 / speedMps;
+  const m = Math.floor(paceSec / 60);
+  const s = Math.round(paceSec % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function formatSwimPace(speedMps) {
+  if (!speedMps || speedMps <= 0) return '--:--';
+  const paceSec = 100 / speedMps;
+  const m = Math.floor(paceSec / 60);
+  const s = Math.round(paceSec % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function formatLapDistance(meters, sportType) {
+  if (!meters || meters <= 0) return '0 m';
+  if (sportType === 'swimming') {
+    return `${Math.round(meters)} m`;
+  }
+  if (meters < 1000) {
+    return `${Math.round(meters)} m`;
+  }
+  return `${(meters / 1000).toFixed(2)} km`;
+}
+
+function toggleLapsTable() {
+  const el = document.getElementById('laps-table-wrapper');
+  const btn = document.getElementById('btn-toggle-laps-table');
+  if (!el) return;
+  if (el.classList.contains('hidden')) {
+    el.classList.remove('hidden');
+    if (btn) btn.textContent = 'Ocultar Tabla ▴';
+  } else {
+    el.classList.add('hidden');
+    if (btn) btn.textContent = 'Ver Tabla ▾';
+  }
+}
+window.toggleLapsTable = toggleLapsTable;
+
+function renderProportionalLapsSection(act) {
+  if (!act.splits || act.splits.length === 0) return '';
+  const splits = act.splits;
+  const isCycling = act.sport_type === 'cycling';
+  const isRunning = act.sport_type === 'running';
+  const isSwim = act.sport_type === 'swimming';
+
+  const totalDuration = splits.reduce((acc, s) => acc + (s.duration_seconds || 0), 0) || act.duration_seconds || 1;
+
+  let primaryLabel = isCycling ? 'Potencia (W)' : (isRunning ? 'Ritmo (min/km)' : (isSwim ? 'Ritmo (min/100m)' : 'Velocidad'));
+  let primaryColorClass = isCycling ? 'text-amber-400' : (isRunning ? 'text-emerald-400' : (isSwim ? 'text-cyan-400' : 'text-sky-400'));
+  let badgeColorClass = isCycling ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : (isRunning ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300');
+
+  // Build the proportional ribbon blocks
+  const ribbonBlocksHtml = splits.map((s, idx) => {
+    const durSec = s.duration_seconds || 0;
+    const durPct = Math.max(1, ((durSec / totalDuration) * 100)).toFixed(1);
+    const lapNum = s.lap_index || (idx + 1);
+    const durFormatted = formatLapDuration(durSec);
+    const distFormatted = formatLapDistance(s.distance_meters, act.sport_type);
+    const hrVal = s.avg_heart_rate ? `${Math.round(s.avg_heart_rate)} bpm` : '--';
+
+    let primaryVal = '--';
+    if (isCycling) {
+      primaryVal = s.avg_power ? `${Math.round(s.avg_power)} W` : '-- W';
+    } else if (isRunning) {
+      primaryVal = s.avg_speed_mps ? `${formatPace(s.avg_speed_mps)}/km` : '--:--';
+    } else if (isSwim) {
+      primaryVal = s.avg_speed_mps ? `${formatSwimPace(s.avg_speed_mps)}/100m` : '--:--';
+    } else {
+      primaryVal = s.avg_speed_mps ? `${(s.avg_speed_mps * 3.6).toFixed(1)} km/h` : '--';
+    }
+
+    return `
+      <div class="group relative flex flex-col justify-between p-2.5 rounded-lg border border-slate-700/60 bg-slate-800/80 hover:bg-slate-750 hover:border-slate-500 transition-all cursor-pointer shrink-0"
+           style="flex: ${Math.max(15, durSec)} 1 0; min-width: 96px;"
+           title="Lap ${lapNum}: ${durFormatted} • ${distFormatted} • ${primaryVal} • ${hrVal}">
+        <div class="flex items-center justify-between gap-1 mb-1 pb-1 border-b border-slate-700/50">
+          <span class="text-[10px] font-mono font-bold text-slate-300">L${lapNum}</span>
+          <span class="text-[10px] font-mono text-slate-400">${durFormatted}</span>
+        </div>
+        <div class="space-y-1 my-1">
+          <div class="flex items-baseline justify-between gap-1">
+            <span class="text-[9px] uppercase tracking-wider text-slate-500 font-semibold">${isCycling ? 'Pot' : 'Ritmo'}</span>
+            <span class="text-xs font-mono font-bold ${primaryColorClass}">${primaryVal}</span>
+          </div>
+          <div class="flex items-baseline justify-between gap-1">
+            <span class="text-[9px] uppercase tracking-wider text-slate-500 font-semibold">FC</span>
+            <span class="text-[11px] font-mono font-semibold text-rose-400 flex items-center gap-0.5">
+              <span class="text-[9px] text-rose-500">❤️</span>${hrVal}
+            </span>
+          </div>
+        </div>
+        <div class="mt-1 pt-1 border-t border-slate-700/30 flex justify-between text-[9px] font-mono text-slate-400">
+          <span>${distFormatted}</span>
+          <span>${durPct}%</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Table rows for full breakdown
+  const tableRowsHtml = splits.map((s, idx) => {
+    const lapNum = s.lap_index || (idx + 1);
+    const durSec = s.duration_seconds || 0;
+    const durPct = ((durSec / totalDuration) * 100).toFixed(1);
+    const durFormatted = formatLapDuration(durSec);
+    const distFormatted = formatLapDistance(s.distance_meters, act.sport_type);
+    const hrVal = s.avg_heart_rate ? `${Math.round(s.avg_heart_rate)} bpm` : '--';
+    const maxHrVal = s.max_heart_rate ? `${Math.round(s.max_heart_rate)} bpm` : '--';
+
+    let primaryVal = '--';
+    if (isCycling) {
+      primaryVal = s.avg_power ? `${Math.round(s.avg_power)} W` : '--';
+    } else if (isRunning) {
+      primaryVal = s.avg_speed_mps ? `${formatPace(s.avg_speed_mps)} /km` : '--';
+    } else if (isSwim) {
+      primaryVal = s.avg_speed_mps ? `${formatSwimPace(s.avg_speed_mps)} /100m` : '--';
+    } else {
+      primaryVal = s.avg_speed_mps ? `${(s.avg_speed_mps * 3.6).toFixed(1)} km/h` : '--';
+    }
+
+    return `
+      <tr class="border-b border-slate-800/60 hover:bg-slate-800/40 text-xs font-mono">
+        <td class="py-2 px-2.5 font-bold text-slate-200">L${lapNum}</td>
+        <td class="py-2 px-2.5 text-slate-300">${durFormatted} <span class="text-[10px] text-slate-500">(${durPct}%)</span></td>
+        <td class="py-2 px-2.5 text-slate-300">${distFormatted}</td>
+        <td class="py-2 px-2.5 font-bold ${primaryColorClass}">${primaryVal}</td>
+        <td class="py-2 px-2.5 text-rose-400 font-semibold">${hrVal}</td>
+        <td class="py-2 px-2.5 text-rose-500">${maxHrVal}</td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <div class="mb-6 p-4 rounded-xl bg-slate-900/90 border border-slate-800 shadow-xl">
+      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800 flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg ${badgeColorClass} flex items-center justify-center font-bold text-sm">
+            ⏱️
+          </div>
+          <div>
+            <h3 class="text-xs font-bold text-slate-100 uppercase tracking-wider">Laps Grabados en Dispositivo (${splits.length} laps)</h3>
+            <p class="text-[10px] text-slate-400">Ancho proporcional a la duración real • Métricas: ${isCycling ? 'Vatios (W) y Frecuencia Cardíaca (FC)' : (isRunning ? 'Ritmo (min/km) y FC' : 'Ritmo (min/100m) y FC')}</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded border ${badgeColorClass}">
+            Total: ${formatLapDuration(totalDuration)}
+          </span>
+          <button type="button" onclick="toggleLapsTable()" id="btn-toggle-laps-table" class="text-[11px] font-mono px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 transition-colors">
+            Ver Tabla ▾
+          </button>
+        </div>
+      </div>
+
+      <!-- Proportional Ribbon Timeline Container (Horizontally Scrollable) -->
+      <div class="mb-4">
+        <div class="flex items-center justify-between text-[10px] font-mono text-slate-500 mb-1 px-1">
+          <span>00:00 (Inicio)</span>
+          <span class="text-slate-400">Bloques con ancho proporcional al tiempo de cada lap</span>
+          <span>${formatLapDuration(totalDuration)} (Fin)</span>
+        </div>
+        <div class="flex items-stretch gap-1.5 overflow-x-auto pb-2 p-1.5 rounded-xl bg-slate-950/80 border border-slate-800 scrollbar-thin">
+          ${ribbonBlocksHtml}
+        </div>
+      </div>
+
+      <!-- Dual-Axis Telemetry Chart -->
+      <div>
+        <div class="h-48 w-full bg-slate-950/60 rounded-xl p-2 border border-slate-800/80">
+          <canvas id="splitsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Collapsible Detailed Table -->
+      <div id="laps-table-wrapper" class="hidden overflow-x-auto mt-4 pt-3 border-t border-slate-800/80">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="text-[10px] font-mono uppercase tracking-wider text-slate-400 border-b border-slate-800 bg-slate-950/40">
+              <th class="py-1.5 px-2.5">Lap</th>
+              <th class="py-1.5 px-2.5">Duración (% total)</th>
+              <th class="py-1.5 px-2.5">Distancia</th>
+              <th class="py-1.5 px-2.5">${primaryLabel}</th>
+              <th class="py-1.5 px-2.5">FC Media</th>
+              <th class="py-1.5 px-2.5">FC Máx</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRowsHtml}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 function renderActivityModalContent(data) {
   const content = document.getElementById('activity-modal-content');
   if (!content) return;
@@ -940,15 +1157,8 @@ function renderActivityModalContent(data) {
     <!-- Decoupling Section -->
     ${decouplingHtml}
 
-    <!-- Splits Chart -->
-    ${act.splits && act.splits.length > 1 ? `
-      <div class="mb-6">
-        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Evolución por Laps / Splits</h3>
-        <div class="h-44 w-full bg-slate-900/60 rounded-xl p-2 border border-slate-800">
-          <canvas id="splitsChart"></canvas>
-        </div>
-      </div>
-    ` : ''}
+    <!-- Device Laps Proportional Ribbon & Chart -->
+    ${renderProportionalLapsSection(act)}
 
     <!-- Expert Coach AI Evaluation Report -->
     <div class="p-5 rounded-xl bg-gradient-to-b from-slate-900 to-slate-950 border border-purple-500/20 shadow-xl mb-6">
@@ -1328,6 +1538,69 @@ ${descHtml}
       ${zonesHtml}
     </div>
 
+    <!-- Interactive Planned Workout Chatbot -->
+    <div class="p-4 sm:p-5 rounded-xl bg-slate-900/90 border border-slate-800 shadow-xl mt-5">
+      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-sm">
+            💬
+          </div>
+          <div>
+            <h4 class="text-xs font-bold text-slate-100">Consulta con tu Entrenador sobre esta sesión planificada</h4>
+            <p class="text-[10px] text-slate-400">Pregúntale cómo calentar, a qué vatios/ritmo hacer las series o qué estrategia de hidratación y nutrición seguir.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded ${state.athleteStatus?.ai?.has_key ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-slate-800 text-slate-400 border border-slate-700'}">
+            ${state.athleteStatus?.ai?.has_key ? '🤖 Gemini Coach IA' : '🧠 Motor Experto Triatlón'}
+          </span>
+        </div>
+      </div>
+
+      <!-- Quick prompts for planned workout -->
+      <div class="flex flex-wrap gap-1.5 mb-3">
+        <button type="button" onclick="setPlannedPrompt('${ev.id}', '¿Cómo estructuro el calentamiento óptimo para esta sesión?')"
+          class="px-2.5 py-1 rounded-full text-[11px] bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition-colors">
+          Calentamiento óptimo
+        </button>
+        <button type="button" onclick="setPlannedPrompt('${ev.id}', '¿A qué vatios o ritmo exacto debo hacer las partes principales?')"
+          class="px-2.5 py-1 rounded-full text-[11px] bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition-colors">
+          Vatios / Ritmos de series
+        </button>
+        <button type="button" onclick="setPlannedPrompt('${ev.id}', '¿Qué pauta de hidratación y nutrición debo llevar durante la sesión?')"
+          class="px-2.5 py-1 rounded-full text-[11px] bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition-colors">
+          Nutrición e Hidratación
+        </button>
+        <button type="button" onclick="setPlannedPrompt('${ev.id}', 'Si noto fatiga acumulada en las piernas, ¿cómo adapto o recorto el volumen?')"
+          class="px-2.5 py-1 rounded-full text-[11px] bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition-colors">
+          Adaptar por fatiga
+        </button>
+      </div>
+
+      <!-- Chat history messages container -->
+      <div id="planned-chat-messages" class="space-y-3 max-h-64 overflow-y-auto mb-3 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
+        <!-- Rendered by renderPlannedChatMessages -->
+      </div>
+
+      <!-- Chat input form -->
+      <form id="form-planned-chat" onsubmit="event.preventDefault(); submitPlannedChatMessage('${ev.id}');" class="flex gap-2">
+        <input 
+          type="text" 
+          id="input-planned-chat"
+          placeholder="Haz cualquier pregunta al entrenador sobre esta sesión..." 
+          class="flex-1 bg-slate-950 border border-slate-700/80 rounded-xl px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+        />
+        <button 
+          type="submit" 
+          id="btn-planned-chat-submit"
+          class="px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 font-semibold rounded-xl text-xs transition-all shadow-lg shadow-amber-900/20 flex items-center gap-1.5"
+        >
+          <span>Preguntar</span>
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+        </button>
+      </form>
+    </div>
+
     <!-- Footer Actions -->
     <div class="mt-5 pt-3 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2 text-xs">
       <a href="https://intervals.icu/events/${ev.id}" target="_blank" rel="noopener"
@@ -1339,11 +1612,127 @@ ${descHtml}
       <button type="button" onclick="closePlannedModal(); switchTab('form');"
         class="px-3.5 py-1.5 rounded-lg bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 border border-purple-500/30 font-medium transition-colors flex items-center gap-1.5">
         <span>💬</span>
-        <span>Consultar con el Coach IA</span>
+        <span>Ir al Chat General del Coach</span>
       </button>
     </div>
   `;
+
+  // Initialize and render planned chat messages
+  renderPlannedChatMessages(ev.id, ev);
 }
+
+function renderPlannedChatMessages(eventId, ev) {
+  if (!state.plannedChatHistory) state.plannedChatHistory = {};
+  if (!state.plannedChatHistory[eventId]) {
+    const durMins = Math.round((ev.planned_duration_seconds || 0) / 60);
+    const distStr = ev.planned_distance_meters > 0 
+      ? `${(ev.planned_distance_meters / (ev.sport_type === 'swimming' ? 1 : 1000)).toFixed(1)} ${ev.sport_type === 'swimming' ? 'm' : 'km'}` 
+      : '';
+    state.plannedChatHistory[eventId] = [{
+      role: 'assistant',
+      content: `Hola Pastor. He examinado los detalles de tu sesión planificada: **${ev.name || 'Sesión'}** (${durMins > 0 ? durMins + ' min' : 'Libre'}${distStr ? `, ${distStr}` : ''}).\n\n¿Tienes alguna duda sobre los vatios o ritmos objetivo, el calentamiento, nutrición o cómo modular los intervalos según tu estado de fatiga actual?`
+    }];
+  }
+
+  const container = document.getElementById('planned-chat-messages');
+  if (!container) return;
+  container.innerHTML = '';
+
+  state.plannedChatHistory[eventId].forEach(msg => {
+    const isUser = msg.role === 'user';
+    const msgEl = document.createElement('div');
+    msgEl.className = `flex gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}`;
+    msgEl.innerHTML = `
+      ${!isUser ? `
+        <div class="w-6 h-6 rounded-md bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 font-bold text-[10px]">
+          Coach
+        </div>
+      ` : ''}
+      <div class="max-w-[85%] rounded-xl p-2.5 text-xs leading-relaxed ${
+        isUser 
+          ? 'bg-amber-600 text-white rounded-tr-none' 
+          : 'bg-slate-800/90 border border-slate-700/60 text-slate-200 rounded-tl-none prose prose-invert'
+      }">
+        ${formatCoachReport(msg.content)}
+      </div>
+    `;
+    container.appendChild(msgEl);
+  });
+  container.scrollTop = container.scrollHeight;
+}
+
+function setPlannedPrompt(eventId, text) {
+  const input = document.getElementById('input-planned-chat');
+  if (input) {
+    input.value = text;
+    submitPlannedChatMessage(eventId);
+  }
+}
+window.setPlannedPrompt = setPlannedPrompt;
+
+async function submitPlannedChatMessage(eventId) {
+  const input = document.getElementById('input-planned-chat');
+  const btn = document.getElementById('btn-planned-chat-submit');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  if (!state.plannedChatHistory) state.plannedChatHistory = {};
+  if (!state.plannedChatHistory[eventId]) state.plannedChatHistory[eventId] = [];
+
+  state.plannedChatHistory[eventId].push({ role: 'user', content: text });
+  renderPlannedChatMessages(eventId, {});
+
+  // Append temporary loader
+  const container = document.getElementById('planned-chat-messages');
+  const loaderId = 'loader-planned-' + Date.now();
+  if (container) {
+    const loaderEl = document.createElement('div');
+    loaderEl.id = loaderId;
+    loaderEl.className = 'flex gap-2.5 justify-start';
+    loaderEl.innerHTML = `
+      <div class="w-6 h-6 rounded-md bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 font-bold text-[10px]">
+        Coach
+      </div>
+      <div class="bg-slate-800 border border-slate-700 rounded-xl rounded-tl-none p-2.5 flex items-center gap-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce"></span>
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce" style="animation-delay: 0.15s"></span>
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce" style="animation-delay: 0.3s"></span>
+      </div>
+    `;
+    container.appendChild(loaderEl);
+    container.scrollTop = container.scrollHeight;
+  }
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await fetch(`/api/planned/${eventId}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: text,
+        history: state.plannedChatHistory[eventId].slice(0, -1)
+      })
+    });
+    const data = await res.json();
+    const l = document.getElementById(loaderId);
+    if (l) l.remove();
+    state.plannedChatHistory[eventId].push({ role: 'assistant', content: data.reply });
+    renderPlannedChatMessages(eventId, {});
+  } catch (err) {
+    const l = document.getElementById(loaderId);
+    if (l) l.remove();
+    state.plannedChatHistory[eventId].push({
+      role: 'assistant',
+      content: 'Disculpa Pastor, ocurrió un problema al conectar con el entrenador para esta sesión planificada.'
+    });
+    renderPlannedChatMessages(eventId, {});
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+window.submitPlannedChatMessage = submitPlannedChatMessage;
 
 function closePlannedModal() {
   const modal = document.getElementById('planned-modal');

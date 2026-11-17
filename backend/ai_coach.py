@@ -25,6 +25,10 @@ Baselines y Umbrales actuales del Atleta (sincronizados con Intervals.icu y Garm
 - FC Reposo Basal: 36 bpm
 - Peso: 75.2 kg
 
+Apertura conversacional y rol:
+Estás 100% abierto a responder cualquier pregunta, consulta o debate sobre deportes de resistencia, triatlón (natación, ciclismo, carrera), fuerza complementaria, nutrición intra y post-entrenamiento, biomecánica, material, fisiología y táctica de carrera que Pastor te plantee.
+No restringes temáticas: responde a cualquier duda de forma exhaustiva, personalizada, amigable y científica.
+
 Principios metodológicos irrenunciables:
 1. Máxima eficiencia aeróbica subumbral (Z2), evitando la deriva cardíaca prematura.
 2. Monitorización del desacople cardiovascular (Pw:HR en bici y Pa:HR en carrera):
@@ -40,7 +44,7 @@ Principios metodológicos irrenunciables:
    - Frecuencia Cardíaca en Reposo (RHR) como marcador de fatiga o estrés sistémico.
    - Balance de estrés (TSB = CTL - ATL) y ratio ACWR (ATL/CTL).
 
-Tu tono es profesional, científico, riguroso, directo y motivador. Cita siempre datos numéricos exactos, ofrece cálculos fisiológicos fundamentados y pautas prácticas aplicables.
+Tu tono es profesional, científico, riguroso, directo, cercano y motivador. Cita siempre datos numéricos exactos, ofrece cálculos fisiológicos fundamentados y pautas prácticas aplicables.
 """
 
 
@@ -51,18 +55,23 @@ class AICoachService:
     def _call_gemini_api(self, prompt: str, system_instruction: str = SYSTEM_COACH_PROMPT) -> Optional[str]:
         if not self.api_key:
             return None
+
+        models_to_try = [
+            "gemini-2.5-flash",
+            "gemini-1.5-flash",
+            "gemini-2.0-flash",
+            "gemini-2.5-pro",
+        ]
+
+        # 1. Try google.genai SDK
         try:
             from google import genai
             from google.genai import types
 
             client = genai.Client(
                 api_key=self.api_key,
-                http_options=types.HttpOptions(timeout=10000)
+                http_options=types.HttpOptions(timeout=15000)
             )
-            models_to_try = [
-                "gemini-3.5-flash-lite",
-                "gemini-3.5-flash"
-            ]
             for m in models_to_try:
                 try:
                     response = client.models.generate_content(
@@ -76,12 +85,41 @@ class AICoachService:
                     if response and response.text:
                         return response.text
                 except Exception as inner_e:
-                    logger.debug(f"Model {m} failed: {inner_e}")
+                    logger.debug(f"google.genai SDK model {m} failed: {inner_e}")
                     continue
-            return None
         except Exception as e:
-            logger.warning(f"Gemini API call failed: {e}")
-            return None
+            logger.warning(f"google.genai SDK initialization failed: {e}")
+
+        # 2. Direct HTTP REST API fallback (ultra-reliable with standard requests)
+        try:
+            import requests
+
+            for m in models_to_try:
+                try:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={self.api_key}"
+                    headers = {"Content-Type": "application/json"}
+                    payload = {
+                        "system_instruction": {"parts": [{"text": system_instruction}]},
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": 0.4}
+                    }
+                    resp = requests.post(url, json=payload, headers=headers, timeout=15)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            parts = candidates[0].get("content", {}).get("parts", [])
+                            if parts and "text" in parts[0]:
+                                return parts[0]["text"]
+                    else:
+                        logger.debug(f"REST Gemini model {m} HTTP {resp.status_code}: {resp.text[:120]}")
+                except Exception as req_err:
+                    logger.debug(f"REST Gemini model {m} call failed: {req_err}")
+                    continue
+        except Exception as rest_e:
+            logger.warning(f"REST Gemini fallback failed: {rest_e}")
+
+        return None
 
     def analyze_workout(
         self,
@@ -225,8 +263,10 @@ Estructura el análisis en las siguientes 4 secciones con formato Markdown:
 DATOS Y BIOMARCADORES ACTUALES DEL ATLETA:
 {context_str}
 
-Instrucciones:
-Responde como el entrenador personal de Pastor. Sé específico, utiliza sus datos reales (CTL, ATL, TSB, umbrales, FC reposo, HRV), explica los fundamentos fisiológicos de forma comprensible y ofrece pautas prácticas directas.
+Instrucciones para el Entrenador:
+1. Responde de forma 100% abierta a CUALQUIER consulta o tema que plantee el atleta: fisiología, umbrales, lactato, VO2max, VFC/HRV, nutrición en carrera (gramos de carbohidratos/h, sales), material deportivo, zapatillas de carbono, desarrollos de transmisión de bici, fuerza para triatlón, sensaciones, fatiga o estrategia competitiva.
+2. Utiliza siempre sus datos biométricos exactos: FTP 348W, CSS 1:29.0/100m, Ritmo Umbral 3:40/km, LTHR 159 bpm, FC Reposo 36 bpm, CTL, ATL, TSB en su Periodo de Base Aeróbica.
+3. Sé directo, científico, motivador, práctico y conversacional. No limites las preguntas: aborda cualquier tema con el máximo rigor de un entrenador de élite.
 """
 
         # Try Gemini API if key is available
@@ -322,6 +362,173 @@ Instrucciones para la respuesta en este chat de sesión:
 
         # Comprehensive Expert Heuristic fallback for workout
         return self._generate_activity_heuristic_reply(user_message, activity_context)
+
+    def chat_about_planned_workout(
+        self,
+        event_data: Dict[str, Any],
+        athlete_context: Dict[str, Any],
+        user_message: str,
+        chat_history: List[Dict[str, str]],
+    ) -> str:
+        """Conversational coaching specifically focused on a planned workout's structure, pacing and strategy."""
+        sport = event_data.get("sport_type", "other")
+        name = event_data.get("name", "Entrenamiento Planificado")
+        dur_mins = round((event_data.get("planned_duration_seconds") or 0) / 60)
+        dist_km = round((event_data.get("planned_distance_meters") or 0) / (1 if sport == "swimming" else 1000), 2)
+        dist_unit = "m" if sport == "swimming" else "km"
+        desc = event_data.get("description", "")
+        target_zones = event_data.get("target_zones", {})
+        planned_load = event_data.get("planned_load")
+
+        planned_context = {
+            "name": name,
+            "sport": sport,
+            "date": event_data.get("date"),
+            "planned_duration_minutes": dur_mins,
+            "planned_distance": f"{dist_km} {dist_unit}" if dist_km > 0 else "N/A",
+            "planned_tss": planned_load,
+            "description": desc,
+            "target_zones_seconds": target_zones,
+            "athlete_baselines": athlete_context,
+        }
+
+        context_str = json.dumps(planned_context, ensure_ascii=False, indent=2)
+        system_prompt = f"""{SYSTEM_COACH_PROMPT}
+
+ESTÁS ASESORANDO AL ATLETA SOBRE SU PRÓXIMA SESIÓN PLANIFICADA EN INTERVALS.ICU:
+{context_str}
+
+Instrucciones para la respuesta en este chat de sesión planificada:
+1. Responde a la pregunta concreta del atleta sobre esta sesión futura (ritmo, vatios, calentamiento, hidratación, material o cómo adaptar los intervalos).
+2. Si pregunta por vatios o ritmo en las series, calcúlalos exactamente según sus umbrales (FTP {athlete_context.get('ftp', 348)}W, CSS {athlete_context.get('css', '1:29.0')}/100m, Umbral Carrera {athlete_context.get('run_threshold', '3:40')}/km).
+3. Si el atleta refiere fatiga, cansancio o pregunta si debe recortar, aconseja cómo modular la sesión según su TSB actual ({athlete_context.get('current_tsb', 0)}).
+4. Explica el objetivo fisiológico específico de esta sesión dentro de su Periodo de Base Aeróbica.
+5. Responde con la misma profundidad, rigor y cercanía que un entrenador de triatlón de élite.
+"""
+
+        # Try Gemini API if key is available
+        if self.api_key:
+            conv_lines = []
+            for m in chat_history[-6:]:
+                if m.get("content") == user_message and m.get("role") == "user":
+                    continue
+                role = "Atleta" if m.get("role") == "user" else "Entrenador"
+                conv_lines.append(f"{role}: {m.get('content')}")
+            conv_lines.append(f"Atleta: {user_message}")
+            prompt = "\n".join(conv_lines) + "\nEntrenador:"
+
+            ans = self._call_gemini_api(prompt, system_instruction=system_prompt)
+            if ans:
+                return ans
+
+        # Fallback to rich planned heuristic response
+        return self._generate_planned_heuristic_reply(user_message, planned_context)
+
+    def _generate_planned_heuristic_reply(self, query: str, plan_ctx: Dict[str, Any]) -> str:
+        q = query.lower()
+        sport = plan_ctx.get("sport", "running")
+        name = plan_ctx.get("name", "la sesión planificada")
+        dur = plan_ctx.get("planned_duration_minutes", 0)
+        dist = plan_ctx.get("planned_distance", "N/A")
+        tss = plan_ctx.get("planned_tss") or "N/A"
+        desc = plan_ctx.get("description", "")
+        base = plan_ctx.get("athlete_baselines", {})
+        ftp = base.get("ftp", 348)
+        run_thresh = base.get("run_threshold", "3:40")
+        css = base.get("css", "1:29.0")
+        lthr = base.get("lthr", 159)
+        max_hr = base.get("max_hr", 183)
+        tsb = base.get("current_tsb", 0)
+
+        # 1. Warmup / Calentamiento
+        if any(x in q for x in ["calentar", "calentamiento", "previo", "activar", "activación"]):
+            if sport == "cycling":
+                return (
+                    f"### Protocolo de Calentamiento Recomendado — **{name}**\n\n"
+                    f"1. **0 – 10 min**: Z1 muy suave (< 190 W, FC < 125 bpm) con cadencia alta (90-95 rpm) para movilizar líquido sinovial y oxigenar piernas.\n"
+                    f"2. **10 – 15 min**: Progresión suave hasta Z2 media (210 – 240 W).\n"
+                    f"3. **15 – 18 min**: 3 aceleraciones de 30 segundos a potencia de tempo/umbral (280 – 310 W) con 1 min de recuperación suave.\n"
+                    f"4. **18 – 20 min**: 2 min en Z1 antes de iniciar el bloque principal prescrito en Intervals.icu."
+                )
+            elif sport == "running":
+                return (
+                    f"### Protocolo de Calentamiento Recomendado — **{name}**\n\n"
+                    f"1. **Movilidad articular dinámica** (3 min): rotaciones de tobillos, zancadas suaves (lunges) y balanceos de cadera.\n"
+                    f"2. **10 – 15 min de trote suave en Z1**: Ritmo 4:45 – 5:15/km con FC < 134 bpm.\n"
+                    f"3. **Técnica de carrera** (3 min): skipping bajo, talones a glúteo y pasos rusos para activar los husos neuromusculares.\n"
+                    f"4. **2 – 3 rectas progresivas de 60-80 metros**: Acelerando de forma controlada hasta tu ritmo umbral ({run_thresh}/km) para poner a punto la frecuencia de zancada (178-182 spm)."
+                )
+            elif sport == "swimming":
+                return (
+                    f"### Calentamiento en el Agua — **{name}**\n\n"
+                    f"- **200 m Crol suave (Z1)**: Foco en deslizamiento y extensión completa de axila.\n"
+                    f"- **4 x 50 m Variados**: (25m técnica de recobro alto / 25m crol progresivo con agarre firme).\n"
+                    f"- **4 x 25 m Progresivas del 1 al 4**: Terminando la 4ª a ritmo de tu CSS ({css}/100m) para activar la sensibilidad en las palmas de las manos."
+                )
+
+        # 2. Ritmos, Vatios, Zonas objetivo
+        if any(x in q for x in ["ritmo", "vatio", "w", "intensidad", "desarrollo", "pacing", "a qué ritmo", "que ritmo", "cuantos w"]):
+            if sport == "cycling":
+                return (
+                    f"### Pauta de Potencia y Zonas — **{name}**\n\n"
+                    f"- **Tu FTP de referencia**: **{ftp} W**\n"
+                    f"- **Z1 Recuperación**: 0 – 191 W\n"
+                    f"- **Z2 Base Aeróbica**: 192 – 261 W (rango diana para volumen metabólico sin estrés láctico)\n"
+                    f"- **Z3 Tempo**: 262 – 313 W\n"
+                    f"- **Z4 Umbral**: 314 – 365 W\n\n"
+                    f"**Estrategia para esta sesión ({dur} min, {tss} TSS)**:\n"
+                    f"Respeta escrupulosamente los techos de vatios indicados en la descripción de Intervals.icu. Si la sesión es aeróbica continua, concéntrate en pedalear entre **215 y 245 W** manteniendo 88-92 rpm."
+                )
+            elif sport == "running":
+                return (
+                    f"### Pauta de Ritmos de Carrera — **{name}**\n\n"
+                    f"- **Tu Ritmo Umbral (Threshold Pace)**: **{run_thresh}/km** (LTHR: {lthr} bpm)\n"
+                    f"- **Z1 Recuperación / Regenerativo**: > 4:45/km (FC < 134 bpm)\n"
+                    f"- **Z2 Base Aeróbica**: 4:10 – 4:40/km (FC 134 – 142 bpm)\n"
+                    f"- **Z3 Tempo**: 3:55 – 4:08/km (FC 142 – 150 bpm)\n"
+                    f"- **Z4 Umbral**: 3:38 – 3:45/km (FC 150 – 158 bpm)\n\n"
+                    f"**Recomendación**: En la fase de base en la que te encuentras, la clave es que el rodaje aeróbico se mantenga por debajo de los 142 bpm, permitiendo la adaptación capilar sin interferir en la recuperación."
+                )
+            elif sport == "swimming":
+                return (
+                    f"### Pauta de Ritmos en Piscina — **{name}**\n\n"
+                    f"- **Tu CSS (Velocidad Crítica de Nado)**: **{css}/100m**\n"
+                    f"- **Series aeróbicas Z2**: Ritmo {css} + 4 a 6 seg (aprox. **1:33 – 1:35/100m**).\n"
+                    f"- **Series a umbral**: Sostener **1:29 – 1:30/100m** con descansos breves (15-20 seg) para trabajar la tolerancia al lactato residual."
+                )
+
+        # 3. Nutrición e hidratación
+        if any(x in q for x in ["nutrición", "nutricion", "comer", "beber", "hidrat", "gel", "carbohidrato", "sales", "electrolit"]):
+            return (
+                f"### Estrategia de Nutrición e Hidratación — **{name}**\n\n"
+                f"- **Duración estimada**: **{dur} min** | **Carga prevista**: **{tss} TSS**\n\n"
+                f"**Pauta Concreta**:\n"
+                f"1. **Sesiones < 60 min**: Solo agua con sales/electrolitos (sodio ~500 mg/l) es suficiente. No se requiere aporte calórico intra-sesión.\n"
+                f"2. **Sesiones de 60 a 90 min**: Aporte de **30 – 45 g de carbohidratos/hora** (1 gel o bebida isotónica) a partir del minuto 40.\n"
+                f"3. **Sesiones > 90 min**: Ingesta regular de **60 – 80 g de carbohidratos/hora** repartidos en tomas cada 20-25 minutos y 500-750 ml de líquido/hora."
+            )
+
+        # 4. Fatiga o Adaptación por cansancio (TSB)
+        if any(x in q for x in ["cansad", "fatig", "reducir", "recortar", "suave", "puedo", "debo"]):
+            return (
+                f"### Criterio de Modulación por Fatiga — **{name}**\n\n"
+                f"- **Estado de Balance Actual (TSB)**: **{tsb}**\n\n"
+                f"**Decisión Técnica del Entrenador**:\n"
+                f"- Si al comenzar el calentamiento notas pesadez muscular pero el pulso responde de forma normal, mantén la sesión pero quédate en la parte baja de la zona prescrita.\n"
+                f"- Si tu FC en reposo matutina estuvo +5 bpm por encima de lo habitual o si el RPE (esfuerzo percibido) es > 7/10 en el calentamiento, reduce el bloque principal un 20% en duración o elimina las series más intensas, transformándola en un rodaje Z1/Z2 regenerativo."
+            )
+
+        # 5. Default General Coach Advice
+        return (
+            f"### Asesoramiento del Entrenador para tu Sesión: **{name}**\n\n"
+            f"- **Deporte**: {sport.upper()} | **Duración Estimada**: {dur} min | **Carga Prevista**: {tss} TSS\n"
+            f"- **Objetivo Principal**: Estímulo de la Fase de Base Aeróbica acorde a tu plan en Intervals.icu.\n\n"
+            f"**Claves de Ejecución**:\n"
+            f"1. **Progresión de Ritmo**: Inicia siempre de forma muy conservadora durante los primeros 10-15 minutos.\n"
+            f"2. **Foco Técnico**: Prioriza la biomecánica limpia y la economía de movimiento por encima de 'hacer mejores medias'.\n"
+            f"3. **Fisiología**: En esta fase de la temporada, la regularidad y el volumen asimilado son los motores que elevarán tu umbral en los meses de competición.\n\n"
+            f"¿Deseas una pauta específica sobre cómo calentar, los ritmos de cada serie o la hidratación recomendada?"
+        )
 
     def _generate_activity_heuristic_reply(self, query: str, act_ctx: Dict[str, Any]) -> str:
         """Deep exercise physiology analytical engine covering all endurance performance dimensions."""
@@ -661,6 +868,8 @@ Instrucciones para la respuesta en este chat de sesión:
         run_thresh = context.get("run_threshold", "3:40")
         css = context.get("css", "1:29.0")
 
+        key_tip = "\n\n> 💡 *Nota*: Para hacer cualquier pregunta completamente abierta con el modelo de IA conversacional (como ChatGPT o Gemini en la web), puedes activar tu clave gratuita de Google Gemini en **Ajustes** ⚙️."
+
         if any(x in q for x in ["fatiga", "forma", "tsb", "ctl", "atl", "acwr"]):
             return (
                 f"### Estado de Forma y Carga de Entrenamiento (PMC)\n\n"
@@ -669,6 +878,33 @@ Instrucciones para la respuesta en este chat de sesión:
                 f"- **Balance de Estrés (TSB)**: **{tsb}**\n\n"
                 f"**Diagnóstico del Entrenador**:\n"
                 f"En plena Fase de Base Aeróbica, un TSB moderadamente negativo ({tsb}) es el signo inequívoco de que estás generando adaptaciones mitocondriales y vasculares sin comprometer el sistema parasimpático. Tu FC en reposo ({rhr} bpm) y VFC ({hrv} ms) ratifican una asimilación biológica perfecta."
+                f"{key_tip}"
+            )
+        elif any(x in q for x in ["nutricion", "nutrición", "comer", "carbohidrato", "ch", "hidratacion", "hidratación", "sales", "sodio", "gel", "geles"]):
+            return (
+                f"### Estrategia de Nutrición e Hidratación para Triatlón\n\n"
+                f"- **Ingesta en Ciclismo**: **60-90 g/h de carbohidratos** (mezcla glucosa:fructosa 2:1 o 1:0.8) en tiradas superiores a 90 minutos. Esto entrena el sistema gastrointestinal y preserva el glucógeno hepático.\n"
+                f"- **Ingesta en Carrera**: **30-60 g/h** mediante geles hidrosolubles tomados con pequeños sorbos de agua cada 25-30 minutos.\n"
+                f"- **Hidratación y Electrolitos**: **500 - 750 ml/h** de fluido con una concentración de **500 - 800 mg de sodio por litro** según tasa de sudoración y temperatura ambiente.\n"
+                f"- **Recuperación Post-sesión**: 1.0 - 1.2 g de CH/kg + 0.3 g de proteína/kg durante la primera hora tras el entrenamiento."
+                f"{key_tip}"
+            )
+        elif any(x in q for x in ["fuerza", "gimnasio", "pesas", "pesa", "core", "lesion", "lesión", "tendon", "tendón"]):
+            return (
+                f"### Pauta de Fuerza Concurrente en Periodo de Base\n\n"
+                f"- **Frecuencia**: 2 sesiones semanales de 45-50 minutos, enfocadas en fuerza máxima y reclutamiento neural (sin hipertrofia excesiva).\n"
+                f"- **Ejercicios Clave**: Sentadilla trasera/frontal profunda (3-4 series x 4-6 reps @ 80-85% 1RM), Peso muerto rumano para cadena posterior, Hip Thrust y Press Militar unilateral.\n"
+                f"- **Core y Estabilidad**: Planchas dinámicas, Pallof press y paseo del granjero para transferir rigidez lumbo-pélvica a la carrera y al acople en la cabra.\n"
+                f"- **Timing**: Separar al menos 6 horas de cualquier sesión clave de umbral de carrera o series de bici."
+                f"{key_tip}"
+            )
+        elif any(x in q for x in ["natacion", "natación", "nadar", "css", "swolf", "brazada"]):
+            return (
+                f"### Criterios Clave de Natación y CSS\n\n"
+                f"- **Tu CSS Actual**: **{css}/100m** (Velocidad Crítica de Nado).\n"
+                f"- **Trabajo Sub-CSS (Base)**: Series a ritmos entre CSS + 3s y CSS + 5s (ej. 1:32 - 1:34/100m) con descansos cortos (10-15s), buscando estabilizar el SWOLF y mantener la distancia por brazada (DPS).\n"
+                f"- **Trabajo en CSS**: Bloques de 100m y 200m a 1:29/100m con ratio descanso/trabajo 1:4 para elevar la tolerancia al lactato sin perder el agarre en la fase subacuática."
+                f"{key_tip}"
             )
         elif any(x in q for x in ["umbral", "ftp", "ritmo", "css", "lthr", "zonas"]):
             return (
@@ -679,6 +915,7 @@ Instrucciones para la respuesta en este chat de sesión:
                 f"- **Umbral de Lactato FC (LTHR)**: **159 bpm**\n"
                 f"- **FC Máxima**: **183 bpm** | **FC Reposo**: **{rhr} bpm**\n\n"
                 f"Tus zonas de entrenamiento se calculan dinámicamente sobre estas referencias para garantizar que cada tirada estimule exactamente la vía metabólica prescrita."
+                f"{key_tip}"
             )
         elif any(x in q for x in ["desacople", "pw:hr", "pa:hr", "deriva"]):
             return (
@@ -687,11 +924,20 @@ Instrucciones para la respuesta en este chat de sesión:
                 f"- **< 3.5%**: Eficiencia aeróbica óptima (mitocondrias sanas, volemia preservada).\n"
                 f"- **3.5% – 5.0%**: Rango normal para tiradas de volumen en base.\n"
                 f"- **> 5.0%**: Deriva acusada por deshidratación, fatiga neuromuscular o vaciamiento de glucógeno."
+                f"{key_tip}"
+            )
+        elif any(x in q for x in ["sueño", "dormir", "hrv", "vfc", "recuperacion", "recuperación"]):
+            return (
+                f"### Biomarcadores de Recuperación y Sistema Nervioso Autónomo\n\n"
+                f"- **Tu VFC Nocturna**: **{hrv} ms** (Tono parasimpático alto y estable).\n"
+                f"- **FC Reposo**: **{rhr} bpm** (Línea base excelente sin signos de estrés sistémico).\n"
+                f"- **Objetivo de Sueño**: Mínimo 7.5 - 8.5 horas con al menos 20% en fase profunda y 20% en fase REM para optimizar la síntesis de hormona de crecimiento y la regeneración neuromuscular."
+                f"{key_tip}"
             )
         else:
             return (
-                f"### Valoración General del Entrenador Experto\n\n"
-                f"Revisando tus biomarcadores (RHR: **{rhr} bpm**, VFC: **{hrv} ms**, CTL: **{ctl}**, TSB: **{tsb}**):\n\n"
-                f"Te encuentras en una ventana de asimilación óptima para el Periodo de Base Aeróbica. Tu tono parasimpático responde con gran estabilidad y los entrenamientos completados están consolidando tu economía de movimiento.\n\n"
-                f"¿Deseas analizar algún entrenamiento concreto, ajustar la carga de los próximos días o revisar tus ritmos de trabajo?"
+                f"### Consulta con el Entrenador Experto en Triatlón\n\n"
+                f"Revisando tus biomarcadores actuales (RHR: **{rhr} bpm**, VFC: **{hrv} ms**, CTL: **{ctl}**, TSB: **{tsb}**, FTP: **{ftp}W**):\n\n"
+                f"Estás en una fase de excelente asimilación fisiológica. Tu sistema neuromuscular y parasimpático responden con solidez a los estímulos prescritos.\n\n"
+                f"Puedes preguntarme sobre cualquier área técnica: nutrición e hidratación, ritmos y vatios para tus series, planificación de cargas, desacople cardiovascular o ajustes según tu nivel de fatiga.{key_tip}"
             )
