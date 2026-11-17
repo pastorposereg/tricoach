@@ -323,6 +323,7 @@ class IntervalsService:
                         "planned_load": ev.get("icu_training_load") or 0,
                         "description": ev.get("description", ""),
                         "target_zones": self._extract_target_zones(ev),
+                        "workout_doc": ev.get("workout_doc"),
                     })
                 return planned
         except Exception as e:

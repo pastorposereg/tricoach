@@ -1538,6 +1538,539 @@ function closeActivityModal() {
   if (modal) modal.classList.add('hidden');
 }
 
+// ==========================================
+// Intervals.icu Planned Workout Chart Engine
+// ==========================================
+const INTERVALS_COLORS = {
+  1: '#009e80', // Z1 Recuperación Activa / Aeróbico Ligero (Teal)
+  2: '#009e00', // Z2 Fondo Aeróbico / Resistencia (Green)
+  3: '#ffcb0e', // Z3 Tempo / Ritmo Medio (Yellow)
+  4: '#ff7f0e', // Z4 Umbral Anaeróbico / Threshold (Orange)
+  5: '#dd0447', // Z5 VO2 Máx (Crimson)
+  6: '#6633cc', // Z6 Capacidad Anaeróbica (Purple)
+  7: '#504861', // Z7 Neuromuscular / Sprint (Deep Violet)
+  'SS': '#ffa00e', // Sweet Spot
+  'max': '#e11d48', // Máximo Esfuerzo (Bright Magenta-Red)
+  'rest': '#334155'  // Recuperación / Pausa (Slate)
+};
+
+const INTERVALS_ZONE_NAMES = {
+  1: 'Z1 Recuperación Activa',
+  2: 'Z2 Fondo Aeróbico',
+  3: 'Z3 Tempo',
+  4: 'Z4 Umbral (Threshold)',
+  5: 'Z5 VO2 Máx',
+  6: 'Z6 Capacidad Anaeróbica',
+  7: 'Z7 Neuromuscular / Sprint',
+  'SS': 'Sweet Spot',
+  'max': 'Máximo Esfuerzo (All-Out)',
+  'rest': 'Pausa / Descanso'
+};
+
+function formatSecsToMinSec(seconds) {
+  if (!seconds || seconds <= 0) return '0s';
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  if (m === 0) return `${s}s`;
+  if (s === 0) return `${m} min`;
+  return `${m}m ${s < 10 ? '0' : ''}${s}s`;
+}
+
+function flattenWorkoutSteps(rawSteps, sportType, athleteFtp) {
+  const blocks = [];
+  const ftp = athleteFtp || (state.athleteStatus?.thresholds?.ftp || 348);
+
+  function processStep(step, repInfo = null) {
+    if (step.reps && step.steps && Array.isArray(step.steps)) {
+      const reps = Number(step.reps) || 1;
+      const repLabel = step.text || `${reps}x`;
+      for (let r = 0; r < reps; r++) {
+        for (const sub of step.steps) {
+          processStep(sub, {
+            repIndex: r + 1,
+            repTotal: reps,
+            groupLabel: repLabel
+          });
+        }
+      }
+      return;
+    }
+
+    const dur = step.duration || 0;
+    const dist = step.distance || 0;
+    const isMax = Boolean(step.maxeffort);
+    const pwr = step.power || null;
+    const pace = step.pace || null;
+    const hr = step.hr || null;
+
+    let zone = 2;
+    let color = INTERVALS_COLORS[2];
+    let zoneName = INTERVALS_ZONE_NAMES[2];
+    let label = '';
+    let shortLabel = '';
+    let isRamp = false;
+    let heightStart = 60;
+    let heightEnd = 60;
+    let isRest = false;
+
+    if (dur > 0 && dist === 0 && !pwr && !pace && !hr && !isMax) {
+      isRest = true;
+      zone = 'rest';
+      color = INTERVALS_COLORS.rest;
+      zoneName = INTERVALS_ZONE_NAMES.rest;
+      label = `Descanso ${dur}s`;
+      shortLabel = `${dur}s ⏸`;
+      heightStart = 14;
+      heightEnd = 14;
+    } else if (isMax) {
+      zone = 'max';
+      color = INTERVALS_COLORS.max;
+      zoneName = INTERVALS_ZONE_NAMES.max;
+      label = dist > 0 ? `${dist}m Máximo Esfuerzo (All-Out)` : `Máximo Esfuerzo (${dur}s)`;
+      shortLabel = dist > 0 ? `${dist}m MAX` : 'MAX';
+      heightStart = 140;
+      heightEnd = 140;
+    } else if (pwr) {
+      const units = pwr.units || '';
+      if (units === 'power_zone') {
+        zone = Math.min(7, Math.max(1, pwr.value || 2));
+        color = INTERVALS_COLORS[zone] || INTERVALS_COLORS[2];
+        zoneName = INTERVALS_ZONE_NAMES[zone];
+        const hMap = { 1: 38, 2: 60, 3: 78, 4: 92, 5: 110, 6: 128, 7: 140 };
+        heightStart = hMap[zone] || 60;
+        heightEnd = heightStart;
+        label = `Zona ${zone} (${dur > 0 ? formatSecsToMinSec(dur) : ''})`;
+        shortLabel = `Z${zone}`;
+      } else if (units === '%ftp') {
+        const startP = pwr.start !== undefined ? pwr.start : (pwr.value || 70);
+        const endP = pwr.end !== undefined ? pwr.end : startP;
+        const startW = Math.round(ftp * (startP / 100));
+        const endW = Math.round(ftp * (endP / 100));
+
+        // 100% FTP corresponds to height 92px
+        heightStart = Math.min(142, Math.max(14, Math.round((startP / 100) * 92)));
+        heightEnd = Math.min(142, Math.max(14, Math.round((endP / 100) * 92)));
+
+        const avgP = (startP + endP) / 2;
+        zone = avgP < 56 ? 1 : (avgP < 76 ? 2 : (avgP < 91 ? 3 : (avgP < 106 ? 4 : (avgP < 121 ? 5 : (avgP < 151 ? 6 : 7)))));
+        color = INTERVALS_COLORS[zone] || INTERVALS_COLORS[2];
+        zoneName = INTERVALS_ZONE_NAMES[zone];
+
+        if (startP !== endP) {
+          isRamp = true;
+          label = `Rampa: ${startW}W - ${endW}W (${startP}% - ${endP}% FTP)`;
+          shortLabel = `${startW}-${endW}W`;
+        } else {
+          label = `${startW}W (${startP}% FTP)`;
+          shortLabel = `${startW}W`;
+        }
+      }
+    } else if (pace) {
+      const units = pace.units || '';
+      if (units === 'pace_zone') {
+        zone = Math.min(7, Math.max(1, pace.value || 2));
+        color = INTERVALS_COLORS[zone] || INTERVALS_COLORS[2];
+        zoneName = INTERVALS_ZONE_NAMES[zone];
+        const hMap = { 1: 38, 2: 60, 3: 78, 4: 92, 5: 110, 6: 128, 7: 140 };
+        heightStart = hMap[zone] || 60;
+        heightEnd = heightStart;
+        label = `Zona ${zone} Ritmo`;
+        shortLabel = `Z${zone}`;
+      }
+    } else if (hr) {
+      const units = hr.units || '';
+      if (units === 'hr_zone') {
+        zone = Math.min(7, Math.max(1, hr.value || 2));
+        color = INTERVALS_COLORS[zone] || INTERVALS_COLORS[2];
+        zoneName = INTERVALS_ZONE_NAMES[zone];
+        const hMap = { 1: 38, 2: 60, 3: 78, 4: 92, 5: 110, 6: 128, 7: 140 };
+        heightStart = hMap[zone] || 60;
+        heightEnd = heightStart;
+        label = `Zona ${zone} Pulso`;
+        shortLabel = `Z${zone} FC`;
+      }
+    } else if (dist > 0) {
+      zone = 2;
+      color = INTERVALS_COLORS[2];
+      zoneName = INTERVALS_ZONE_NAMES[2];
+      heightStart = 60;
+      heightEnd = 60;
+      label = `${dist}m Ritmo aeróbico`;
+      shortLabel = `${dist}m`;
+    } else {
+      zone = 2;
+      color = INTERVALS_COLORS[2];
+      zoneName = INTERVALS_ZONE_NAMES[2];
+      heightStart = 60;
+      heightEnd = 60;
+      label = dur > 0 ? `${formatSecsToMinSec(dur)}` : 'Intervalo';
+      shortLabel = dur > 0 ? `${Math.round(dur/60)}'` : '';
+    }
+
+    blocks.push({
+      duration: dur > 0 ? dur : (dist > 0 ? dist * 1.5 : 60),
+      distance: dist,
+      zone,
+      color,
+      zoneName,
+      label,
+      shortLabel,
+      isRamp,
+      heightStart,
+      heightEnd,
+      isRest,
+      isMax,
+      repInfo
+    });
+  }
+
+  for (const s of rawSteps) {
+    processStep(s);
+  }
+
+  return blocks;
+}
+
+function parseDescriptionWorkoutSteps(desc, name, sportType, plannedDurSec, targetZones) {
+  if (targetZones && typeof targetZones === 'object') {
+    const blocks = [];
+    const zMap = { Z1: 1, Z2: 2, Z3: 3, Z4: 4, Z5: 5, Z6: 6, Z7: 7 };
+    for (const [zKey, secs] of Object.entries(targetZones)) {
+      if (secs > 0) {
+        const zNum = zMap[zKey] || 2;
+        const hMap = { 1: 38, 2: 60, 3: 78, 4: 92, 5: 110, 6: 128, 7: 140 };
+        blocks.push({
+          duration: secs,
+          distance: 0,
+          zone: zNum,
+          color: INTERVALS_COLORS[zNum] || INTERVALS_COLORS[2],
+          zoneName: INTERVALS_ZONE_NAMES[zNum] || zKey,
+          label: `${zKey} (${Math.round(secs/60)} min)`,
+          shortLabel: `${Math.round(secs/60)}' ${zKey}`,
+          isRamp: false,
+          heightStart: hMap[zNum] || 60,
+          heightEnd: hMap[zNum] || 60,
+          isRest: false,
+          isMax: false,
+          repInfo: null
+        });
+      }
+    }
+    if (blocks.length > 0) return blocks;
+  }
+
+  const fullText = `${name || ''} ${desc || ''}`;
+  const regex = /(\d+)\s*(?:'|min|m)\s*(?:en\s*)?(z[1-7]|umbral|tempo|suave|fuerte)/gi;
+  let match;
+  const parsedBlocks = [];
+  while ((match = regex.exec(fullText)) !== null) {
+    const mins = parseInt(match[1], 10);
+    const zStr = match[2].toLowerCase();
+    let zNum = 2;
+    if (zStr.includes('z1') || zStr.includes('suave')) zNum = 1;
+    else if (zStr.includes('z2')) zNum = 2;
+    else if (zStr.includes('z3') || zStr.includes('tempo')) zNum = 3;
+    else if (zStr.includes('z4') || zStr.includes('umbral')) zNum = 4;
+    else if (zStr.includes('z5') || zStr.includes('fuerte')) zNum = 5;
+    else if (zStr.includes('z6')) zNum = 6;
+    else if (zStr.includes('z7')) zNum = 7;
+
+    const hMap = { 1: 38, 2: 60, 3: 78, 4: 92, 5: 110, 6: 128, 7: 140 };
+    parsedBlocks.push({
+      duration: mins * 60,
+      distance: 0,
+      zone: zNum,
+      color: INTERVALS_COLORS[zNum] || INTERVALS_COLORS[2],
+      zoneName: INTERVALS_ZONE_NAMES[zNum] || `Z${zNum}`,
+      label: `Zona ${zNum} (${mins} min)`,
+      shortLabel: `${mins}' Z${zNum}`,
+      isRamp: false,
+      heightStart: hMap[zNum] || 60,
+      heightEnd: hMap[zNum] || 60,
+      isRest: false,
+      isMax: false,
+      repInfo: null
+    });
+  }
+
+  if (parsedBlocks.length > 0) return parsedBlocks;
+
+  const total = plannedDurSec > 0 ? plannedDurSec : 3600;
+  const wu = Math.round(total * 0.2);
+  const main = Math.round(total * 0.65);
+  const cd = total - wu - main;
+
+  return [
+    {
+      duration: wu,
+      distance: 0,
+      zone: 1,
+      color: INTERVALS_COLORS[1],
+      zoneName: INTERVALS_ZONE_NAMES[1],
+      label: `Calentamiento (${Math.round(wu/60)} min)`,
+      shortLabel: `${Math.round(wu/60)}' Z1`,
+      isRamp: false,
+      heightStart: 38,
+      heightEnd: 38,
+      isRest: false,
+      isMax: false,
+      repInfo: null
+    },
+    {
+      duration: main,
+      distance: 0,
+      zone: 2,
+      color: INTERVALS_COLORS[2],
+      zoneName: INTERVALS_ZONE_NAMES[2],
+      label: `Parte Principal Aeróbica (${Math.round(main/60)} min)`,
+      shortLabel: `${Math.round(main/60)}' Z2`,
+      isRamp: false,
+      heightStart: 60,
+      heightEnd: 60,
+      isRest: false,
+      isMax: false,
+      repInfo: null
+    },
+    {
+      duration: cd,
+      distance: 0,
+      zone: 1,
+      color: INTERVALS_COLORS[1],
+      zoneName: INTERVALS_ZONE_NAMES[1],
+      label: `Enfriamiento / Vuelta a la Calma (${Math.round(cd/60)} min)`,
+      shortLabel: `${Math.round(cd/60)}' Z1`,
+      isRamp: false,
+      heightStart: 38,
+      heightEnd: 38,
+      isRest: false,
+      isMax: false,
+      repInfo: null
+    }
+  ];
+}
+
+function renderPlannedWorkoutChart(ev) {
+  const sport = ev.sport_type || 'other';
+  const isNote = ev.is_note || ev.category === 'NOTE';
+  const wdoc = ev.workout_doc || {};
+  const rawSteps = wdoc.steps || [];
+
+  let blocks = [];
+  if (rawSteps.length > 0) {
+    blocks = flattenWorkoutSteps(rawSteps, sport, state.athleteStatus?.thresholds?.ftp || 348);
+  } else if (!isNote && (sport === 'cycling' || sport === 'running' || sport === 'swimming')) {
+    blocks = parseDescriptionWorkoutSteps(ev.description, ev.name, sport, ev.planned_duration_seconds, ev.target_zones);
+  }
+
+  if (blocks.length === 0) return '';
+
+  const totalDuration = blocks.reduce((sum, b) => sum + (b.duration || 60), 0);
+  const totalDist = wdoc.distance || ev.planned_distance_meters || 0;
+
+  const svgWidth = 1000;
+  const svgHeight = 160;
+  const baselineY = 138;
+  const threshY = baselineY - 92;
+
+  let currentX = 0;
+  const stepElements = [];
+
+  blocks.forEach((b, idx) => {
+    const blockW = (b.duration / totalDuration) * svgWidth;
+    const x = currentX;
+    currentX += blockW;
+
+    const tipTitle = b.repInfo ? `${b.repInfo.groupLabel} (${b.repInfo.repIndex}/${b.repInfo.repTotal})` : `Intervalo #${idx + 1}`;
+    const tipExtra = b.distance > 0 ? `${b.distance}m` : (b.label || '');
+
+    if (b.isRamp) {
+      const y1 = baselineY - b.heightStart;
+      const y2 = baselineY - b.heightEnd;
+      const pts = `${x.toFixed(1)},${baselineY} ${x.toFixed(1)},${y1.toFixed(1)} ${(x + blockW).toFixed(1)},${y2.toFixed(1)} ${(x + blockW).toFixed(1)},${baselineY}`;
+      stepElements.push(`
+        <polygon points="${pts}" fill="${b.color}" fill-opacity="0.9" stroke="#0f172a" stroke-width="1"
+          class="transition-opacity hover:opacity-100 cursor-pointer"
+          onmouseenter="window.showWorkoutStepTip(event, '${tipTitle}', '${b.zoneName}', '${formatSecsToMinSec(b.duration)}', '${tipExtra}', '${b.color}')"
+          onmouseleave="window.hideWorkoutStepTip()" />
+      `);
+    } else {
+      const y = baselineY - b.heightStart;
+      const h = b.heightStart;
+      stepElements.push(`
+        <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1, blockW).toFixed(1)}" height="${h.toFixed(1)}"
+          fill="${b.color}" fill-opacity="0.9" stroke="#0f172a" stroke-width="1" rx="1.5"
+          class="transition-opacity hover:opacity-100 cursor-pointer"
+          onmouseenter="window.showWorkoutStepTip(event, '${tipTitle}', '${b.zoneName}', '${formatSecsToMinSec(b.duration)}', '${tipExtra}', '${b.color}')"
+          onmouseleave="window.hideWorkoutStepTip()" />
+      `);
+    }
+
+    if (blockW > 38 && b.shortLabel) {
+      const midX = x + blockW / 2;
+      const textY = Math.min(baselineY - 6, (baselineY - Math.max(b.heightStart, b.heightEnd)) + 14);
+      stepElements.push(`
+        <text x="${midX.toFixed(1)}" y="${textY.toFixed(1)}" text-anchor="middle" fill="#ffffff" font-size="9.5" font-weight="bold" font-family="monospace" pointer-events="none" opacity="0.95">${b.shortLabel}</text>
+      `);
+    }
+  });
+
+  const zoneTimesRaw = wdoc.zoneTimes || [];
+  const hasRawZT = zoneTimesRaw.some(zt => (zt.secs || 0) > 0);
+  let ribbonSegments = [];
+  let legendPills = [];
+
+  if (hasRawZT) {
+    const activeTotal = zoneTimesRaw.reduce((acc, zt) => acc + (zt.secs || 0), 0) || totalDuration;
+    zoneTimesRaw.filter(zt => (zt.secs || 0) > 0).forEach(zt => {
+      const pct = Math.round((zt.secs / activeTotal) * 100);
+      const color = zt.color || INTERVALS_COLORS[zt.zone || 2] || '#009e00';
+      const name = zt.name || zt.id;
+      const mins = Math.round(zt.secs / 60);
+      const wattsRange = (zt.minWatts && zt.maxWatts && zt.maxWatts < 9000) ? `${zt.minWatts}-${zt.maxWatts}W` : (zt.percentRange || '');
+
+      ribbonSegments.push(`
+        <div style="width: ${(zt.secs / activeTotal * 100).toFixed(1)}%; background-color: ${color};" class="h-3 relative group transition-transform hover:scale-y-125" title="${name}: ${mins}m (${pct}%)"></div>
+      `);
+
+      legendPills.push(`
+        <div class="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900 border border-slate-800 text-[11px] font-mono">
+          <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background-color: ${color};"></span>
+          <span class="font-bold text-slate-200">${name}</span>
+          <span class="text-slate-400">${mins}m <span class="text-slate-500">(${pct}%)</span></span>
+          ${wattsRange ? `<span class="text-slate-500 text-[10px] hidden sm:inline pl-1 border-l border-slate-800">${wattsRange}</span>` : ''}
+        </div>
+      `);
+    });
+  } else {
+    const zAgg = {};
+    let activeTotal = 0;
+    blocks.forEach(b => {
+      if (b.isRest) return;
+      const key = b.isMax ? 'MAX' : `Z${b.zone || 2}`;
+      if (!zAgg[key]) {
+        zAgg[key] = { name: b.zoneName || key, color: b.color, secs: 0 };
+      }
+      zAgg[key].secs += b.duration;
+      activeTotal += b.duration;
+    });
+
+    Object.values(zAgg).forEach(item => {
+      const pct = Math.round((item.secs / (activeTotal || 1)) * 100);
+      const mins = Math.round(item.secs / 60);
+      ribbonSegments.push(`
+        <div style="width: ${(item.secs / (activeTotal || 1) * 100).toFixed(1)}%; background-color: ${item.color};" class="h-3 relative group transition-transform hover:scale-y-125" title="${item.name}: ${mins}m (${pct}%)"></div>
+      `);
+      legendPills.push(`
+        <div class="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900 border border-slate-800 text-[11px] font-mono">
+          <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background-color: ${item.color};"></span>
+          <span class="font-bold text-slate-200">${item.name}</span>
+          <span class="text-slate-400">${mins}m <span class="text-slate-500">(${pct}%)</span></span>
+        </div>
+      `);
+    });
+  }
+
+  return `
+    <div class="mt-4 p-4 rounded-xl bg-slate-900/90 border border-slate-800 shadow-xl">
+      <!-- Chart Header & Metrics -->
+      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800/80 flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold text-sm">
+            📊
+          </div>
+          <div>
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
+              Estructura Planificada Intervals.icu
+              <span class="text-[10px] px-2 py-0.5 rounded font-mono font-normal bg-sky-500/10 text-sky-400 border border-sky-500/20">Zonas & Perfil</span>
+            </h4>
+            <p class="text-[10px] text-slate-400">Desglose secuencial de pasos, zonas de intensidad y umbral.</p>
+          </div>
+        </div>
+        
+        <div class="flex items-center gap-1.5 flex-wrap">
+          ${wdoc.normalized_power ? `<span class="px-2 py-0.5 rounded text-[11px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/20" title="Potencia Normalizada Prevista">NP: ${Math.round(wdoc.normalized_power)}W</span>` : ''}
+          ${wdoc.average_watts ? `<span class="px-2 py-0.5 rounded text-[11px] font-mono bg-slate-800 text-slate-300 border border-slate-700" title="Potencia Media Prevista">P.Med: ${Math.round(wdoc.average_watts)}W</span>` : ''}
+          ${wdoc.variability_index ? `<span class="px-2 py-0.5 rounded text-[11px] font-mono bg-purple-500/10 text-purple-300 border border-purple-500/20" title="Índice de Variabilidad">VI: ${wdoc.variability_index.toFixed(2)}</span>` : ''}
+          ${ev.planned_load ? `<span class="px-2 py-0.5 rounded text-[11px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">${ev.planned_load} TSS</span>` : ''}
+        </div>
+      </div>
+
+      <!-- SVG Stepped Chart -->
+      <div class="relative bg-slate-950/90 p-3 rounded-lg border border-slate-800/90 overflow-hidden">
+        <svg viewBox="0 0 ${svgWidth} ${svgHeight}" class="w-full h-40 sm:h-48 overflow-visible select-none" preserveAspectRatio="none">
+          <!-- Grid lines -->
+          <line x1="0" y1="${threshY}" x2="${svgWidth}" y2="${threshY}" stroke="#f59e0b" stroke-dasharray="3,3" stroke-width="1.2" opacity="0.6" />
+          <text x="${svgWidth - 6}" y="${threshY - 4}" text-anchor="end" fill="#f59e0b" font-size="9" font-family="monospace" opacity="0.85">100% Umbral / FTP</text>
+
+          <line x1="0" y1="${baselineY - 46}" x2="${svgWidth}" y2="${baselineY - 46}" stroke="#475569" stroke-dasharray="2,4" stroke-width="0.8" opacity="0.3" />
+          <text x="${svgWidth - 6}" y="${baselineY - 50}" text-anchor="end" fill="#64748b" font-size="8.5" font-family="monospace" opacity="0.5">50%</text>
+
+          <!-- Baseline ground -->
+          <line x1="0" y1="${baselineY}" x2="${svgWidth}" y2="${baselineY}" stroke="#334155" stroke-width="1.2" />
+
+          <!-- Step blocks -->
+          ${stepElements.join('')}
+
+          <!-- Time axis labels -->
+          <text x="4" y="${svgHeight - 4}" fill="#64748b" font-size="9.5" font-family="monospace">0:00</text>
+          <text x="${svgWidth / 2}" y="${svgHeight - 4}" text-anchor="middle" fill="#64748b" font-size="9.5" font-family="monospace">${formatSecsToMinSec(Math.round(totalDuration / 2))}</text>
+          <text x="${svgWidth - 4}" y="${svgHeight - 4}" text-anchor="end" fill="#64748b" font-size="9.5" font-family="monospace">${formatSecsToMinSec(totalDuration)} ${totalDist > 0 ? `• ${(totalDist >= 1000 && sport !== 'swimming') ? (totalDist/1000).toFixed(1)+'km' : Math.round(totalDist)+'m'}` : ''}</text>
+        </svg>
+      </div>
+
+      <!-- Zone Distribution Ribbon -->
+      <div class="mt-3.5 pt-3 border-t border-slate-800/80">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Distribución de Tiempo en Zonas (Intervals.icu)</span>
+          <span class="text-[10px] font-mono text-slate-500">${formatSecsToMinSec(totalDuration)} total</span>
+        </div>
+
+        <!-- Ribbon Bar -->
+        <div class="w-full flex rounded-full overflow-hidden bg-slate-950 border border-slate-800 mb-2.5">
+          ${ribbonSegments.join('')}
+        </div>
+
+        <!-- Legend Pills -->
+        <div class="flex flex-wrap gap-1.5">
+          ${legendPills.join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Tooltip handlers
+window.showWorkoutStepTip = function(e, title, zoneStr, durStr, extraStr, colorHex) {
+  let tip = document.getElementById('planned-workout-tooltip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'planned-workout-tooltip';
+    tip.className = 'fixed pointer-events-none z-[9999] hidden px-3 py-2 rounded-lg bg-slate-950/95 border border-slate-700 shadow-2xl text-xs backdrop-blur-md';
+    document.body.appendChild(tip);
+  }
+  tip.innerHTML = `
+    <div class="flex items-center gap-1.5 mb-1">
+      <span class="w-2.5 h-2.5 rounded-full inline-block" style="background-color: ${colorHex || '#009e00'};"></span>
+      <span class="font-bold text-slate-100">${title}</span>
+    </div>
+    <div class="font-mono text-[11px] text-slate-300 space-y-0.5">
+      <div><span class="text-slate-500">Zona:</span> <span class="font-semibold text-slate-200">${zoneStr}</span></div>
+      <div><span class="text-slate-500">Duración:</span> <span class="font-semibold text-amber-400">${durStr}</span></div>
+      ${extraStr ? `<div><span class="text-slate-500">Objetivo:</span> <span class="font-semibold text-sky-400">${extraStr}</span></div>` : ''}
+    </div>
+  `;
+  tip.classList.remove('hidden');
+  const x = Math.min(window.innerWidth - 220, e.clientX + 12);
+  const y = Math.max(10, e.clientY - 70);
+  tip.style.left = `${x}px`;
+  tip.style.top = `${y}px`;
+};
+
+window.hideWorkoutStepTip = function() {
+  const tip = document.getElementById('planned-workout-tooltip');
+  if (tip) tip.classList.add('hidden');
+};
+
 // Planned Workout Modal (Intervals.icu)
 async function openPlannedModal(eventId) {
   const modal = document.getElementById('planned-modal');
@@ -1584,6 +2117,8 @@ async function openPlannedModal(eventId) {
 function renderPlannedModalContent(ev) {
   const content = document.getElementById('planned-modal-content');
   if (!content) return;
+
+  const existingChatHtml = document.getElementById('planned-chat-messages')?.innerHTML;
 
   const sportIcon = getSportIcon(ev.sport_type);
   const durMins = Math.round((ev.planned_duration_seconds || 0) / 60);
@@ -1639,6 +2174,8 @@ function renderPlannedModalContent(ev) {
     }
   }
 
+  const chartHtml = renderPlannedWorkoutChart(ev);
+
   content.innerHTML = `
     <!-- Header -->
     <div class="flex items-start justify-between pb-4 mb-4 border-b border-slate-800">
@@ -1688,8 +2225,11 @@ function renderPlannedModalContent(ev) {
 ${descHtml}
       </div>
 
-      ${zonesHtml}
+      ${chartHtml ? '' : zonesHtml}
     </div>
+
+    <!-- Intervals.icu Planned Workout Stepped Chart & Zones -->
+    ${chartHtml}
 
     <!-- Interactive Planned Workout Chatbot -->
     <div class="p-4 sm:p-5 rounded-xl bg-slate-900/90 border border-slate-800 shadow-xl mt-5">
