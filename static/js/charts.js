@@ -6,6 +6,35 @@
 let pmcChartInstance = null;
 let workoutSplitsChartInstance = null;
 
+/**
+ * Helper to determine TSB zone classification, name and color.
+ * Follows Joe Friel / TrainingPeaks / Intervals.icu standards:
+ * - < -30: Fatiga Crítica / Alto Riesgo (Rose/Red #f43f5e)
+ * - -30 a -10: Sobrecarga Productiva (Amber #f59e0b)
+ * - -10 a +10: Neutro / Mantenimiento (Slate #94a3b8)
+ * - +10 a +25: Pico de Forma / Frescura (Emerald #10b981)
+ * - > +25: Transición / Desentrenamiento (Purple #a855f7)
+ */
+function getTSBZone(val) {
+  if (val === null || val === undefined || isNaN(val)) {
+    return { name: 'Desconocido', color: '#94a3b8', bgClass: 'bg-slate-400', textClass: 'text-slate-600' };
+  }
+  if (val < -30) {
+    return { name: 'Fatiga Crítica', color: '#f43f5e', bgClass: 'bg-rose-500', textClass: 'text-rose-600' };
+  }
+  if (val < -10) {
+    return { name: 'Sobrecarga Productiva', color: '#f59e0b', bgClass: 'bg-amber-500', textClass: 'text-amber-600' };
+  }
+  if (val <= 10) {
+    return { name: 'Neutro', color: '#94a3b8', bgClass: 'bg-slate-400', textClass: 'text-slate-600' };
+  }
+  if (val <= 25) {
+    return { name: 'Pico de Forma', color: '#10b981', bgClass: 'bg-emerald-500', textClass: 'text-emerald-600' };
+  }
+  return { name: 'Transición', color: '#a855f7', bgClass: 'bg-purple-500', textClass: 'text-purple-600' };
+}
+window.getTSBZone = getTSBZone;
+
 function renderPMCChart(canvasId, seriesData) {
   const ctx = document.getElementById(canvasId);
   if (!ctx) return;
@@ -51,13 +80,34 @@ function renderPMCChart(canvasId, seriesData) {
         {
           label: 'Frescura / Balance (TSB)',
           data: tsbValues,
-          borderColor: '#f59e0b', // TrainingPeaks Amber/Gold Form
-          borderWidth: 2,
-          borderDash: [4, 3],
-          pointRadius: 0,
-          pointHoverRadius: 5,
-          tension: 0.2,
-          yAxisID: 'y1'
+          borderColor: '#f59e0b', // Fallback base color
+          borderWidth: 2.5,
+          pointRadius: seriesData.length > 90 ? 0 : 2,
+          pointHoverRadius: 6,
+          pointBackgroundColor: function(context) {
+            const val = context.raw;
+            return getTSBZone(val).color;
+          },
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          tension: 0.25,
+          yAxisID: 'y1',
+          segment: {
+            borderColor: function(ctx) {
+              if (!ctx.p0 || !ctx.p1) return '#94a3b8';
+              const v0 = ctx.p0.parsed.y;
+              const v1 = ctx.p1.parsed.y;
+              const c0 = getTSBZone(v0).color;
+              const c1 = getTSBZone(v1).color;
+              if (c0 === c1) return c0;
+
+              const chartCtx = ctx.chart.ctx;
+              const gradient = chartCtx.createLinearGradient(ctx.p0.x, ctx.p0.y, ctx.p1.x, ctx.p1.y);
+              gradient.addColorStop(0, c0);
+              gradient.addColorStop(1, c1);
+              return gradient;
+            }
+          }
         }
       ]
     },
@@ -91,6 +141,11 @@ function renderPMCChart(canvasId, seriesData) {
             label: function(context) {
               const label = context.dataset.label || '';
               const val = context.parsed.y;
+              if (context.datasetIndex === 2) {
+                const zone = getTSBZone(val);
+                const sign = val > 0 ? '+' : '';
+                return `${label}: ${sign}${val} (${zone.name})`;
+              }
               return `${label}: ${val}`;
             }
           }
@@ -118,7 +173,18 @@ function renderPMCChart(canvasId, seriesData) {
         },
         y1: {
           position: 'right',
-          grid: { drawOnChartArea: false },
+          grid: {
+            drawOnChartArea: true,
+            color: function(context) {
+              if (context.tick && context.tick.value === 0) {
+                return 'rgba(100, 116, 139, 0.4)';
+              }
+              return 'rgba(0, 0, 0, 0.03)';
+            },
+            lineWidth: function(context) {
+              return (context.tick && context.tick.value === 0) ? 1.5 : 1;
+            }
+          },
           title: {
             display: true,
             text: 'TSB (Balance)',

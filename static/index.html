@@ -43,7 +43,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 
   <!-- Custom CSS (TrainingPeaks Light Aesthetic) -->
-  <link rel="stylesheet" href="/static/css/app.css?v=12">
+  <link rel="stylesheet" href="/static/css/app.css?v=13">
 </head>
 <body class="bg-[#f0f3f8] text-slate-800 min-h-screen flex flex-col antialiased selection:bg-[#0284c7] selection:text-white">
 
@@ -241,9 +241,10 @@
         <!-- Zones Legend -->
         <div class="mt-4 pt-3 border-t border-slate-200 flex flex-wrap items-center gap-4 text-xs text-slate-600">
           <span class="font-semibold text-slate-700">Zonas TSB:</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span> Transición (&gt; +25)</span>
           <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Pico de Forma (+10 a +25)</span>
-          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span> Neutro / Transición (-10 a +10)</span>
-          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Sobrecarga Productiva (-10 a -30)</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span> Neutro / Mantenimiento (-10 a +10)</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Sobrecarga Productiva (-30 a -10)</span>
           <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Fatiga Crítica (&lt; -30)</span>
         </div>
       </div>
@@ -640,7 +641,7 @@
   </nav>
 
   <!-- Application Logic Scripts -->
-  <script src="/static/js/charts.js?v=12"></script>
-  <script src="/static/js/app.js?v=12"></script>
+  <script src="/static/js/charts.js?v=13"></script>
+  <script src="/static/js/app.js?v=13"></script>
 </body>
 </html>

@@ -2723,8 +2723,16 @@ async function loadPMC(days, forceRefresh = false) {
     document.getElementById('pmc-atl-val').textContent = data.current_atl;
     const tsbEl = document.getElementById('pmc-tsb-val');
     if (tsbEl) {
-      tsbEl.textContent = data.current_tsb;
-      tsbEl.className = data.current_tsb >= 0 ? 'text-2xl font-bold font-mono text-emerald-400' : 'text-2xl font-bold font-mono text-amber-400';
+      const sign = data.current_tsb > 0 ? '+' : '';
+      tsbEl.textContent = sign + data.current_tsb;
+      const zone = window.getTSBZone ? window.getTSBZone(data.current_tsb) : null;
+      if (zone) {
+        tsbEl.style.color = zone.color;
+        tsbEl.className = 'text-2xl font-bold font-mono';
+        tsbEl.title = `Zona TSB: ${zone.name}`;
+      } else {
+        tsbEl.className = data.current_tsb >= 0 ? 'text-2xl font-bold font-mono text-emerald-600' : 'text-2xl font-bold font-mono text-amber-600';
+      }
     }
     document.getElementById('pmc-acwr-val').textContent = data.acwr;
 
