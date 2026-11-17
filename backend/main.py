@@ -5,6 +5,7 @@ FastAPI Application serving REST endpoints and responsive web frontend.
 from __future__ import annotations
 
 import logging
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from fastapi import FastAPI, HTTPException, Query, Body
@@ -42,6 +43,21 @@ app.add_middleware(
 # Shared Manager
 config = load_config()
 dm = DataManager(config)
+
+
+@app.on_event("startup")
+def warm_cache_on_startup():
+    """Warms the week and PMC cache in background for sub-second page loads."""
+    def _warm():
+        try:
+            logger.info("Warming cache for week and PMC in background...")
+            dm.get_week_view(0)
+            dm.get_pmc_data(90)
+            logger.info("Cache warmed successfully.")
+        except Exception as e:
+            logger.warning(f"Error warming cache on startup: {e}")
+
+    threading.Thread(target=_warm, daemon=True).start()
 
 
 # --- Request Models ---
@@ -227,10 +243,13 @@ def intervals_test(payload: Optional[IntervalsAuthRequest] = None) -> Dict[str, 
 
 
 @app.get("/api/week")
-def get_week(offset: int = Query(0, description="Week offset from current (0 = this week, -1 = previous, 1 = next)")):
+def get_week(
+    offset: int = Query(0, description="Week offset from current (0 = this week, -1 = previous, 1 = next)"),
+    refresh: bool = Query(False, description="Force fresh fetch from external APIs")
+):
     """Returns calendar and zone comparison data for the requested week."""
     try:
-        return dm.get_week_view(offset_weeks=offset)
+        return dm.get_week_view(offset_weeks=offset, force_refresh=refresh)
     except Exception as e:
         logger.error(f"Error getting week view: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -392,10 +411,13 @@ def chat_activity_coach(activity_id: str, payload: ChatRequest):
 
 
 @app.get("/api/pmc")
-def get_pmc(days: int = Query(90, description="Range in days for the PMC curve")):
+def get_pmc(
+    days: int = Query(90, description="Range in days for the PMC curve"),
+    refresh: bool = Query(False, description="Force fresh fetch from external APIs")
+):
     """Returns PMC (CTL, ATL, TSB) and wellness data."""
     try:
-        return dm.get_pmc_data(range_days=days)
+        return dm.get_pmc_data(range_days=days, force_refresh=refresh)
     except Exception as e:
         logger.error(f"Error getting PMC: {e}")
         raise HTTPException(status_code=500, detail=str(e))

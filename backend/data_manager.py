@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -37,6 +38,14 @@ class DataManager:
         self.intervals = IntervalsService(self.config)
         self.coach = AICoachService(self.config.gemini_api_key)
         self._activity_cache: Dict[str, Dict[str, Any]] = {}
+        self._week_cache: Dict[int, Tuple[float, Dict[str, Any]]] = {}
+        self._pmc_cache: Dict[int, Tuple[float, Dict[str, Any]]] = {}
+        self._cache_ttl: float = 300.0  # 5 minutes in-memory cache
+
+    def clear_cache(self):
+        self._week_cache.clear()
+        self._pmc_cache.clear()
+        self._activity_cache.clear()
 
     def get_week_range(self, offset_weeks: int = 0, anchor_date: Optional[str] = None) -> Tuple[date, date, str]:
         """Returns (monday, sunday, week_label) for the requested week offset."""
@@ -57,10 +66,16 @@ class DataManager:
         label = f"{iso_year}-W{iso_week:02d}"
         return monday, sunday, label
 
-    def get_week_view(self, offset_weeks: int = 0) -> Dict[str, Any]:
+    def get_week_view(self, offset_weeks: int = 0, force_refresh: bool = False) -> Dict[str, Any]:
         """Gathers all planned & completed workouts, daily wellness, and zone summary
         for the specified week (offset 0 = current week).
         """
+        now = time.time()
+        if not force_refresh and offset_weeks in self._week_cache:
+            c_time, c_data = self._week_cache[offset_weeks]
+            if (now - c_time) < self._cache_ttl:
+                return c_data
+
         monday, sunday, week_label = self.get_week_range(offset_weeks)
         start_str = monday.strftime("%Y-%m-%d")
         end_str = sunday.strftime("%Y-%m-%d")
@@ -136,7 +151,7 @@ class DataManager:
         total_swim_planned_m = zone_summary.get("swimming", {}).get("planned_distance_meters", 0)
         total_swim_completed_m = zone_summary.get("swimming", {}).get("completed_distance_meters", 0)
 
-        return {
+        result = {
             "week_label": week_label,
             "date_range": f"{monday.strftime('%d/%m/%Y')} al {sunday.strftime('%d/%m/%Y')}",
             "offset_weeks": offset_weeks,
@@ -154,6 +169,8 @@ class DataManager:
                 "athlete_phase": self.config.athlete_phase,
             }
         }
+        self._week_cache[offset_weeks] = (time.time(), result)
+        return result
 
     def get_activity_detail(self, activity_id: str) -> Dict[str, Any]:
         """Fetches full activity breakdown, calculates decoupling and triggers AI Coach review.
@@ -246,10 +263,16 @@ class DataManager:
 
         return result
 
-    def get_pmc_data(self, range_days: int = 90) -> Dict[str, Any]:
+    def get_pmc_data(self, range_days: int = 90, force_refresh: bool = False) -> Dict[str, Any]:
         """Provides the Performance Management Chart data (CTL, ATL, TSB)
         merging Intervals.icu and historical records.
         """
+        now = time.time()
+        if not force_refresh and range_days in self._pmc_cache:
+            c_time, c_data = self._pmc_cache[range_days]
+            if (now - c_time) < self._cache_ttl:
+                return c_data
+
         end_d = date.today()
         start_d = end_d - timedelta(days=range_days)
         start_str = start_d.strftime("%Y-%m-%d")
@@ -259,7 +282,7 @@ class DataManager:
         intervals_pmc = self.intervals.get_wellness_pmc(start_str, end_str)
         if intervals_pmc and len(intervals_pmc) > 5:
             latest = intervals_pmc[-1]
-            return {
+            res = {
                 "series": intervals_pmc,
                 "current_ctl": latest.get("ctl", 0),
                 "current_atl": latest.get("atl", 0),
@@ -267,9 +290,13 @@ class DataManager:
                 "acwr": round(latest.get("atl", 1) / max(latest.get("ctl", 1), 1), 2),
                 "source": "intervals.icu"
             }
+            self._pmc_cache[range_days] = (time.time(), res)
+            return res
 
         # 2. Build PMC from historico_semanal.json and daily simulations
-        return self._generate_pmc_from_history(start_d, end_d)
+        res = self._generate_pmc_from_history(start_d, end_d)
+        self._pmc_cache[range_days] = (time.time(), res)
+        return res
 
     def _get_day_wellness(self, day_str: str) -> Dict[str, Any]:
         """Retrieves wellness for day (from Garmin or historical baseline)."""

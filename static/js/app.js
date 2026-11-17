@@ -31,8 +31,8 @@ function initPWA() {
 }
 
 async function initApp() {
-  await loadStatus();
-  await loadWeek(0);
+  loadStatus();
+  loadWeek(0);
 }
 
 function setupEventListeners() {
@@ -202,19 +202,20 @@ async function loadStatus() {
   }
 }
 
-async function loadWeek(offset) {
+async function loadWeek(offset, forceRefresh = false) {
   state.weekOffset = offset;
   const container = document.getElementById('week-days-container');
   if (container) {
     container.innerHTML = `
       <div class="col-span-full py-16 flex flex-col items-center justify-center text-slate-400">
-        <svg class="animate-spin h-8 w-8 text-sky-400 mb-3" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+        <svg class="animate-spin h-8 w-8 text-[#0284c7] mb-3" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
         <span class="text-sm">Cargando semana y actividades...</span>
       </div>`;
   }
 
   try {
-    const res = await fetch(`/api/week?offset=${offset}`);
+    const url = `/api/week?offset=${offset}` + (forceRefresh ? '&refresh=true' : '');
+    const res = await fetch(url);
     const data = await res.json();
     state.weekData = data;
 
@@ -260,24 +261,31 @@ function renderCalendarGrid(days) {
     const formattedDate = day.date.substring(5).replace('-', '/');
     const w = day.wellness || {};
     const rhrBadge = w.resting_hr ? `<span title="FC Reposo">${w.resting_hr} bpm</span>` : '';
-    const hrvBadge = w.hrv_ms ? `<span title="VFC">${w.hrv_ms} ms</span>` : (w.hrv_status ? `<span title="VFC">${w.hrv_status}</span>` : '');
+    let hrvText = '';
+    if (w.hrv_ms) {
+      hrvText = `${w.hrv_ms} ms`;
+    } else if (w.hrv_status) {
+      hrvText = w.hrv_status === 'BALANCED' ? 'Equilibrada' : w.hrv_status;
+    }
+    const hrvBadge = hrvText ? `<span title="VFC">${hrvText}</span>` : '';
 
     dayCard.innerHTML = `
-      <div class="px-3 py-2 bg-[#0e172a] border-b border-[#1c2d4a] flex items-center justify-between">
-        <div class="flex items-center gap-1.5">
-          <span class="text-xs uppercase tracking-wider font-semibold ${isToday ? 'text-[#38bdf8]' : 'text-slate-300'}">${day.day_name}</span>
-          <span class="text-xs font-mono text-slate-500">${formattedDate}</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <div class="flex items-center gap-1.5 text-[10px] font-mono text-slate-400">
-            ${rhrBadge}
-            ${hrvBadge ? `• ${hrvBadge}` : ''}
+      <div class="px-3 py-2 bg-[#0e172a] border-b border-[#1c2d4a]">
+        <div class="flex items-center justify-between gap-1 mb-1">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="text-xs uppercase tracking-wider font-semibold ${isToday ? 'text-[#38bdf8]' : 'text-slate-300'} truncate">${day.day_name}</span>
+            <span class="text-xs font-mono text-slate-400 shrink-0">${formattedDate}</span>
           </div>
           <button type="button" onclick="openAddNoteModal('${day.date}', '${day.day_name}')"
                   title="Añadir nota en Intervals.icu para el ${day.day_name}"
-                  class="px-1.5 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-medium flex items-center gap-0.5 transition-colors">
+                  class="px-1.5 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-medium flex items-center gap-0.5 transition-colors shrink-0">
             <span>+</span><span>Nota</span>
           </button>
+        </div>
+        <div class="flex items-center gap-1.5 text-[10px] font-mono text-slate-400">
+          ${rhrBadge}
+          ${(rhrBadge && hrvBadge) ? `<span class="text-slate-600">•</span>` : ''}
+          ${hrvBadge}
         </div>
       </div>
       <div class="p-2.5 flex-1 flex flex-col gap-2.5 bg-[#0a101f]/60">
@@ -409,11 +417,11 @@ function renderCompletedItems(items) {
           <span>${durMins} min ${dist ? `• ${dist}` : ''}</span>
           ${hr ? `<span class="text-rose-400 font-medium">${hr}</span>` : ''}
         </div>
-        <div class="flex items-center justify-between text-[10px] pt-1.5 border-t border-[#1e3052]">
-          ${effBadge || '<span class="text-slate-500 font-mono">OK</span>'}
-          <span class="text-[#0284c7] hover:text-[#38bdf8] flex items-center gap-0.5 group-hover:underline font-medium">
-            Análisis Experto
-            <svg class="w-3 h-3 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+        <div class="flex items-center justify-between text-[10px] pt-1.5 border-t border-[#1e3052] gap-1">
+          <div class="truncate min-w-0 font-mono text-[10px]">${effBadge || '<span class="text-slate-500">OK</span>'}</div>
+          <span class="text-[#0284c7] hover:text-[#38bdf8] flex items-center gap-0.5 group-hover:underline font-medium shrink-0">
+            Análisis
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
           </span>
         </div>
       </div>
@@ -2702,10 +2710,11 @@ function closePlannedModal() {
 }
 
 // Page 2: PMC and Chatbot
-async function loadPMC(days) {
+async function loadPMC(days, forceRefresh = false) {
   state.pmcDays = days;
   try {
-    const res = await fetch(`/api/pmc?days=${days}`);
+    const url = `/api/pmc?days=${days}` + (forceRefresh ? '&refresh=true' : '');
+    const res = await fetch(url);
     const data = await res.json();
     state.pmcData = data;
 
@@ -3057,10 +3066,10 @@ async function testIntervals() {
 async function syncAllData() {
   const btn = document.getElementById('btn-sync');
   if (btn) btn.classList.add('animate-spin');
-  await loadStatus();
-  await loadWeek(state.weekOffset);
+  loadStatus();
+  await loadWeek(state.weekOffset, true);
   if (state.currentTab === 'form') {
-    await loadPMC(state.pmcDays);
+    await loadPMC(state.pmcDays, true);
   }
   if (btn) btn.classList.remove('animate-spin');
 }
