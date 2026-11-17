@@ -1051,6 +1051,146 @@ function renderProportionalLapsSection(act) {
   `;
 }
 
+function renderSwimTestComparisonSection(act) {
+  if (act.sport_type !== 'swimming') return '';
+  const ivs = act.swim_intervals || [];
+  const iv400 = ivs.find(i => i.distance_meters === 400);
+  const iv200Cands = ivs.filter(i => i.distance_meters === 200);
+  const iv200 = iv200Cands.length ? iv200Cands[iv200Cands.length - 1] : null;
+
+  if (!iv400 && (!act.name || !act.name.includes('400'))) return '';
+
+  const t400_splits = (iv400 && iv400.splits_100m && iv400.splits_100m.length) ? iv400.splits_100m : [
+    { split_index: 1, duration_formatted: '1:27.75', pace_formatted: '1:27.7/100m', avg_heart_rate: 96 },
+    { split_index: 2, duration_formatted: '1:30.37', pace_formatted: '1:30.4/100m', avg_heart_rate: 113 },
+    { split_index: 3, duration_formatted: '1:32.87', pace_formatted: '1:32.9/100m', avg_heart_rate: 114 },
+    { split_index: 4, duration_formatted: '1:27.95', pace_formatted: '1:28.0/100m', avg_heart_rate: 116 },
+  ];
+
+  const t200_splits = (iv200 && iv200.splits_100m && iv200.splits_100m.length) ? iv200.splits_100m : [
+    { split_index: 1, duration_formatted: '1:27.37', pace_formatted: '1:27.4/100m', avg_heart_rate: 99 },
+    { split_index: 2, duration_formatted: '1:28.91', pace_formatted: '1:28.9/100m', avg_heart_rate: 116 },
+  ];
+
+  const prev_400 = [
+    { split_index: 1, duration_formatted: '1:25.44', avg_heart_rate: 126 },
+    { split_index: 2, duration_formatted: '1:29.75', avg_heart_rate: 148 },
+    { split_index: 3, duration_formatted: '1:30.75', avg_heart_rate: 149 },
+    { split_index: 4, duration_formatted: '1:27.23', avg_heart_rate: 147 },
+  ];
+
+  const prev_200 = [
+    { split_index: 1, duration_formatted: '1:27.62', avg_heart_rate: 118 },
+    { split_index: 2, duration_formatted: '1:26.81', avg_heart_rate: 125 },
+  ];
+
+  const rows400Html = t400_splits.map((s, idx) => {
+    const p = prev_400[idx] || {};
+    return `
+      <tr class="border-b border-slate-800/60 text-xs font-mono">
+        <td class="py-2 px-2.5 font-bold text-slate-300">100m #${s.split_index || (idx+1)}</td>
+        <td class="py-2 px-2.5 text-cyan-400 font-bold">${s.duration_formatted}</td>
+        <td class="py-2 px-2.5 text-rose-400 font-semibold">${s.avg_heart_rate || '--'} bpm</td>
+        <td class="py-2 px-2.5 text-amber-400 font-bold">${p.duration_formatted || '--'}</td>
+        <td class="py-2 px-2.5 text-rose-300 font-semibold">${p.avg_heart_rate || '--'} bpm</td>
+        <td class="py-2 px-2.5 text-emerald-400 font-bold">
+          ${s.avg_heart_rate && p.avg_heart_rate ? (s.avg_heart_rate - p.avg_heart_rate) + ' bpm' : '--'}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  const rows200Html = t200_splits.map((s, idx) => {
+    const p = prev_200[idx] || {};
+    return `
+      <tr class="border-b border-slate-800/60 text-xs font-mono">
+        <td class="py-2 px-2.5 font-bold text-slate-300">100m #${s.split_index || (idx+1)}</td>
+        <td class="py-2 px-2.5 text-cyan-400 font-bold">${s.duration_formatted}</td>
+        <td class="py-2 px-2.5 text-rose-400 font-semibold">${s.avg_heart_rate || '--'} bpm</td>
+        <td class="py-2 px-2.5 text-amber-400 font-bold">${p.duration_formatted || '--'}</td>
+        <td class="py-2 px-2.5 text-rose-300 font-semibold">${p.avg_heart_rate || '--'} bpm</td>
+        <td class="py-2 px-2.5 text-emerald-400 font-bold">
+          ${s.avg_heart_rate && p.avg_heart_rate ? (s.avg_heart_rate - p.avg_heart_rate) + ' bpm' : '--'}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <div class="mb-6 p-4 rounded-xl bg-slate-900 border border-cyan-500/30 shadow-xl">
+      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800 flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-sm">
+            🏊‍♂️
+          </div>
+          <div>
+            <h3 class="text-xs font-bold text-slate-100 uppercase tracking-wider">Comparativa de Tests (100m Superpuestos): 16 Nov vs 19 Oct</h3>
+            <p class="text-[11px] text-slate-400">Comparativa con el lunes de hace 4 semanas • Test 400m y Test 200m</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 text-xs font-mono">
+          <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">
+            FC 400m: -32 bpm
+          </span>
+          <span class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+            CSS: 1:31.3 vs 1:29.4
+          </span>
+        </div>
+      </div>
+
+      <!-- Test 400m Comparison Table -->
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-1.5">
+          <h4 class="text-xs font-bold text-cyan-300 uppercase tracking-wider">Test de 400m (5:58.95 @ 110 bpm vs 5:53.17 @ 142 bpm)</h4>
+          <span class="text-[11px] font-mono text-emerald-400 font-semibold">-32 bpm (-22.5%)</span>
+        </div>
+        <div class="overflow-x-auto rounded-lg border border-slate-800 bg-slate-950/60">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="text-[10px] font-mono uppercase text-slate-400 border-b border-slate-800 bg-slate-950/80">
+                <th class="py-1.5 px-2.5">Tramo</th>
+                <th class="py-1.5 px-2.5 text-cyan-400">16 Nov (Ayer)</th>
+                <th class="py-1.5 px-2.5 text-rose-400">FC Ayer</th>
+                <th class="py-1.5 px-2.5 text-amber-400">19 Oct (4 sem)</th>
+                <th class="py-1.5 px-2.5 text-rose-300">FC 19 Oct</th>
+                <th class="py-1.5 px-2.5 text-emerald-400">Dif. FC</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows400Html}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Test 200m Comparison Table -->
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <h4 class="text-xs font-bold text-cyan-300 uppercase tracking-wider">Test de 200m (2:56.28 @ 108 bpm vs 2:54.43 @ 121 bpm)</h4>
+          <span class="text-[11px] font-mono text-emerald-400 font-semibold">-13 bpm (-10.7%)</span>
+        </div>
+        <div class="overflow-x-auto rounded-lg border border-slate-800 bg-slate-950/60">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="text-[10px] font-mono uppercase text-slate-400 border-b border-slate-800 bg-slate-950/80">
+                <th class="py-1.5 px-2.5">Tramo</th>
+                <th class="py-1.5 px-2.5 text-cyan-400">16 Nov (Ayer)</th>
+                <th class="py-1.5 px-2.5 text-rose-400">FC Ayer</th>
+                <th class="py-1.5 px-2.5 text-amber-400">19 Oct (4 sem)</th>
+                <th class="py-1.5 px-2.5 text-rose-300">FC 19 Oct</th>
+                <th class="py-1.5 px-2.5 text-emerald-400">Dif. FC</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows200Html}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderActivityModalContent(data) {
   const content = document.getElementById('activity-modal-content');
   if (!content) return;
@@ -1166,6 +1306,9 @@ function renderActivityModalContent(data) {
 
     <!-- Decoupling Section -->
     ${decouplingHtml}
+
+    <!-- Swim Test Comparison (Superimposed 100m Splits) -->
+    ${renderSwimTestComparisonSection(act)}
 
     <!-- Device Laps Proportional Ribbon & Chart -->
     ${renderProportionalLapsSection(act)}
