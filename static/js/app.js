@@ -420,17 +420,6 @@ function renderCompletedItems(items) {
     `;
   }).join('');
 }
-        <div class="flex items-center justify-between text-[10px] pt-1 border-t border-slate-800/80">
-          ${effBadge}
-          <span class="text-sky-400 flex items-center gap-0.5 group-hover:underline">
-            Análisis Experto
-            <svg class="w-3 h-3 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-          </span>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
 
 function renderWeeklyZoneSummary(zoneSummary, totals) {
   const container = document.getElementById('weekly-zones-container');
