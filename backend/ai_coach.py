@@ -57,13 +57,41 @@ class AICoachService:
             return None
 
         models_to_try = [
+            "gemini-flash-latest",
+            "gemini-pro-latest",
             "gemini-2.5-flash",
-            "gemini-1.5-flash",
-            "gemini-2.0-flash",
-            "gemini-2.5-pro",
         ]
 
-        # 1. Try google.genai SDK
+        # 1. Direct HTTP REST API to v1beta (fastest & rock-solid)
+        try:
+            import requests
+
+            for m in models_to_try:
+                try:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={self.api_key}"
+                    headers = {"Content-Type": "application/json"}
+                    payload = {
+                        "system_instruction": {"parts": [{"text": system_instruction}]},
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": 0.4}
+                    }
+                    resp = requests.post(url, json=payload, headers=headers, timeout=35)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            parts = candidates[0].get("content", {}).get("parts", [])
+                            if parts and "text" in parts[0]:
+                                return parts[0]["text"]
+                    else:
+                        logger.debug(f"REST Gemini model {m} HTTP {resp.status_code}: {resp.text[:100]}")
+                except Exception as req_err:
+                    logger.debug(f"REST Gemini model {m} call failed: {req_err}")
+                    continue
+        except Exception as rest_e:
+            logger.warning(f"REST Gemini call failed: {rest_e}")
+
+        # 2. Try google.genai SDK as secondary fallback
         try:
             from google import genai
             from google.genai import types
@@ -88,36 +116,7 @@ class AICoachService:
                     logger.debug(f"google.genai SDK model {m} failed: {inner_e}")
                     continue
         except Exception as e:
-            logger.warning(f"google.genai SDK initialization failed: {e}")
-
-        # 2. Direct HTTP REST API fallback (ultra-reliable with standard requests)
-        try:
-            import requests
-
-            for m in models_to_try:
-                try:
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={self.api_key}"
-                    headers = {"Content-Type": "application/json"}
-                    payload = {
-                        "system_instruction": {"parts": [{"text": system_instruction}]},
-                        "contents": [{"parts": [{"text": prompt}]}],
-                        "generationConfig": {"temperature": 0.4}
-                    }
-                    resp = requests.post(url, json=payload, headers=headers, timeout=15)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        candidates = data.get("candidates", [])
-                        if candidates:
-                            parts = candidates[0].get("content", {}).get("parts", [])
-                            if parts and "text" in parts[0]:
-                                return parts[0]["text"]
-                    else:
-                        logger.debug(f"REST Gemini model {m} HTTP {resp.status_code}: {resp.text[:120]}")
-                except Exception as req_err:
-                    logger.debug(f"REST Gemini model {m} call failed: {req_err}")
-                    continue
-        except Exception as rest_e:
-            logger.warning(f"REST Gemini fallback failed: {rest_e}")
+            logger.warning(f"google.genai SDK failed: {e}")
 
         return None
 
