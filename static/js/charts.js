@@ -72,17 +72,17 @@ function renderPMCChart(canvasId, seriesData) {
         legend: {
           position: 'top',
           labels: {
-            color: '#94a3b8',
+            color: '#475569',
             font: { family: 'Inter, sans-serif', size: 12, weight: 600 },
             usePointStyle: true,
             boxWidth: 8
           }
         },
         tooltip: {
-          backgroundColor: '#0c1424',
-          titleColor: '#f8fafc',
-          bodyColor: '#cbd5e1',
-          borderColor: '#1e3052',
+          backgroundColor: '#1e293b',
+          titleColor: '#ffffff',
+          bodyColor: '#e2e8f0',
+          borderColor: '#475569',
           borderWidth: 1,
           padding: 12,
           bodyFont: { family: 'Inter, sans-serif' },
@@ -98,7 +98,7 @@ function renderPMCChart(canvasId, seriesData) {
       },
       scales: {
         x: {
-          grid: { color: 'rgba(30, 48, 82, 0.4)' },
+          grid: { color: 'rgba(0, 0, 0, 0.06)' },
           ticks: {
             color: '#64748b',
             maxTicksLimit: 10,
@@ -107,11 +107,11 @@ function renderPMCChart(canvasId, seriesData) {
         },
         y: {
           position: 'left',
-          grid: { color: 'rgba(30, 48, 82, 0.4)' },
+          grid: { color: 'rgba(0, 0, 0, 0.06)' },
           title: {
             display: true,
             text: 'Carga (CTL / ATL)',
-            color: '#94a3b8',
+            color: '#475569',
             font: { family: 'Inter, sans-serif', size: 11, weight: 600 }
           },
           ticks: { color: '#64748b', font: { family: 'Inter, sans-serif' } }
@@ -122,10 +122,10 @@ function renderPMCChart(canvasId, seriesData) {
           title: {
             display: true,
             text: 'TSB (Balance)',
-            color: '#f59e0b',
+            color: '#d97706',
             font: { family: 'Inter, sans-serif', size: 11, weight: 600 }
           },
-          ticks: { color: '#f59e0b', font: { family: 'Inter, sans-serif' } }
+          ticks: { color: '#d97706', font: { family: 'Inter, sans-serif' } }
         }
       }
     }
@@ -219,13 +219,13 @@ function renderWorkoutSplitsChart(canvasId, splits, sportType) {
       plugins: {
         legend: {
           position: 'top',
-          labels: { color: '#94a3b8', font: { family: 'Inter, sans-serif', size: 11, weight: 600 }, usePointStyle: true, boxWidth: 6 }
+          labels: { color: '#475569', font: { family: 'Inter, sans-serif', size: 11, weight: 600 }, usePointStyle: true, boxWidth: 6 }
         },
         tooltip: {
-          backgroundColor: '#0c1424',
-          titleColor: '#f8fafc',
-          bodyColor: '#cbd5e1',
-          borderColor: '#1e3052',
+          backgroundColor: '#1e293b',
+          titleColor: '#ffffff',
+          bodyColor: '#e2e8f0',
+          borderColor: '#475569',
           borderWidth: 1,
           padding: 10,
           titleFont: { family: 'Inter, sans-serif', weight: 600 },
@@ -254,7 +254,7 @@ function renderWorkoutSplitsChart(canvasId, splits, sportType) {
       },
       scales: {
         x: {
-          grid: { color: 'rgba(30, 48, 82, 0.35)' },
+          grid: { color: 'rgba(0, 0, 0, 0.05)' },
           ticks: { color: '#64748b', font: { family: 'Inter, sans-serif', size: 10 } }
         },
         y: {
@@ -262,7 +262,7 @@ function renderWorkoutSplitsChart(canvasId, splits, sportType) {
           reverse: isRunning || isSwim,
           min: (isRunning || isSwim) ? Math.max(0, minOut - 15) : undefined,
           max: (isRunning || isSwim) ? maxOut + 15 : undefined,
-          grid: { color: 'rgba(30, 48, 82, 0.35)' },
+          grid: { color: 'rgba(0, 0, 0, 0.05)' },
           ticks: {
             color: yAxisColor,
             font: { family: 'Inter, sans-serif', size: 10 },

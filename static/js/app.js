@@ -69,11 +69,11 @@ function setupEventListeners() {
     pill.addEventListener('click', (e) => {
       const days = parseInt(pill.getAttribute('data-pmc-days'), 10);
       document.querySelectorAll('[data-pmc-days]').forEach(p => {
-        p.classList.remove('bg-[#0284c7]', 'text-white');
-        p.classList.add('bg-slate-800', 'text-slate-400');
+        p.classList.remove('bg-[#0284c7]', 'text-white', 'shadow-xs');
+        p.classList.add('text-slate-600', 'hover:text-slate-900');
       });
-      pill.classList.remove('bg-slate-800', 'text-slate-400');
-      pill.classList.add('bg-[#0284c7]', 'text-white');
+      pill.classList.remove('text-slate-600', 'hover:text-slate-900');
+      pill.classList.add('bg-[#0284c7]', 'text-white', 'shadow-xs');
       loadPMC(days);
     });
   });
@@ -253,8 +253,8 @@ function renderCalendarGrid(days) {
   days.forEach(day => {
     const isToday = day.is_today;
     const dayCard = document.createElement('div');
-    dayCard.className = `flex flex-col rounded-xl overflow-hidden glass-panel border transition-all ${
-      isToday ? 'border-[#0284c7] shadow-lg shadow-[#0284c7]/15 ring-1 ring-[#0284c7]/40' : 'border-[#1c2d4a]'
+    dayCard.className = `flex flex-col rounded-xl overflow-hidden bg-white border transition-all ${
+      isToday ? 'border-[#0284c7] shadow-md shadow-[#0284c7]/10 ring-2 ring-[#0284c7]/25' : 'border-slate-200 shadow-xs'
     }`;
 
     // Day Header
@@ -270,30 +270,30 @@ function renderCalendarGrid(days) {
     const hrvBadge = hrvText ? `<span title="VFC">${hrvText}</span>` : '';
 
     dayCard.innerHTML = `
-      <div class="px-3 py-2 bg-[#0e172a] border-b border-[#1c2d4a]">
+      <div class="px-3 py-2 bg-slate-50 border-b border-slate-200">
         <div class="flex items-center justify-between gap-1 mb-1">
           <div class="flex items-center gap-1.5 min-w-0">
-            <span class="text-xs uppercase tracking-wider font-semibold ${isToday ? 'text-[#38bdf8]' : 'text-slate-300'} truncate">${day.day_name}</span>
-            <span class="text-xs font-mono text-slate-400 shrink-0">${formattedDate}</span>
+            <span class="text-xs uppercase tracking-wider font-bold ${isToday ? 'text-[#0284c7]' : 'text-slate-700'} truncate">${day.day_name}</span>
+            <span class="text-xs font-mono text-slate-500 shrink-0">${formattedDate}</span>
           </div>
           <button type="button" onclick="openAddNoteModal('${day.date}', '${day.day_name}')"
                   title="Añadir nota en Intervals.icu para el ${day.day_name}"
-                  class="px-1.5 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-medium flex items-center gap-0.5 transition-colors shrink-0">
+                  class="px-1.5 py-0.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-medium flex items-center gap-0.5 transition-colors shrink-0">
             <span>+</span><span>Nota</span>
           </button>
         </div>
-        <div class="flex items-center gap-1.5 text-[10px] font-mono text-slate-400">
+        <div class="flex items-center gap-1.5 text-[10px] font-mono text-slate-500">
           ${rhrBadge}
-          ${(rhrBadge && hrvBadge) ? `<span class="text-slate-600">•</span>` : ''}
+          ${(rhrBadge && hrvBadge) ? `<span class="text-slate-400">•</span>` : ''}
           ${hrvBadge}
         </div>
       </div>
-      <div class="p-2.5 flex-1 flex flex-col gap-2.5 bg-[#0a101f]/60">
+      <div class="p-2.5 flex-1 flex flex-col gap-2.5 bg-white">
         <!-- Planned Section -->
         <div>
-          <div class="text-[10px] uppercase font-bold text-slate-500 mb-1 flex items-center justify-between">
+          <div class="text-[10px] uppercase font-bold text-slate-400 mb-1 flex items-center justify-between">
             <span>Planificado</span>
-            <span class="text-slate-600">${day.planned.length}</span>
+            <span class="text-slate-400 font-mono">${day.planned.length}</span>
           </div>
           <div class="flex flex-col gap-1.5" id="planned-${day.date}">
             ${renderPlannedItems(day.planned)}
@@ -301,13 +301,13 @@ function renderCalendarGrid(days) {
         </div>
 
         <!-- Completed Section -->
-        <div class="pt-2 border-t border-[#1c2d4a] flex-1">
-          <div class="text-[10px] uppercase font-bold text-slate-400 mb-1 flex items-center justify-between">
-            <span class="flex items-center gap-1 text-emerald-400 font-semibold">
+        <div class="pt-2 border-t border-slate-200 flex-1">
+          <div class="text-[10px] uppercase font-bold text-emerald-600 mb-1 flex items-center justify-between">
+            <span class="flex items-center gap-1 font-semibold">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
               Realizado
             </span>
-            <span class="text-slate-500">${day.completed.length}</span>
+            <span class="text-slate-400 font-mono">${day.completed.length}</span>
           </div>
           <div class="flex flex-col gap-1.5" id="completed-${day.date}">
             ${renderCompletedItems(day.completed)}
@@ -322,7 +322,7 @@ function renderCalendarGrid(days) {
 
 function renderPlannedItems(items) {
   if (!items || items.length === 0) {
-    return `<div class="text-xs text-slate-500 italic py-1.5 text-center">Descanso o libre</div>`;
+    return `<div class="text-xs text-slate-400 italic py-1.5 text-center">Descanso o libre</div>`;
   }
 
   return items.map(it => {
@@ -330,20 +330,20 @@ function renderPlannedItems(items) {
     if (it.is_note) {
       const descPreview = (it.description || '').substring(0, 80);
       return `
-        <div class="p-2 rounded-lg bg-[#141b2d] hover:bg-[#1a233a] border border-amber-500/30 border-l-[3.5px] border-l-amber-500 text-xs transition-all group shadow-sm flex items-start justify-between gap-1.5">
+        <div class="p-2 rounded-lg bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200 border-l-[3.5px] border-l-amber-500 text-xs transition-all group shadow-xs flex items-start justify-between gap-1.5">
           <div onclick="openPlannedModal('${it.id}')" class="flex-1 cursor-pointer min-w-0">
             <div class="flex items-center justify-between gap-1 mb-0.5">
               <div class="flex items-center gap-1.5 min-w-0">
-                <span class="text-amber-400 text-[10px]">📝</span>
-                <span class="font-medium text-amber-200 text-[11px] truncate">${it.name}</span>
+                <span class="text-amber-600 text-[10px]">📝</span>
+                <span class="font-semibold text-amber-900 text-[11px] truncate">${it.name}</span>
               </div>
-              <span class="text-[9px] text-amber-400/80 group-hover:text-amber-300 transition-colors shrink-0">Ver ↗</span>
+              <span class="text-[9px] text-amber-700/80 group-hover:text-amber-800 transition-colors shrink-0">Ver ↗</span>
             </div>
-            ${descPreview ? `<div class="text-[10px] text-slate-400 leading-snug line-clamp-2">${descPreview}</div>` : ''}
+            ${descPreview ? `<div class="text-[10px] text-slate-600 leading-snug line-clamp-2">${descPreview}</div>` : ''}
           </div>
           <button type="button" onclick="event.stopPropagation(); deleteNoteEvent('${it.id}')"
                   title="Eliminar nota de Intervals.icu"
-                  class="text-slate-500 hover:text-rose-400 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  class="text-slate-400 hover:text-rose-600 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
           </button>
         </div>
@@ -359,17 +359,17 @@ function renderPlannedItems(items) {
 
     return `
       <div onclick="openPlannedModal('${it.id}')"
-           class="p-2 rounded-lg bg-[#131f36] hover:bg-[#192742] border border-[#1e3052] ${borderLeftClass} text-xs cursor-pointer transition-all group shadow-sm">
+           class="p-2 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 ${borderLeftClass} text-xs cursor-pointer transition-all group shadow-xs">
         <div class="flex items-center justify-between gap-1.5 mb-1.5">
           <div class="flex items-center gap-1.5 min-w-0">
             ${sportBadge}
-            <div class="font-medium text-slate-100 group-hover:text-[#38bdf8] transition-colors truncate text-xs">${it.name}</div>
+            <div class="font-semibold text-slate-900 group-hover:text-[#0284c7] transition-colors truncate text-xs">${it.name}</div>
           </div>
-          <span class="text-[9px] text-slate-500 group-hover:text-sky-400 opacity-60 group-hover:opacity-100 transition-opacity shrink-0">↗</span>
+          <span class="text-[9px] text-slate-400 group-hover:text-[#0284c7] opacity-60 group-hover:opacity-100 transition-opacity shrink-0">↗</span>
         </div>
-        <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+        <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono">
           <span>${durMins ? durMins + ' min' : ''}${distKm ? ` • ${distKm}` : ''}</span>
-          ${it.planned_load ? `<span class="text-[#f59e0b] font-semibold">${it.planned_load} TSS</span>` : ''}
+          ${it.planned_load ? `<span class="text-[#d97706] font-bold">${it.planned_load} TSS</span>` : ''}
         </div>
       </div>
     `;
@@ -378,7 +378,7 @@ function renderPlannedItems(items) {
 
 function renderCompletedItems(items) {
   if (!items || items.length === 0) {
-    return `<div class="text-xs text-slate-500 italic py-1.5 text-center">Sin actividades registradas</div>`;
+    return `<div class="text-xs text-slate-400 italic py-1.5 text-center">Sin actividades registradas</div>`;
   }
 
   return items.map(act => {
@@ -394,32 +394,32 @@ function renderCompletedItems(items) {
     let effBadge = '';
     const eff = act.efficiency || {};
     if (act.sport_type === 'cycling' && eff.fec) {
-      effBadge = `<span class="text-[#f59e0b] font-mono font-medium">FEc: ${eff.fec}</span>`;
+      effBadge = `<span class="text-[#d97706] font-mono font-medium">FEc: ${eff.fec}</span>`;
     } else if (act.sport_type === 'running' && eff.fecp) {
-      effBadge = `<span class="text-[#10b981] font-mono font-medium">FEcp: ${eff.fecp}</span>`;
+      effBadge = `<span class="text-[#059669] font-mono font-medium">FEcp: ${eff.fecp}</span>`;
     } else if (act.sport_type === 'swimming' && eff.pace_str) {
       effBadge = `<span class="text-[#00a8cc] font-mono font-medium">${eff.pace_str}</span>`;
     }
 
     return `
       <div onclick="openActivityModal('${act.activity_id}')" 
-           class="p-2.5 rounded-lg bg-[#131f36] hover:bg-[#192742] border border-[#1e3052] ${borderLeftClass} cursor-pointer shadow-sm transition-all group">
+           class="p-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 ${borderLeftClass} cursor-pointer shadow-xs transition-all group">
         <div class="flex items-center justify-between gap-1.5 mb-1.5">
           <div class="flex items-center gap-1.5 min-w-0">
             ${sportBadge}
-            <div class="font-semibold text-slate-100 group-hover:text-[#38bdf8] text-xs truncate transition-colors">
+            <div class="font-bold text-slate-900 group-hover:text-[#0284c7] text-xs truncate transition-colors">
               ${act.name}
             </div>
           </div>
-          <span class="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-400/20 shrink-0" title="Completado"></span>
+          <span class="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-100 shrink-0" title="Completado"></span>
         </div>
-        <div class="flex items-center justify-between text-[11px] text-slate-300 font-mono mb-1.5">
+        <div class="flex items-center justify-between text-[11px] text-slate-600 font-mono mb-1.5">
           <span>${durMins} min ${dist ? `• ${dist}` : ''}</span>
-          ${hr ? `<span class="text-rose-400 font-medium">${hr}</span>` : ''}
+          ${hr ? `<span class="text-rose-600 font-medium">${hr}</span>` : ''}
         </div>
-        <div class="flex items-center justify-between text-[10px] pt-1.5 border-t border-[#1e3052] gap-1">
-          <div class="truncate min-w-0 font-mono text-[10px]">${effBadge || '<span class="text-slate-500">OK</span>'}</div>
-          <span class="text-[#0284c7] hover:text-[#38bdf8] flex items-center gap-0.5 group-hover:underline font-medium shrink-0">
+        <div class="flex items-center justify-between text-[10px] pt-1.5 border-t border-slate-100 gap-1">
+          <div class="truncate min-w-0 font-mono text-[10px]">${effBadge || '<span class="text-slate-400">OK</span>'}</div>
+          <span class="text-[#0284c7] hover:text-[#0369a1] flex items-center gap-0.5 group-hover:underline font-semibold shrink-0">
             Análisis
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
           </span>
@@ -443,48 +443,48 @@ function renderWeeklyZoneSummary(zoneSummary, totals) {
   let html = `
     <!-- Totals Header -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-      <div class="p-3.5 rounded-xl bg-[#131f36] border border-[#1e3052] flex flex-col">
-        <span class="text-xs text-slate-400 mb-1">Tiempo Planificado</span>
-        <span class="text-lg font-bold font-mono text-slate-100">${totals.planned_hours} h</span>
+      <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col shadow-xs">
+        <span class="text-xs text-slate-500 mb-1">Tiempo Planificado</span>
+        <span class="text-lg font-bold font-mono text-slate-900">${totals.planned_hours} h</span>
       </div>
-      <div class="p-3.5 rounded-xl bg-[#131f36] border border-[#1e3052] flex flex-col">
-        <span class="text-xs text-slate-400 mb-1">Tiempo Realizado</span>
-        <span class="text-lg font-bold font-mono text-emerald-400">${totals.completed_hours} h</span>
+      <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col shadow-xs">
+        <span class="text-xs text-slate-500 mb-1">Tiempo Realizado</span>
+        <span class="text-lg font-bold font-mono text-emerald-600">${totals.completed_hours} h</span>
       </div>
-      <div class="p-3.5 rounded-xl bg-[#131f36] border border-[#1e3052] flex flex-col">
-        <span class="text-xs text-slate-400 mb-1">Carga Planificada</span>
-        <span class="text-lg font-bold font-mono text-amber-400">${totals.planned_load} TSS</span>
+      <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col shadow-xs">
+        <span class="text-xs text-slate-500 mb-1">Carga Planificada</span>
+        <span class="text-lg font-bold font-mono text-amber-600">${totals.planned_load} TSS</span>
       </div>
-      <div class="p-3.5 rounded-xl bg-[#131f36] border border-[#1e3052] flex flex-col">
-        <span class="text-xs text-slate-400 mb-1">Carga Realizada</span>
-        <span class="text-lg font-bold font-mono text-[#38bdf8]">${totals.completed_load} TSS</span>
+      <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col shadow-xs">
+        <span class="text-xs text-slate-500 mb-1">Carga Realizada</span>
+        <span class="text-lg font-bold font-mono text-[#0284c7]">${totals.completed_load} TSS</span>
       </div>
     </div>
 
     <!-- Summary Table: Totales Semanales por Disciplina (Tiempo & Km) -->
-    <div class="mb-6 overflow-hidden rounded-xl border border-[#1c2d4a] bg-[#0c1424] p-3 sm:p-4 shadow-lg">
-      <div class="flex items-center justify-between mb-3 pb-2 border-b border-[#1c2d4a]">
+    <div class="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-xs">
+      <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-200">
         <div class="flex items-center gap-2">
-          <span class="text-base text-amber-400">📊</span>
-          <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider">Totales de la Semana por Disciplina</h4>
+          <span class="text-base text-amber-500">📊</span>
+          <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Totales de la Semana por Disciplina</h4>
         </div>
-        <span class="text-[11px] font-mono text-slate-400">Tiempo & Kilómetros (Plan vs Real)</span>
+        <span class="text-[11px] font-mono text-slate-500">Tiempo & Kilómetros (Plan vs Real)</span>
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs">
           <thead>
-            <tr class="text-[10px] uppercase font-mono text-slate-400 border-b border-[#1c2d4a]">
-              <th class="pb-2 font-semibold">Disciplina</th>
-              <th class="pb-2 font-semibold text-right">Tiempo Plan</th>
-              <th class="pb-2 font-semibold text-right">Tiempo Real</th>
-              <th class="pb-2 font-semibold text-right">Distancia Plan</th>
-              <th class="pb-2 font-semibold text-right">Distancia Real</th>
-              <th class="pb-2 font-semibold text-right">Carga (TSS)</th>
-              <th class="pb-2 font-semibold text-right">Cumplimiento</th>
+            <tr class="text-[10px] uppercase font-mono text-slate-500 border-b border-slate-200 bg-slate-50">
+              <th class="py-2 px-2 font-semibold">Disciplina</th>
+              <th class="py-2 px-2 font-semibold text-right">Tiempo Plan</th>
+              <th class="py-2 px-2 font-semibold text-right">Tiempo Real</th>
+              <th class="py-2 px-2 font-semibold text-right">Distancia Plan</th>
+              <th class="py-2 px-2 font-semibold text-right">Distancia Real</th>
+              <th class="py-2 px-2 font-semibold text-right">Carga (TSS)</th>
+              <th class="py-2 px-2 font-semibold text-right">Cumplimiento</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-[#1c2d4a]/60 font-mono text-[11px]">
+          <tbody class="divide-y divide-slate-100 font-mono text-[11px]">
             ${renderDisciplineTotalRows(zoneSummary, totals)}
           </tbody>
         </table>
@@ -503,14 +503,14 @@ function renderWeeklyZoneSummary(zoneSummary, totals) {
     const cDist = data.completed_distance_formatted || (sp.key === 'strength' ? '-' : '0 km');
 
     html += `
-      <div class="p-4 rounded-xl glass-panel border border-[#1c2d4a] bg-[#101b30]/60 flex flex-col justify-between">
+      <div class="p-4 rounded-xl bg-white border border-slate-200 shadow-xs flex flex-col justify-between">
         <div>
           <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
             <div class="flex items-center gap-2.5">
               ${getSportBadge(sp.key, 'md')}
               <div>
-                <span class="font-bold text-slate-100 text-sm block">${sp.label}</span>
-                <span class="text-[10px] text-slate-400 font-mono">
+                <span class="font-bold text-slate-900 text-sm block">${sp.label}</span>
+                <span class="text-[10px] text-slate-500 font-mono">
                   ${data.planned_sessions || 0} planif. • ${data.completed_sessions || 0} hechas
                 </span>
               </div>
@@ -518,34 +518,34 @@ function renderWeeklyZoneSummary(zoneSummary, totals) {
 
             <!-- TIEMPO Y KM (PLAN VS REAL) -->
             <div class="flex flex-wrap items-center gap-1.5 text-xs font-mono">
-              <div class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[11px]" title="Tiempo Planificado vs Real">
-                <span class="text-slate-400">⏱️ ${data.planned_hours}h</span>
-                <span class="text-slate-600">/</span>
-                <span class="text-emerald-400 font-bold">${data.completed_hours}h</span>
+              <div class="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[11px]" title="Tiempo Planificado vs Real">
+                <span class="text-slate-600">⏱️ ${data.planned_hours}h</span>
+                <span class="text-slate-400">/</span>
+                <span class="text-emerald-600 font-bold">${data.completed_hours}h</span>
               </div>
 
               ${sp.key !== 'strength' ? `
-                <div class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[11px]" title="Distancia Planificada vs Real">
-                  <span class="text-slate-400">📍 ${pDist}</span>
-                  <span class="text-slate-600">/</span>
-                  <span class="text-sky-400 font-bold">${cDist}</span>
+                <div class="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[11px]" title="Distancia Planificada vs Real">
+                  <span class="text-slate-600">📍 ${pDist}</span>
+                  <span class="text-slate-400">/</span>
+                  <span class="text-[#0284c7] font-bold">${cDist}</span>
                 </div>
               ` : ''}
 
-              <span class="text-xs px-2 py-0.5 rounded-full font-bold ${pct >= 90 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}">
+              <span class="text-xs px-2 py-0.5 rounded-full font-bold ${pct >= 90 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">
                 ${pct}%
               </span>
             </div>
           </div>
 
           <!-- Overall Discipline Progress Bar -->
-          <div class="w-full bg-slate-800 rounded-full h-2 mb-4 overflow-hidden">
+          <div class="w-full bg-slate-100 rounded-full h-2 mb-4 overflow-hidden">
             <div class="h-2 rounded-full bg-gradient-to-r ${sp.color}" style="width: ${progressWidth}%"></div>
           </div>
 
           <!-- Zone Breakdown Table -->
           <div class="space-y-1.5">
-            <div class="grid grid-cols-6 text-[10px] font-semibold uppercase text-slate-500 px-1">
+            <div class="grid grid-cols-6 text-[10px] font-semibold uppercase text-slate-400 px-1">
               <span class="col-span-2">Zona</span>
               <span class="text-right">Plan</span>
               <span class="text-right">Real</span>
@@ -572,7 +572,7 @@ function renderZoneRows(zones) {
   };
 
   const zoneColors = {
-    'Z1': 'bg-slate-500',
+    'Z1': 'bg-slate-400',
     'Z2': 'bg-sky-500',
     'Z3': 'bg-emerald-500',
     'Z4': 'bg-amber-500',
@@ -589,20 +589,20 @@ function renderZoneRows(zones) {
     const cWidth = Math.min((cMin / maxMin) * 100, 100);
 
     rows += `
-      <div class="grid grid-cols-6 items-center text-xs py-1 px-1 rounded hover:bg-slate-800/40 font-mono">
-        <div class="col-span-2 flex items-center gap-1.5 text-slate-300">
+      <div class="grid grid-cols-6 items-center text-xs py-1 px-1 rounded hover:bg-slate-50 font-mono">
+        <div class="col-span-2 flex items-center gap-1.5 text-slate-700">
           <span class="w-2 h-2 rounded-full ${zoneColors[zKey]}"></span>
           <span class="truncate">${zKey}</span>
         </div>
-        <div class="text-right text-slate-400">${pMin}m</div>
-        <div class="text-right ${cMin >= pMin && pMin > 0 ? 'text-emerald-400 font-bold' : 'text-slate-200'}">${cMin}m</div>
+        <div class="text-right text-slate-500">${pMin}m</div>
+        <div class="text-right ${cMin >= pMin && pMin > 0 ? 'text-emerald-600 font-bold' : 'text-slate-800'}">${cMin}m</div>
         <div class="col-span-2 pl-3 flex flex-col gap-0.5">
           <!-- Planned Bar (gray) -->
-          <div class="w-full bg-slate-800/60 rounded h-1">
-            <div class="bg-slate-600 h-1 rounded" style="width: ${pWidth}%"></div>
+          <div class="w-full bg-slate-100 rounded h-1">
+            <div class="bg-slate-300 h-1 rounded" style="width: ${pWidth}%"></div>
           </div>
           <!-- Completed Bar (colored) -->
-          <div class="w-full bg-slate-800/60 rounded h-1">
+          <div class="w-full bg-slate-100 rounded h-1">
             <div class="${zoneColors[zKey]} h-1 rounded" style="width: ${cWidth}%"></div>
           </div>
         </div>
@@ -632,18 +632,18 @@ function renderDisciplineTotalRows(zoneSummary, totals) {
     const pct = d.compliance_percent || 0;
 
     rows += `
-      <tr class="hover:bg-[#142036]/60 transition-colors">
-        <td class="py-2.5 flex items-center gap-2">
+      <tr class="hover:bg-slate-50 transition-colors">
+        <td class="py-2.5 px-2 flex items-center gap-2">
           ${getSportBadge(sp.key, 'sm')}
-          <span class="font-bold text-slate-200">${sp.label}</span>
+          <span class="font-bold text-slate-900">${sp.label}</span>
         </td>
-        <td class="py-2.5 text-right text-slate-400 font-mono">${pHours.toFixed(1)} h</td>
-        <td class="py-2.5 text-right font-mono font-bold ${cHours >= pHours && pHours > 0 ? 'text-emerald-400' : 'text-slate-100'}">${cHours.toFixed(1)} h</td>
-        <td class="py-2.5 text-right text-slate-400 font-mono">${pDist}</td>
-        <td class="py-2.5 text-right font-mono font-bold ${!sp.isStrength ? 'text-[#0284c7]' : 'text-slate-500'}">${cDist}</td>
-        <td class="py-2.5 text-right text-slate-400 font-mono">${pLoad} / <span class="text-amber-400">${cLoad}</span></td>
-        <td class="py-2.5 text-right">
-          <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono ${pct >= 90 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
+        <td class="py-2.5 px-2 text-right text-slate-500 font-mono">${pHours.toFixed(1)} h</td>
+        <td class="py-2.5 px-2 text-right font-mono font-bold ${cHours >= pHours && pHours > 0 ? 'text-emerald-600' : 'text-slate-800'}">${cHours.toFixed(1)} h</td>
+        <td class="py-2.5 px-2 text-right text-slate-500 font-mono">${pDist}</td>
+        <td class="py-2.5 px-2 text-right font-mono font-bold ${!sp.isStrength ? 'text-[#0284c7]' : 'text-slate-400'}">${cDist}</td>
+        <td class="py-2.5 px-2 text-right text-slate-500 font-mono">${pLoad} / <span class="text-amber-600">${cLoad}</span></td>
+        <td class="py-2.5 px-2 text-right">
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono ${pct >= 90 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">
             ${pct}%
           </span>
         </td>
@@ -661,18 +661,18 @@ function renderDisciplineTotalRows(zoneSummary, totals) {
   const totPct = totPHours > 0 ? Math.round((totCHours / totPHours) * 100) : 100;
 
   rows += `
-    <tr class="bg-slate-900/80 font-bold border-t-2 border-slate-700/80 text-slate-100">
-      <td class="py-2.5 flex items-center gap-2 text-slate-100">
+    <tr class="bg-slate-50 font-bold border-t-2 border-slate-300 text-slate-900">
+      <td class="py-2.5 px-2 flex items-center gap-2 text-slate-900">
         <span class="text-base">🏆</span>
         <span>TOTAL SEMANAL</span>
       </td>
-      <td class="py-2.5 text-right text-slate-300 font-mono">${totPHours.toFixed(1)} h</td>
-      <td class="py-2.5 text-right text-emerald-400 font-mono">${totCHours.toFixed(1)} h</td>
-      <td class="py-2.5 text-right text-slate-300 font-mono">${totPKm} km</td>
-      <td class="py-2.5 text-right text-sky-400 font-mono">${totCKm} km</td>
-      <td class="py-2.5 text-right text-amber-400 font-mono">${totPLoad} / ${totCLoad} TSS</td>
-      <td class="py-2.5 text-right">
-        <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-sky-500/10 text-sky-400 border border-sky-500/20">
+      <td class="py-2.5 px-2 text-right text-slate-600 font-mono">${totPHours.toFixed(1)} h</td>
+      <td class="py-2.5 px-2 text-right text-emerald-600 font-mono">${totCHours.toFixed(1)} h</td>
+      <td class="py-2.5 px-2 text-right text-slate-600 font-mono">${totPKm} km</td>
+      <td class="py-2.5 px-2 text-right text-[#0284c7] font-mono">${totCKm} km</td>
+      <td class="py-2.5 px-2 text-right text-amber-600 font-mono">${totPLoad} / ${totCLoad} TSS</td>
+      <td class="py-2.5 px-2 text-right">
+        <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-sky-50 text-sky-700 border border-sky-200">
           ${totPct}%
         </span>
       </td>
@@ -918,8 +918,8 @@ function renderProportionalLapsSection(act) {
   const totalDuration = splits.reduce((acc, s) => acc + (s.duration_seconds || 0), 0) || act.duration_seconds || 1;
 
   let primaryLabel = isCycling ? 'Potencia (W)' : (isRunning ? 'Ritmo (min/km)' : (isSwim ? 'Ritmo (min/100m)' : 'Velocidad'));
-  let primaryColorClass = isCycling ? 'text-amber-400' : (isRunning ? 'text-emerald-400' : (isSwim ? 'text-cyan-400' : 'text-sky-400'));
-  let badgeColorClass = isCycling ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : (isRunning ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300');
+  let primaryColorClass = isCycling ? 'text-[#d97706]' : (isRunning ? 'text-[#059669]' : (isSwim ? 'text-[#00a8cc]' : 'text-[#0284c7]'));
+  let badgeColorClass = isCycling ? 'border-amber-200 bg-amber-50 text-amber-700 font-semibold' : (isRunning ? 'border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold' : 'border-sky-200 bg-sky-50 text-[#00a8cc] font-semibold');
 
   // Build the proportional ribbon blocks
   const ribbonBlocksHtml = splits.map((s, idx) => {
@@ -942,26 +942,26 @@ function renderProportionalLapsSection(act) {
     }
 
     return `
-      <div class="group relative flex flex-col justify-between p-2.5 rounded-lg border border-slate-700/60 bg-slate-800/80 hover:bg-slate-750 hover:border-slate-500 transition-all cursor-pointer shrink-0"
+      <div class="group relative flex flex-col justify-between p-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer shrink-0 shadow-2xs"
            style="flex: ${Math.max(15, durSec)} 1 0; min-width: 96px;"
            title="Lap ${lapNum}: ${durFormatted} • ${distFormatted} • ${primaryVal} • ${hrVal}">
-        <div class="flex items-center justify-between gap-1 mb-1 pb-1 border-b border-slate-700/50">
-          <span class="text-[10px] font-mono font-bold text-slate-300">L${lapNum}</span>
-          <span class="text-[10px] font-mono text-slate-400">${durFormatted}</span>
+        <div class="flex items-center justify-between gap-1 mb-1 pb-1 border-b border-slate-100">
+          <span class="text-[10px] font-mono font-bold text-slate-800">L${lapNum}</span>
+          <span class="text-[10px] font-mono text-slate-500">${durFormatted}</span>
         </div>
         <div class="space-y-1 my-1">
           <div class="flex items-baseline justify-between gap-1">
-            <span class="text-[9px] uppercase tracking-wider text-slate-500 font-semibold">${isCycling ? 'Pot' : 'Ritmo'}</span>
+            <span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">${isCycling ? 'Pot' : 'Ritmo'}</span>
             <span class="text-xs font-mono font-bold ${primaryColorClass}">${primaryVal}</span>
           </div>
           <div class="flex items-baseline justify-between gap-1">
-            <span class="text-[9px] uppercase tracking-wider text-slate-500 font-semibold">FC</span>
-            <span class="text-[11px] font-mono font-semibold text-rose-400 flex items-center gap-0.5">
+            <span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">FC</span>
+            <span class="text-[11px] font-mono font-semibold text-rose-600 flex items-center gap-0.5">
               <span class="text-[9px] text-rose-500">❤️</span>${hrVal}
             </span>
           </div>
         </div>
-        <div class="mt-1 pt-1 border-t border-slate-700/30 flex justify-between text-[9px] font-mono text-slate-400">
+        <div class="mt-1 pt-1 border-t border-slate-100 flex justify-between text-[9px] font-mono text-slate-500">
           <span>${distFormatted}</span>
           <span>${durPct}%</span>
         </div>
@@ -993,7 +993,7 @@ function renderProportionalLapsSection(act) {
     const swimSplitsSub = (s.splits_100m && s.splits_100m.length > 1) ? `
       <div class="mt-1.5 flex flex-wrap gap-1">
         ${s.splits_100m.map(sp => `
-          <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-950/80 border border-cyan-800/50 text-cyan-300 font-mono">
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 font-mono">
             100m #${sp.split_index || sp.split_num}: <b>${sp.duration_formatted || sp.time_formatted}</b> (${sp.avg_heart_rate ? `${sp.avg_heart_rate} bpm` : '--'})
           </span>
         `).join('')}
@@ -1001,34 +1001,34 @@ function renderProportionalLapsSection(act) {
     ` : '';
 
     return `
-      <tr class="border-b border-slate-800/60 hover:bg-slate-800/40 text-xs font-mono">
-        <td class="py-2 px-2.5 font-bold text-slate-200">L${lapNum}</td>
-        <td class="py-2 px-2.5 text-slate-300">${durFormatted} <span class="text-[10px] text-slate-500">(${durPct}%)</span></td>
-        <td class="py-2 px-2.5 text-slate-300">${distFormatted}${swimSplitsSub}</td>
+      <tr class="border-b border-slate-100 hover:bg-slate-50 text-xs font-mono">
+        <td class="py-2 px-2.5 font-bold text-slate-800">L${lapNum}</td>
+        <td class="py-2 px-2.5 text-slate-600">${durFormatted} <span class="text-[10px] text-slate-400">(${durPct}%)</span></td>
+        <td class="py-2 px-2.5 text-slate-600">${distFormatted}${swimSplitsSub}</td>
         <td class="py-2 px-2.5 font-bold ${primaryColorClass}">${primaryVal}</td>
-        <td class="py-2 px-2.5 text-rose-400 font-semibold">${hrVal}</td>
-        <td class="py-2 px-2.5 text-rose-500">${maxHrVal}</td>
+        <td class="py-2 px-2.5 text-rose-600 font-semibold">${hrVal}</td>
+        <td class="py-2 px-2.5 text-rose-700">${maxHrVal}</td>
       </tr>
     `;
   }).join('');
 
   return `
-    <div class="mb-6 p-4 rounded-xl bg-slate-900/90 border border-slate-800 shadow-xl">
-      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800 flex-wrap gap-2">
+    <div class="mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200 shadow-xs">
+      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 flex-wrap gap-2">
         <div class="flex items-center gap-2">
           <div class="w-7 h-7 rounded-lg ${badgeColorClass} flex items-center justify-center font-bold text-sm">
             ⏱️
           </div>
           <div>
-            <h3 class="text-xs font-bold text-slate-100 uppercase tracking-wider">Laps Grabados en Dispositivo (${splits.length} laps)</h3>
-            <p class="text-[10px] text-slate-400">Ancho proporcional a la duración real • Métricas: ${isCycling ? 'Vatios (W) y Frecuencia Cardíaca (FC)' : (isRunning ? 'Ritmo (min/km) y FC' : 'Ritmo (min/100m) y FC')}</p>
+            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Laps Grabados en Dispositivo (${splits.length} laps)</h3>
+            <p class="text-[10px] text-slate-500">Ancho proporcional a la duración real • Métricas: ${isCycling ? 'Vatios (W) y Frecuencia Cardíaca (FC)' : (isRunning ? 'Ritmo (min/km) y FC' : 'Ritmo (min/100m) y FC')}</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
           <span class="text-[10px] font-mono px-2 py-0.5 rounded border ${badgeColorClass}">
             Total: ${formatLapDuration(totalDuration)}
           </span>
-          <button type="button" onclick="toggleLapsTable()" id="btn-toggle-laps-table" class="text-[11px] font-mono px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 transition-colors">
+          <button type="button" onclick="toggleLapsTable()" id="btn-toggle-laps-table" class="text-[11px] font-mono px-2.5 py-1 rounded bg-white hover:bg-slate-100 text-[#0284c7] border border-slate-200 transition-colors shadow-2xs">
             Ver Tabla ▾
           </button>
         </div>
@@ -1041,23 +1041,23 @@ function renderProportionalLapsSection(act) {
           <span class="text-slate-400">Bloques con ancho proporcional al tiempo de cada lap</span>
           <span>${formatLapDuration(totalDuration)} (Fin)</span>
         </div>
-        <div class="flex items-stretch gap-1.5 overflow-x-auto pb-2 p-1.5 rounded-xl bg-slate-950/80 border border-slate-800 scrollbar-thin">
+        <div class="flex items-stretch gap-1.5 overflow-x-auto pb-2 p-1.5 rounded-xl bg-slate-100 border border-slate-200 scrollbar-thin">
           ${ribbonBlocksHtml}
         </div>
       </div>
 
       <!-- Dual-Axis Telemetry Chart -->
       <div>
-        <div class="h-48 w-full bg-slate-950/60 rounded-xl p-2 border border-slate-800/80">
+        <div class="h-48 w-full bg-white rounded-xl p-2 border border-slate-200 shadow-2xs">
           <canvas id="splitsChart"></canvas>
         </div>
       </div>
 
       <!-- Collapsible Detailed Table -->
-      <div id="laps-table-wrapper" class="hidden overflow-x-auto mt-4 pt-3 border-t border-slate-800/80">
+      <div id="laps-table-wrapper" class="hidden overflow-x-auto mt-4 pt-3 border-t border-slate-200">
         <table class="w-full text-left border-collapse">
           <thead>
-            <tr class="text-[10px] font-mono uppercase tracking-wider text-slate-400 border-b border-slate-800 bg-slate-950/40">
+            <tr class="text-[10px] font-mono uppercase tracking-wider text-slate-500 border-b border-slate-200 bg-slate-100/80">
               <th class="py-1.5 px-2.5">Lap</th>
               <th class="py-1.5 px-2.5">Duración (% total)</th>
               <th class="py-1.5 px-2.5">Distancia</th>
@@ -1111,13 +1111,13 @@ function renderSwimTestComparisonSection(act) {
   const rows400Html = t400_splits.map((s, idx) => {
     const p = prev_400[idx] || {};
     return `
-      <tr class="border-b border-slate-800/60 text-xs font-mono">
-        <td class="py-2 px-2.5 font-bold text-slate-300">100m #${s.split_index || (idx+1)}</td>
-        <td class="py-2 px-2.5 text-cyan-400 font-bold">${s.duration_formatted}</td>
-        <td class="py-2 px-2.5 text-rose-400 font-semibold">${s.avg_heart_rate || '--'} bpm</td>
-        <td class="py-2 px-2.5 text-amber-400 font-bold">${p.duration_formatted || '--'}</td>
-        <td class="py-2 px-2.5 text-rose-300 font-semibold">${p.avg_heart_rate || '--'} bpm</td>
-        <td class="py-2 px-2.5 text-emerald-400 font-bold">
+      <tr class="border-b border-slate-100 text-xs font-mono">
+        <td class="py-2 px-2.5 font-bold text-slate-800">100m #${s.split_index || (idx+1)}</td>
+        <td class="py-2 px-2.5 text-[#00a8cc] font-bold">${s.duration_formatted}</td>
+        <td class="py-2 px-2.5 text-rose-600 font-semibold">${s.avg_heart_rate || '--'} bpm</td>
+        <td class="py-2 px-2.5 text-[#d97706] font-bold">${p.duration_formatted || '--'}</td>
+        <td class="py-2 px-2.5 text-rose-500 font-semibold">${p.avg_heart_rate || '--'} bpm</td>
+        <td class="py-2 px-2.5 text-emerald-600 font-bold">
           ${s.avg_heart_rate && p.avg_heart_rate ? (s.avg_heart_rate - p.avg_heart_rate) + ' bpm' : '--'}
         </td>
       </tr>
@@ -1127,13 +1127,13 @@ function renderSwimTestComparisonSection(act) {
   const rows200Html = t200_splits.map((s, idx) => {
     const p = prev_200[idx] || {};
     return `
-      <tr class="border-b border-slate-800/60 text-xs font-mono">
-        <td class="py-2 px-2.5 font-bold text-slate-300">100m #${s.split_index || (idx+1)}</td>
-        <td class="py-2 px-2.5 text-cyan-400 font-bold">${s.duration_formatted}</td>
-        <td class="py-2 px-2.5 text-rose-400 font-semibold">${s.avg_heart_rate || '--'} bpm</td>
-        <td class="py-2 px-2.5 text-amber-400 font-bold">${p.duration_formatted || '--'}</td>
-        <td class="py-2 px-2.5 text-rose-300 font-semibold">${p.avg_heart_rate || '--'} bpm</td>
-        <td class="py-2 px-2.5 text-emerald-400 font-bold">
+      <tr class="border-b border-slate-100 text-xs font-mono">
+        <td class="py-2 px-2.5 font-bold text-slate-800">100m #${s.split_index || (idx+1)}</td>
+        <td class="py-2 px-2.5 text-[#00a8cc] font-bold">${s.duration_formatted}</td>
+        <td class="py-2 px-2.5 text-rose-600 font-semibold">${s.avg_heart_rate || '--'} bpm</td>
+        <td class="py-2 px-2.5 text-[#d97706] font-bold">${p.duration_formatted || '--'}</td>
+        <td class="py-2 px-2.5 text-rose-500 font-semibold">${p.avg_heart_rate || '--'} bpm</td>
+        <td class="py-2 px-2.5 text-emerald-600 font-bold">
           ${s.avg_heart_rate && p.avg_heart_rate ? (s.avg_heart_rate - p.avg_heart_rate) + ' bpm' : '--'}
         </td>
       </tr>
@@ -1141,22 +1141,22 @@ function renderSwimTestComparisonSection(act) {
   }).join('');
 
   return `
-    <div class="mb-6 p-4 rounded-xl bg-slate-900 border border-cyan-500/30 shadow-xl">
-      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800 flex-wrap gap-2">
+    <div class="mb-6 p-4 rounded-xl bg-slate-50 border border-sky-200 shadow-xs">
+      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 flex-wrap gap-2">
         <div class="flex items-center gap-2">
-          <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-sm">
+          <div class="w-7 h-7 rounded-lg bg-sky-100 text-[#00a8cc] flex items-center justify-center font-bold text-sm">
             🏊‍♂️
           </div>
           <div>
-            <h3 class="text-xs font-bold text-slate-100 uppercase tracking-wider">Comparativa de Tests (100m Superpuestos): 16 Nov vs 19 Oct</h3>
-            <p class="text-[11px] text-slate-400">Comparativa con el lunes de hace 4 semanas • Test 400m y Test 200m</p>
+            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Comparativa de Tests (100m Superpuestos): 16 Nov vs 19 Oct</h3>
+            <p class="text-[11px] text-slate-500">Comparativa con el lunes de hace 4 semanas • Test 400m y Test 200m</p>
           </div>
         </div>
         <div class="flex items-center gap-2 text-xs font-mono">
-          <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">
+          <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
             FC 400m: -32 bpm
           </span>
-          <span class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+          <span class="px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 font-semibold">
             CSS: 1:31.3 vs 1:29.4
           </span>
         </div>
@@ -1165,19 +1165,19 @@ function renderSwimTestComparisonSection(act) {
       <!-- Test 400m Comparison Table -->
       <div class="mb-4">
         <div class="flex items-center justify-between mb-1.5">
-          <h4 class="text-xs font-bold text-cyan-300 uppercase tracking-wider">Test de 400m (5:58.95 @ 110 bpm vs 5:53.17 @ 142 bpm)</h4>
-          <span class="text-[11px] font-mono text-emerald-400 font-semibold">-32 bpm (-22.5%)</span>
+          <h4 class="text-xs font-bold text-sky-800 uppercase tracking-wider">Test de 400m (5:58.95 @ 110 bpm vs 5:53.17 @ 142 bpm)</h4>
+          <span class="text-[11px] font-mono text-emerald-600 font-semibold">-32 bpm (-22.5%)</span>
         </div>
-        <div class="overflow-x-auto rounded-lg border border-slate-800 bg-slate-950/60">
+        <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table class="w-full text-left border-collapse">
             <thead>
-              <tr class="text-[10px] font-mono uppercase text-slate-400 border-b border-slate-800 bg-slate-950/80">
+              <tr class="text-[10px] font-mono uppercase text-slate-500 border-b border-slate-200 bg-slate-50">
                 <th class="py-1.5 px-2.5">Tramo</th>
-                <th class="py-1.5 px-2.5 text-cyan-400">16 Nov (Ayer)</th>
-                <th class="py-1.5 px-2.5 text-rose-400">FC Ayer</th>
-                <th class="py-1.5 px-2.5 text-amber-400">19 Oct (4 sem)</th>
-                <th class="py-1.5 px-2.5 text-rose-300">FC 19 Oct</th>
-                <th class="py-1.5 px-2.5 text-emerald-400">Dif. FC</th>
+                <th class="py-1.5 px-2.5 text-[#00a8cc]">16 Nov (Ayer)</th>
+                <th class="py-1.5 px-2.5 text-rose-600">FC Ayer</th>
+                <th class="py-1.5 px-2.5 text-[#d97706]">19 Oct (4 sem)</th>
+                <th class="py-1.5 px-2.5 text-rose-500">FC 19 Oct</th>
+                <th class="py-1.5 px-2.5 text-emerald-600">Dif. FC</th>
               </tr>
             </thead>
             <tbody>
@@ -1190,19 +1190,19 @@ function renderSwimTestComparisonSection(act) {
       <!-- Test 200m Comparison Table -->
       <div>
         <div class="flex items-center justify-between mb-1.5">
-          <h4 class="text-xs font-bold text-cyan-300 uppercase tracking-wider">Test de 200m (2:56.28 @ 108 bpm vs 2:54.43 @ 121 bpm)</h4>
-          <span class="text-[11px] font-mono text-emerald-400 font-semibold">-13 bpm (-10.7%)</span>
+          <h4 class="text-xs font-bold text-sky-800 uppercase tracking-wider">Test de 200m (2:56.28 @ 108 bpm vs 2:54.43 @ 121 bpm)</h4>
+          <span class="text-[11px] font-mono text-emerald-600 font-semibold">-13 bpm (-10.7%)</span>
         </div>
-        <div class="overflow-x-auto rounded-lg border border-slate-800 bg-slate-950/60">
+        <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table class="w-full text-left border-collapse">
             <thead>
-              <tr class="text-[10px] font-mono uppercase text-slate-400 border-b border-slate-800 bg-slate-950/80">
+              <tr class="text-[10px] font-mono uppercase text-slate-500 border-b border-slate-200 bg-slate-50">
                 <th class="py-1.5 px-2.5">Tramo</th>
-                <th class="py-1.5 px-2.5 text-cyan-400">16 Nov (Ayer)</th>
-                <th class="py-1.5 px-2.5 text-rose-400">FC Ayer</th>
-                <th class="py-1.5 px-2.5 text-amber-400">19 Oct (4 sem)</th>
-                <th class="py-1.5 px-2.5 text-rose-300">FC 19 Oct</th>
-                <th class="py-1.5 px-2.5 text-emerald-400">Dif. FC</th>
+                <th class="py-1.5 px-2.5 text-[#00a8cc]">16 Nov (Ayer)</th>
+                <th class="py-1.5 px-2.5 text-rose-600">FC Ayer</th>
+                <th class="py-1.5 px-2.5 text-[#d97706]">19 Oct (4 sem)</th>
+                <th class="py-1.5 px-2.5 text-rose-500">FC 19 Oct</th>
+                <th class="py-1.5 px-2.5 text-emerald-600">Dif. FC</th>
               </tr>
             </thead>
             <tbody>
@@ -1229,35 +1229,35 @@ function renderActivityModalContent(data) {
   let effMetricHtml = '';
   if (act.sport_type === 'cycling') {
     effMetricHtml = `
-      <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col">
-        <span class="text-xs text-slate-400">Factor de Eficiencia (FEc = NP/FC)</span>
-        <span class="text-xl font-bold font-mono text-sky-400">${eff.fec || 'N/A'} <span class="text-xs text-slate-400">W/bpm</span></span>
+      <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col shadow-2xs">
+        <span class="text-xs text-slate-500">Factor de Eficiencia (FEc = NP/FC)</span>
+        <span class="text-xl font-bold font-mono text-[#0284c7]">${eff.fec || 'N/A'} <span class="text-xs text-slate-400">W/bpm</span></span>
       </div>
-      <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col">
-        <span class="text-xs text-slate-400">Índice de Variabilidad (IV = NP/Pmed)</span>
-        <span class="text-xl font-bold font-mono text-amber-400">${eff.iv || 'N/A'}</span>
+      <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col shadow-2xs">
+        <span class="text-xs text-slate-500">Índice de Variabilidad (IV = NP/Pmed)</span>
+        <span class="text-xl font-bold font-mono text-[#d97706]">${eff.iv || 'N/A'}</span>
       </div>
     `;
   } else if (act.sport_type === 'running') {
     effMetricHtml = `
-      <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col">
-        <span class="text-xs text-slate-400">Factor de Eficiencia (FEcp = Vel/FC)</span>
-        <span class="text-xl font-bold font-mono text-emerald-400">${eff.fecp || 'N/A'}</span>
+      <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col shadow-2xs">
+        <span class="text-xs text-slate-500">Factor de Eficiencia (FEcp = Vel/FC)</span>
+        <span class="text-xl font-bold font-mono text-[#059669]">${eff.fecp || 'N/A'}</span>
       </div>
-      <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col">
-        <span class="text-xs text-slate-400">Ritmo Medio</span>
-        <span class="text-xl font-bold font-mono text-slate-100">${eff.pace_str || 'N/A'}</span>
+      <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col shadow-2xs">
+        <span class="text-xs text-slate-500">Ritmo Medio</span>
+        <span class="text-xl font-bold font-mono text-slate-900">${eff.pace_str || 'N/A'}</span>
       </div>
     `;
   } else if (act.sport_type === 'swimming') {
     effMetricHtml = `
-      <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col">
-        <span class="text-xs text-slate-400">Ritmo Medio / 100m</span>
-        <span class="text-xl font-bold font-mono text-cyan-400">${eff.pace_str || 'N/A'}</span>
+      <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col shadow-2xs">
+        <span class="text-xs text-slate-500">Ritmo Medio / 100m</span>
+        <span class="text-xl font-bold font-mono text-[#00a8cc]">${eff.pace_str || 'N/A'}</span>
       </div>
-      <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col">
-        <span class="text-xs text-slate-400">Distancia por Brazada (DPS)</span>
-        <span class="text-xl font-bold font-mono text-sky-300">${eff.dps_meters ? eff.dps_meters + ' m' : 'N/A'}</span>
+      <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col shadow-2xs">
+        <span class="text-xs text-slate-500">Distancia por Brazada (DPS)</span>
+        <span class="text-xl font-bold font-mono text-sky-700">${eff.dps_meters ? eff.dps_meters + ' m' : 'N/A'}</span>
       </div>
     `;
   }
@@ -1266,27 +1266,27 @@ function renderActivityModalContent(data) {
   let decouplingHtml = '';
   if (dec.has_decoupling) {
     const decVal = dec.decoupling_percent;
-    const badgeColor = dec.status_color === 'emerald' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : (dec.status_color === 'blue' ? 'text-sky-400 border-sky-500/30 bg-sky-500/10' : 'text-amber-400 border-amber-500/30 bg-amber-500/10');
+    const badgeColor = dec.status_color === 'emerald' ? 'text-emerald-700 border-emerald-200 bg-emerald-50' : (dec.status_color === 'blue' ? 'text-sky-700 border-sky-200 bg-sky-50' : 'text-amber-700 border-amber-200 bg-amber-50');
 
     decouplingHtml = `
-      <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 mb-6">
+      <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 mb-6 shadow-2xs">
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2">
-            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Desacople Cardiovascular (${dec.metric_name})</span>
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-700">Desacople Cardiovascular (${dec.metric_name})</span>
           </div>
-          <span class="px-2.5 py-1 rounded-full text-xs font-bold font-mono ${badgeColor}">
+          <span class="px-2.5 py-1 rounded-full text-xs font-bold font-mono border ${badgeColor}">
             ${decVal}%
           </span>
         </div>
-        <p class="text-xs text-slate-300 mb-3">${dec.diagnosis}</p>
-        <div class="grid grid-cols-2 gap-3 text-xs font-mono bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
+        <p class="text-xs text-slate-600 mb-3">${dec.diagnosis}</p>
+        <div class="grid grid-cols-2 gap-3 text-xs font-mono bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">
           <div>
-            <span class="text-slate-500 block text-[10px] uppercase">1ª Mitad</span>
-            <span class="text-slate-200">${dec.half_1 ? dec.half_1.label : ''}</span>
+            <span class="text-slate-400 block text-[10px] uppercase">1ª Mitad</span>
+            <span class="text-slate-800 font-semibold">${dec.half_1 ? dec.half_1.label : ''}</span>
           </div>
           <div>
-            <span class="text-slate-500 block text-[10px] uppercase">2ª Mitad</span>
-            <span class="text-slate-200">${dec.half_2 ? dec.half_2.label : ''}</span>
+            <span class="text-slate-400 block text-[10px] uppercase">2ª Mitad</span>
+            <span class="text-slate-800 font-semibold">${dec.half_2 ? dec.half_2.label : ''}</span>
           </div>
         </div>
       </div>
@@ -1295,35 +1295,35 @@ function renderActivityModalContent(data) {
 
   content.innerHTML = `
     <!-- Header -->
-    <div class="flex items-start justify-between pb-4 mb-4 border-b border-[#1c2d4a]">
+    <div class="flex items-start justify-between pb-4 mb-4 border-b border-slate-200">
       <div>
         <div class="flex items-center gap-2 mb-1 flex-wrap">
           ${getSportBadge(act.sport_type, 'md')}
-          <h2 class="text-lg font-bold text-slate-100">${act.name}</h2>
+          <h2 class="text-lg font-bold text-slate-900">${act.name}</h2>
           ${data._isLoading ? `
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-sky-500/10 text-sky-400 border border-sky-500/20 flex items-center gap-1">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-sky-50 text-sky-700 border border-sky-200 flex items-center gap-1">
               <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
               Sincronizando telemetría...
             </span>
           ` : ''}
         </div>
-        <span class="text-xs text-slate-400 font-mono">${act.start_time || ''}</span>
+        <span class="text-xs text-slate-500 font-mono">${act.start_time || ''}</span>
       </div>
       <div class="text-right">
-        <span class="text-lg font-mono font-bold text-slate-100">${durMins} min</span>
-        <span class="text-xs text-slate-400 block font-mono">${distKm} ${act.sport_type === 'swimming' ? 'm' : 'km'}</span>
+        <span class="text-lg font-mono font-bold text-slate-900">${durMins} min</span>
+        <span class="text-xs text-slate-500 block font-mono">${distKm} ${act.sport_type === 'swimming' ? 'm' : 'km'}</span>
       </div>
     </div>
 
     <!-- Core Metrics Grid -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-      <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col">
-        <span class="text-xs text-slate-400">FC Media</span>
-        <span class="text-xl font-bold font-mono text-rose-400">${act.avg_heart_rate ? Math.round(act.avg_heart_rate) + ' bpm' : 'N/A'}</span>
+      <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col shadow-2xs">
+        <span class="text-xs text-slate-500">FC Media</span>
+        <span class="text-xl font-bold font-mono text-rose-600">${act.avg_heart_rate ? Math.round(act.avg_heart_rate) + ' bpm' : 'N/A'}</span>
       </div>
-      <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col">
-        <span class="text-xs text-slate-400">FC Máxima</span>
-        <span class="text-xl font-bold font-mono text-rose-500">${act.max_heart_rate ? Math.round(act.max_heart_rate) + ' bpm' : 'N/A'}</span>
+      <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col shadow-2xs">
+        <span class="text-xs text-slate-500">FC Máxima</span>
+        <span class="text-xl font-bold font-mono text-rose-700">${act.max_heart_rate ? Math.round(act.max_heart_rate) + ' bpm' : 'N/A'}</span>
       </div>
       ${effMetricHtml}
     </div>
@@ -1338,38 +1338,38 @@ function renderActivityModalContent(data) {
     ${renderProportionalLapsSection(act)}
 
     <!-- Expert Coach AI Evaluation Report -->
-    <div class="p-5 rounded-xl bg-gradient-to-b from-slate-900 to-slate-950 border border-purple-500/20 shadow-xl mb-6">
+    <div class="p-5 rounded-xl bg-purple-50/70 border border-purple-200 shadow-xs mb-6 text-slate-800">
       <div class="flex items-center gap-2 mb-3">
-        <div class="w-7 h-7 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold text-sm">
+        <div class="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm">
           ⚡
         </div>
         <div>
-          <h3 class="text-sm font-bold text-slate-100">Análisis del Entrenador Experto en Triatlón</h3>
-          <span class="text-[11px] text-purple-400">Fase de Base Aeróbica • Tolerancia Biológica y Deriva Cardíaca</span>
+          <h3 class="text-sm font-bold text-slate-900">Análisis del Entrenador Experto en Triatlón</h3>
+          <span class="text-[11px] text-purple-700">Fase de Base Aeróbica • Tolerancia Biológica y Deriva Cardíaca</span>
         </div>
       </div>
-      <div class="prose prose-invert prose-sm max-w-none text-slate-300 text-xs leading-relaxed space-y-3">
+      <div class="prose prose-sm max-w-none text-slate-700 text-xs leading-relaxed space-y-3">
         ${formatCoachReport(coach.content)}
       </div>
     </div>
 
     <!-- Interactive Activity Chatbot with Coach -->
-    <div class="p-4 sm:p-5 rounded-xl bg-slate-900/90 border border-slate-800 shadow-xl">
-      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
+    <div class="p-4 sm:p-5 rounded-xl bg-slate-50 border border-slate-200 shadow-xs">
+      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
         <div class="flex items-center gap-2">
-          <div class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold text-sm">
+          <div class="w-7 h-7 rounded-lg bg-sky-100 text-[#0284c7] flex items-center justify-center font-bold text-sm">
             💬
           </div>
           <div>
-            <h4 class="text-xs font-bold text-slate-100">Consulta con tu Entrenador sobre esta sesión</h4>
-            <p class="text-[10px] text-slate-400">Pregúntale detalles sobre el desacople, métricas por km o recomendaciones para tus próximas sesiones.</p>
+            <h4 class="text-xs font-bold text-slate-900">Consulta con tu Entrenador sobre esta sesión</h4>
+            <p class="text-[10px] text-slate-500">Pregúntale detalles sobre el desacople, métricas por km o recomendaciones para tus próximas sesiones.</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded ${state.athleteStatus?.ai?.has_key ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-slate-800 text-slate-400 border border-slate-700'}">
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded ${state.athleteStatus?.ai?.has_key ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-white text-slate-600 border border-slate-200'}">
             ${state.athleteStatus?.ai?.has_key ? '● Gemini 2.0 Flash' : '⚡ Motor Experto Fisiología'}
           </span>
-          <span class="hidden sm:inline-block text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-sky-400 border border-slate-700">
+          <span class="hidden sm:inline-block text-[10px] font-mono px-2 py-0.5 rounded bg-white text-sky-700 border border-slate-200">
             Sesión: ${act.name}
           </span>
         </div>
@@ -1378,42 +1378,42 @@ function renderActivityModalContent(data) {
       <!-- Quick prompts for this activity -->
       <div class="flex flex-wrap gap-1.5 mb-3">
         <button type="button" onclick="setActivityPrompt('${act.activity_id}', '¿Cómo valoras mi desacople cardiovascular en esta sesión?')"
-          class="px-2.5 py-1 rounded-full text-[11px] bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 transition-colors">
+          class="px-2.5 py-1 rounded-full text-[11px] bg-white hover:bg-slate-100 text-sky-700 border border-slate-200 transition-colors shadow-2xs">
           ¿Cómo estuvo mi desacople?
         </button>
         <button type="button" onclick="setActivityPrompt('${act.activity_id}', '¿Cuál fue mi split más eficiente y cómo progresó el ritmo?')"
-          class="px-2.5 py-1 rounded-full text-[11px] bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 transition-colors">
+          class="px-2.5 py-1 rounded-full text-[11px] bg-white hover:bg-slate-100 text-sky-700 border border-slate-200 transition-colors shadow-2xs">
           Analizar splits por km
         </button>
         <button type="button" onclick="setActivityPrompt('${act.activity_id}', '¿Cómo fue mi cadencia y biomecánica en esta sesión?')"
-          class="px-2.5 py-1 rounded-full text-[11px] bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 transition-colors">
+          class="px-2.5 py-1 rounded-full text-[11px] bg-white hover:bg-slate-100 text-sky-700 border border-slate-200 transition-colors shadow-2xs">
           Cadencia y biomecánica
         </button>
         <button type="button" onclick="setActivityPrompt('${act.activity_id}', '¿Cuántas calorías quemé y qué pauta de carbohidratos me recomiendas?')"
-          class="px-2.5 py-1 rounded-full text-[11px] bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 transition-colors">
+          class="px-2.5 py-1 rounded-full text-[11px] bg-white hover:bg-slate-100 text-sky-700 border border-slate-200 transition-colors shadow-2xs">
           Calorías y nutrición
         </button>
         <button type="button" onclick="setActivityPrompt('${act.activity_id}', '¿Debería haber apretado más o estuvo bien no subir de pulso?')"
-          class="px-2.5 py-1 rounded-full text-[11px] bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 transition-colors">
+          class="px-2.5 py-1 rounded-full text-[11px] bg-white hover:bg-slate-100 text-sky-700 border border-slate-200 transition-colors shadow-2xs">
           ¿Debería haber forzado más?
         </button>
         <button type="button" onclick="setActivityPrompt('${act.activity_id}', '¿Cómo debería ajustar el entrenamiento de mañana según esta carga?')"
-          class="px-2.5 py-1 rounded-full text-[11px] bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 transition-colors">
+          class="px-2.5 py-1 rounded-full text-[11px] bg-white hover:bg-slate-100 text-sky-700 border border-slate-200 transition-colors shadow-2xs">
           ¿Cómo ajustar mañana?
         </button>
       </div>
 
       <!-- Messages container -->
-      <div id="activity-chat-messages" class="space-y-3 max-h-64 overflow-y-auto mb-3 p-3 rounded-xl bg-slate-950/70 border border-slate-800/80">
+      <div id="activity-chat-messages" class="space-y-3 max-h-64 overflow-y-auto mb-3 p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
         <!-- Rendered dynamically -->
       </div>
 
       <!-- Input Form -->
       <form id="form-activity-chat" onsubmit="event.preventDefault(); submitActivityChatMessage('${act.activity_id}');" class="flex gap-2">
         <input type="text" id="input-activity-chat" placeholder="Pregunta al entrenador sobre esta sesión..."
-          class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-sky-500 transition-colors">
+          class="flex-1 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#0284c7] transition-colors">
         <button type="submit" id="btn-activity-chat-send"
-          class="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-sky-500/20 transition-all shrink-0">
+          class="px-4 py-2 rounded-xl bg-[#0284c7] hover:bg-[#0369a1] text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm transition-all shrink-0">
           <span>Enviar</span>
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
         </button>
@@ -1461,14 +1461,14 @@ function renderActivityChatMessages(activityId, act) {
     return `
       <div class="flex gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}">
         ${!isUser ? `
-          <div class="w-6 h-6 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0 font-bold text-[10px]">
+          <div class="w-6 h-6 rounded-full bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700 shrink-0 font-bold text-[10px]">
             Coach
           </div>
         ` : ''}
         <div class="max-w-[85%] rounded-2xl p-2.5 text-xs leading-relaxed ${
           isUser 
-            ? 'bg-sky-600 text-white rounded-tr-none' 
-            : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none prose prose-invert'
+            ? 'bg-[#0284c7] text-white rounded-tr-none' 
+            : 'bg-slate-100 border border-slate-200 text-slate-800 rounded-tl-none prose prose-sm'
         }">
           ${formatCoachReport(msg.content)}
         </div>
@@ -1498,7 +1498,7 @@ async function submitActivityChatMessage(activityId) {
     const userMsgEl = document.createElement('div');
     userMsgEl.className = 'flex gap-2.5 justify-end';
     userMsgEl.innerHTML = `
-      <div class="max-w-[85%] rounded-2xl p-2.5 text-xs leading-relaxed bg-sky-600 text-white rounded-tr-none">
+      <div class="max-w-[85%] rounded-2xl p-2.5 text-xs leading-relaxed bg-[#0284c7] text-white rounded-tr-none">
         ${formatCoachReport(text)}
       </div>
     `;
@@ -1509,13 +1509,13 @@ async function submitActivityChatMessage(activityId) {
     loaderEl.id = 'activity-chat-loader';
     loaderEl.className = 'flex gap-2.5 justify-start';
     loaderEl.innerHTML = `
-      <div class="w-6 h-6 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0 font-bold text-[10px]">
+      <div class="w-6 h-6 rounded-full bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700 shrink-0 font-bold text-[10px]">
         Coach
       </div>
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl rounded-tl-none p-2.5 flex items-center gap-1">
-        <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce"></span>
-        <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" style="animation-delay: 0.15s"></span>
-        <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" style="animation-delay: 0.3s"></span>
+      <div class="bg-slate-100 border border-slate-200 rounded-2xl rounded-tl-none p-2.5 flex items-center gap-1">
+        <span class="w-1.5 h-1.5 rounded-full bg-purple-600 animate-bounce"></span>
+        <span class="w-1.5 h-1.5 rounded-full bg-purple-600 animate-bounce" style="animation-delay: 0.15s"></span>
+        <span class="w-1.5 h-1.5 rounded-full bg-purple-600 animate-bounce" style="animation-delay: 0.3s"></span>
       </div>
     `;
     container.appendChild(loaderEl);
@@ -1541,10 +1541,10 @@ async function submitActivityChatMessage(activityId) {
       const botMsgEl = document.createElement('div');
       botMsgEl.className = 'flex gap-2.5 justify-start';
       botMsgEl.innerHTML = `
-        <div class="w-6 h-6 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0 font-bold text-[10px]">
+        <div class="w-6 h-6 rounded-full bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700 shrink-0 font-bold text-[10px]">
           Coach
         </div>
-        <div class="max-w-[85%] rounded-2xl p-2.5 text-xs leading-relaxed bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none prose prose-invert">
+        <div class="max-w-[85%] rounded-2xl p-2.5 text-xs leading-relaxed bg-slate-100 border border-slate-200 text-slate-800 rounded-tl-none prose prose-sm">
           ${formatCoachReport(reply)}
         </div>
       `;
@@ -2124,11 +2124,11 @@ function renderPlannedWorkoutChart(ev) {
       `);
 
       legendPills.push(`
-        <div class="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900 border border-slate-800 text-[11px] font-mono">
+        <div class="flex items-center gap-1.5 px-2 py-1 rounded bg-white border border-slate-200 text-[11px] font-mono shadow-2xs">
           <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background-color: ${color};"></span>
-          <span class="font-bold text-slate-200">${name}</span>
-          <span class="text-slate-400">${mins}m <span class="text-slate-500">(${pct}%)</span></span>
-          ${wattsRange ? `<span class="text-slate-500 text-[10px] hidden sm:inline pl-1 border-l border-slate-800">${wattsRange}</span>` : ''}
+          <span class="font-bold text-slate-800">${name}</span>
+          <span class="text-slate-500">${mins}m <span class="text-slate-400">(${pct}%)</span></span>
+          ${wattsRange ? `<span class="text-slate-400 text-[10px] hidden sm:inline pl-1 border-l border-slate-200">${wattsRange}</span>` : ''}
         </div>
       `);
     });
@@ -2152,52 +2152,52 @@ function renderPlannedWorkoutChart(ev) {
         <div style="width: ${(item.secs / (activeTotal || 1) * 100).toFixed(1)}%; background-color: ${item.color};" class="h-3 relative group transition-transform hover:scale-y-125" title="${item.name}: ${mins}m (${pct}%)"></div>
       `);
       legendPills.push(`
-        <div class="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900 border border-slate-800 text-[11px] font-mono">
+        <div class="flex items-center gap-1.5 px-2 py-1 rounded bg-white border border-slate-200 text-[11px] font-mono shadow-2xs">
           <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background-color: ${item.color};"></span>
-          <span class="font-bold text-slate-200">${item.name}</span>
-          <span class="text-slate-400">${mins}m <span class="text-slate-500">(${pct}%)</span></span>
+          <span class="font-bold text-slate-800">${item.name}</span>
+          <span class="text-slate-500">${mins}m <span class="text-slate-400">(${pct}%)</span></span>
         </div>
       `);
     });
   }
 
   return `
-    <div class="mt-4 p-4 rounded-xl bg-slate-900/90 border border-slate-800 shadow-xl">
+    <div class="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200 shadow-xs">
       <!-- Chart Header & Metrics -->
-      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800/80 flex-wrap gap-2">
+      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 flex-wrap gap-2">
         <div class="flex items-center gap-2">
-          <div class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold text-sm">
+          <div class="w-7 h-7 rounded-lg bg-sky-100 text-[#0284c7] flex items-center justify-center font-bold text-sm">
             📊
           </div>
           <div>
-            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
               Estructura Planificada Intervals.icu
-              <span class="text-[10px] px-2 py-0.5 rounded font-mono font-normal bg-sky-500/10 text-sky-400 border border-sky-500/20">Zonas & Perfil</span>
+              <span class="text-[10px] px-2 py-0.5 rounded font-mono font-normal bg-sky-50 text-[#0284c7] border border-sky-200">Zonas & Perfil</span>
             </h4>
-            <p class="text-[10px] text-slate-400">Pasa el cursor por cada bloque para ver sus rangos objetivo exactos de potencia, ritmo y pulso.</p>
+            <p class="text-[10px] text-slate-500">Pasa el cursor por cada bloque para ver sus rangos objetivo exactos de potencia, ritmo y pulso.</p>
           </div>
         </div>
         
         <div class="flex items-center gap-1.5 flex-wrap">
-          ${wdoc.normalized_power ? `<span class="px-2 py-0.5 rounded text-[11px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/20" title="Potencia Normalizada Prevista">NP: ${Math.round(wdoc.normalized_power)}W</span>` : ''}
-          ${wdoc.average_watts ? `<span class="px-2 py-0.5 rounded text-[11px] font-mono bg-slate-800 text-slate-300 border border-slate-700" title="Potencia Media Prevista">P.Med: ${Math.round(wdoc.average_watts)}W</span>` : ''}
-          ${wdoc.variability_index ? `<span class="px-2 py-0.5 rounded text-[11px] font-mono bg-purple-500/10 text-purple-300 border border-purple-500/20" title="Índice de Variabilidad">VI: ${wdoc.variability_index.toFixed(2)}</span>` : ''}
-          ${ev.planned_load ? `<span class="px-2 py-0.5 rounded text-[11px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">${ev.planned_load} TSS</span>` : ''}
+          ${wdoc.normalized_power ? `<span class="px-2 py-0.5 rounded text-[11px] font-mono bg-amber-50 text-amber-700 border border-amber-200" title="Potencia Normalizada Prevista">NP: ${Math.round(wdoc.normalized_power)}W</span>` : ''}
+          ${wdoc.average_watts ? `<span class="px-2 py-0.5 rounded text-[11px] font-mono bg-white text-slate-700 border border-slate-200" title="Potencia Media Prevista">P.Med: ${Math.round(wdoc.average_watts)}W</span>` : ''}
+          ${wdoc.variability_index ? `<span class="px-2 py-0.5 rounded text-[11px] font-mono bg-purple-50 text-purple-700 border border-purple-200" title="Índice de Variabilidad">VI: ${wdoc.variability_index.toFixed(2)}</span>` : ''}
+          ${ev.planned_load ? `<span class="px-2 py-0.5 rounded text-[11px] font-mono bg-amber-50 text-amber-700 border border-amber-200 font-bold">${ev.planned_load} TSS</span>` : ''}
         </div>
       </div>
 
       <!-- SVG Stepped Chart -->
-      <div class="relative bg-slate-950/90 p-3 rounded-lg border border-slate-800/90 overflow-hidden">
+      <div class="relative bg-white p-3 rounded-lg border border-slate-200 overflow-hidden shadow-2xs">
         <svg viewBox="0 0 ${svgWidth} ${svgHeight}" class="w-full h-40 sm:h-48 overflow-visible select-none" preserveAspectRatio="none">
           <!-- Grid lines -->
-          <line x1="0" y1="${threshY}" x2="${svgWidth}" y2="${threshY}" stroke="#f59e0b" stroke-dasharray="3,3" stroke-width="1.2" opacity="0.6" />
-          <text x="${svgWidth - 6}" y="${threshY - 4}" text-anchor="end" fill="#f59e0b" font-size="9" font-family="monospace" opacity="0.85">100% Umbral / FTP</text>
+          <line x1="0" y1="${threshY}" x2="${svgWidth}" y2="${threshY}" stroke="#d97706" stroke-dasharray="3,3" stroke-width="1.2" opacity="0.75" />
+          <text x="${svgWidth - 6}" y="${threshY - 4}" text-anchor="end" fill="#d97706" font-size="9" font-family="monospace" font-weight="bold" opacity="0.95">100% Umbral / FTP</text>
 
-          <line x1="0" y1="${baselineY - 46}" x2="${svgWidth}" y2="${baselineY - 46}" stroke="#475569" stroke-dasharray="2,4" stroke-width="0.8" opacity="0.3" />
-          <text x="${svgWidth - 6}" y="${baselineY - 50}" text-anchor="end" fill="#64748b" font-size="8.5" font-family="monospace" opacity="0.5">50%</text>
+          <line x1="0" y1="${baselineY - 46}" x2="${svgWidth}" y2="${baselineY - 46}" stroke="#cbd5e1" stroke-dasharray="2,4" stroke-width="0.8" opacity="0.7" />
+          <text x="${svgWidth - 6}" y="${baselineY - 50}" text-anchor="end" fill="#64748b" font-size="8.5" font-family="monospace" opacity="0.8">50%</text>
 
           <!-- Baseline ground -->
-          <line x1="0" y1="${baselineY}" x2="${svgWidth}" y2="${baselineY}" stroke="#334155" stroke-width="1.2" />
+          <line x1="0" y1="${baselineY}" x2="${svgWidth}" y2="${baselineY}" stroke="#94a3b8" stroke-width="1.2" />
 
           <!-- Step blocks -->
           ${stepElements.join('')}
@@ -2210,14 +2210,14 @@ function renderPlannedWorkoutChart(ev) {
       </div>
 
       <!-- Zone Distribution Ribbon -->
-      <div class="mt-3.5 pt-3 border-t border-slate-800/80">
+      <div class="mt-3.5 pt-3 border-t border-slate-200">
         <div class="flex items-center justify-between mb-1.5">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Distribución de Tiempo en Zonas (Intervals.icu)</span>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Distribución de Tiempo en Zonas (Intervals.icu)</span>
           <span class="text-[10px] font-mono text-slate-500">${formatSecsToMinSec(totalDuration)} total</span>
         </div>
 
         <!-- Ribbon Bar -->
-        <div class="w-full flex rounded-full overflow-hidden bg-slate-950 border border-slate-800 mb-2.5">
+        <div class="w-full flex rounded-full overflow-hidden bg-slate-100 border border-slate-200 mb-2.5">
           ${ribbonSegments.join('')}
         </div>
 
@@ -2416,7 +2416,7 @@ function renderPlannedModalContent(ev) {
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/\n\n/g, '<div class="my-2 border-t border-slate-800/60"></div>')
+      .replace(/\n\n/g, '<div class="my-2 border-t border-slate-200"></div>')
       .replace(/\n/g, '<br/>');
   } else {
     descHtml = '<span class="text-slate-500 italic">No hay descripción adicional de texto en Intervals.icu para esta sesión.</span>';
@@ -2433,16 +2433,16 @@ function renderPlannedModalContent(ev) {
         const secs = tz[z] || 0;
         const mins = Math.round(secs / 60);
         return `
-          <div class="p-2 rounded-lg bg-slate-900 border border-slate-800/80 text-center font-mono">
-            <span class="text-[10px] text-slate-400 block">${z}</span>
-            <span class="text-xs font-bold text-slate-200">${mins}m</span>
+          <div class="p-2 rounded-lg bg-white border border-slate-200 text-center font-mono shadow-2xs">
+            <span class="text-[10px] text-slate-500 block">${z}</span>
+            <span class="text-xs font-bold text-slate-900">${mins}m</span>
           </div>
         `;
       }).join('');
 
       zonesHtml = `
-        <div class="mt-4 pt-4 border-t border-slate-800/80">
-          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-2">Distribución Estimada por Zonas</span>
+        <div class="mt-4 pt-4 border-t border-slate-200">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-600 block mb-2">Distribución Estimada por Zonas</span>
           <div class="grid grid-cols-5 gap-2">
             ${zPills}
           </div>
@@ -2455,16 +2455,16 @@ function renderPlannedModalContent(ev) {
 
   content.innerHTML = `
     <!-- Header -->
-    <div class="flex items-start justify-between pb-4 mb-4 border-b border-[#1c2d4a]">
+    <div class="flex items-start justify-between pb-4 mb-4 border-b border-slate-200">
       <div>
         <div class="flex items-center gap-2 mb-1.5 flex-wrap">
           ${getSportBadge(ev.sport_type, 'md')}
-          <h2 class="text-lg font-bold text-slate-100">${ev.name}</h2>
+          <h2 class="text-lg font-bold text-slate-900">${ev.name}</h2>
           <span class="px-2.5 py-0.5 rounded-full text-[10px] font-medium border ${badgeColor}">
             ${badgeText}
           </span>
         </div>
-        <div class="flex items-center gap-2 text-xs text-slate-400 font-mono">
+        <div class="flex items-center gap-2 text-xs text-slate-500 font-mono">
           <span>📅 ${ev.date || 'Esta semana'}</span>
           ${ev.start_time ? `<span>• ${ev.start_time.substring(11, 16) || ''}</span>` : ''}
         </div>
@@ -2474,31 +2474,31 @@ function renderPlannedModalContent(ev) {
     <!-- Quick Metrics Grid -->
     ${!isNote ? `
       <div class="grid grid-cols-3 gap-3 mb-5">
-        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col">
-          <span class="text-xs text-slate-400 mb-0.5">Tiempo Estimado</span>
-          <span class="text-base font-bold font-mono text-slate-100">${durMins > 0 ? durHours : 'Libre'}</span>
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col shadow-2xs">
+          <span class="text-xs text-slate-500 mb-0.5">Tiempo Estimado</span>
+          <span class="text-base font-bold font-mono text-slate-900">${durMins > 0 ? durHours : 'Libre'}</span>
         </div>
-        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col">
-          <span class="text-xs text-slate-400 mb-0.5">Distancia</span>
-          <span class="text-base font-bold font-mono text-sky-400">${distKm || 'N/A'}</span>
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col shadow-2xs">
+          <span class="text-xs text-slate-500 mb-0.5">Distancia</span>
+          <span class="text-base font-bold font-mono text-[#0284c7]">${distKm || 'N/A'}</span>
         </div>
-        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col">
-          <span class="text-xs text-slate-400 mb-0.5">Carga Prevista</span>
-          <span class="text-base font-bold font-mono text-amber-400">${ev.planned_load ? ev.planned_load + ' TSS' : 'N/A'}</span>
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col shadow-2xs">
+          <span class="text-xs text-slate-500 mb-0.5">Carga Prevista</span>
+          <span class="text-base font-bold font-mono text-amber-600">${ev.planned_load ? ev.planned_load + ' TSS' : 'N/A'}</span>
         </div>
       </div>
     ` : ''}
 
     <!-- Description & Intervals.icu Workout Instructions -->
-    <div class="p-4 sm:p-5 rounded-xl bg-slate-900/90 border border-slate-800">
-      <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-800/80">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+    <div class="p-4 sm:p-5 rounded-xl bg-slate-50 border border-slate-200 shadow-xs">
+      <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-200">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
           <span>📝</span> Descripción del Entrenamiento (Intervals.icu)
         </h3>
         <span class="text-[10px] text-slate-500 font-mono">ID: ${ev.id}</span>
       </div>
 
-      <div class="text-xs font-mono leading-relaxed text-slate-200 bg-slate-950/80 p-3.5 rounded-lg border border-slate-800/90 max-h-80 overflow-y-auto whitespace-pre-wrap selection:bg-amber-500 selection:text-black">
+      <div class="text-xs font-mono leading-relaxed text-slate-800 bg-white p-3.5 rounded-lg border border-slate-200 max-h-80 overflow-y-auto whitespace-pre-wrap selection:bg-amber-500 selection:text-white shadow-2xs">
 ${descHtml}
       </div>
 
@@ -2509,19 +2509,19 @@ ${descHtml}
     ${chartHtml}
 
     <!-- Interactive Planned Workout Chatbot -->
-    <div class="p-4 sm:p-5 rounded-xl bg-slate-900/90 border border-slate-800 shadow-xl mt-5">
-      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
+    <div class="p-4 sm:p-5 rounded-xl bg-slate-50 border border-slate-200 shadow-xs mt-5">
+      <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
         <div class="flex items-center gap-2">
-          <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-sm">
+          <div class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-sm">
             💬
           </div>
           <div>
-            <h4 class="text-xs font-bold text-slate-100">Consulta con tu Entrenador sobre esta sesión planificada</h4>
-            <p class="text-[10px] text-slate-400">Pregúntale cómo calentar, a qué vatios/ritmo hacer las series o qué estrategia de hidratación y nutrición seguir.</p>
+            <h4 class="text-xs font-bold text-slate-900">Consulta con tu Entrenador sobre esta sesión planificada</h4>
+            <p class="text-[10px] text-slate-500">Pregúntale cómo calentar, a qué vatios/ritmo hacer las series o qué estrategia de hidratación y nutrición seguir.</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded ${state.athleteStatus?.ai?.has_key ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-slate-800 text-slate-400 border border-slate-700'}">
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded ${state.athleteStatus?.ai?.has_key ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-white text-slate-600 border border-slate-200'}">
             ${state.athleteStatus?.ai?.has_key ? '🤖 Gemini Coach IA' : '🧠 Motor Experto Triatlón'}
           </span>
         </div>
@@ -2530,25 +2530,25 @@ ${descHtml}
       <!-- Quick prompts for planned workout -->
       <div class="flex flex-wrap gap-1.5 mb-3">
         <button type="button" onclick="setPlannedPrompt('${ev.id}', '¿Cómo estructuro el calentamiento óptimo para esta sesión?')"
-          class="px-2.5 py-1 rounded-full text-[11px] bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition-colors">
+          class="px-2.5 py-1 rounded-full text-[11px] bg-white hover:bg-slate-100 text-amber-800 border border-slate-200 transition-colors shadow-2xs">
           Calentamiento óptimo
         </button>
         <button type="button" onclick="setPlannedPrompt('${ev.id}', '¿A qué vatios o ritmo exacto debo hacer las partes principales?')"
-          class="px-2.5 py-1 rounded-full text-[11px] bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition-colors">
+          class="px-2.5 py-1 rounded-full text-[11px] bg-white hover:bg-slate-100 text-amber-800 border border-slate-200 transition-colors shadow-2xs">
           Vatios / Ritmos de series
         </button>
         <button type="button" onclick="setPlannedPrompt('${ev.id}', '¿Qué pauta de hidratación y nutrición debo llevar durante la sesión?')"
-          class="px-2.5 py-1 rounded-full text-[11px] bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition-colors">
+          class="px-2.5 py-1 rounded-full text-[11px] bg-white hover:bg-slate-100 text-amber-800 border border-slate-200 transition-colors shadow-2xs">
           Nutrición e Hidratación
         </button>
         <button type="button" onclick="setPlannedPrompt('${ev.id}', 'Si noto fatiga acumulada en las piernas, ¿cómo adapto o recorto el volumen?')"
-          class="px-2.5 py-1 rounded-full text-[11px] bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition-colors">
+          class="px-2.5 py-1 rounded-full text-[11px] bg-white hover:bg-slate-100 text-amber-800 border border-slate-200 transition-colors shadow-2xs">
           Adaptar por fatiga
         </button>
       </div>
 
       <!-- Chat history messages container -->
-      <div id="planned-chat-messages" class="space-y-3 max-h-64 overflow-y-auto mb-3 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
+      <div id="planned-chat-messages" class="space-y-3 max-h-64 overflow-y-auto mb-3 p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
         <!-- Rendered by renderPlannedChatMessages -->
       </div>
 
@@ -2558,12 +2558,12 @@ ${descHtml}
           type="text" 
           id="input-planned-chat"
           placeholder="Haz cualquier pregunta al entrenador sobre esta sesión..." 
-          class="flex-1 bg-slate-950 border border-slate-700/80 rounded-xl px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+          class="flex-1 bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 transition-colors"
         />
         <button 
           type="submit" 
           id="btn-planned-chat-submit"
-          class="px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 font-semibold rounded-xl text-xs transition-all shadow-lg shadow-amber-900/20 flex items-center gap-1.5"
+          class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl text-xs transition-all shadow-sm flex items-center gap-1.5"
         >
           <span>Preguntar</span>
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
@@ -2572,15 +2572,15 @@ ${descHtml}
     </div>
 
     <!-- Footer Actions -->
-    <div class="mt-5 pt-3 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2 text-xs">
+    <div class="mt-5 pt-3 border-t border-slate-200 flex items-center justify-between flex-wrap gap-2 text-xs">
       <a href="https://intervals.icu/events/${ev.id}" target="_blank" rel="noopener"
-         class="text-amber-400 hover:text-amber-300 flex items-center gap-1 hover:underline">
+         class="text-amber-700 hover:text-amber-800 font-semibold flex items-center gap-1 hover:underline">
         <span>Abrir en Intervals.icu</span>
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
       </a>
 
       <button type="button" onclick="closePlannedModal(); switchTab('form');"
-        class="px-3.5 py-1.5 rounded-lg bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 border border-purple-500/30 font-medium transition-colors flex items-center gap-1.5">
+        class="px-3.5 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 font-semibold transition-colors flex items-center gap-1.5 shadow-2xs">
         <span>💬</span>
         <span>Ir al Chat General del Coach</span>
       </button>
@@ -2614,14 +2614,14 @@ function renderPlannedChatMessages(eventId, ev) {
     msgEl.className = `flex gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}`;
     msgEl.innerHTML = `
       ${!isUser ? `
-        <div class="w-6 h-6 rounded-md bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 font-bold text-[10px]">
+        <div class="w-6 h-6 rounded-md bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0 font-bold text-[10px]">
           Coach
         </div>
       ` : ''}
       <div class="max-w-[85%] rounded-xl p-2.5 text-xs leading-relaxed ${
         isUser 
-          ? 'bg-amber-600 text-white rounded-tr-none' 
-          : 'bg-slate-800/90 border border-slate-700/60 text-slate-200 rounded-tl-none prose prose-invert'
+          ? 'bg-amber-500 text-white rounded-tr-none shadow-2xs' 
+          : 'bg-slate-100 border border-slate-200 text-slate-800 rounded-tl-none prose prose-sm'
       }">
         ${formatCoachReport(msg.content)}
       </div>
@@ -2662,13 +2662,13 @@ async function submitPlannedChatMessage(eventId) {
     loaderEl.id = loaderId;
     loaderEl.className = 'flex gap-2.5 justify-start';
     loaderEl.innerHTML = `
-      <div class="w-6 h-6 rounded-md bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 font-bold text-[10px]">
+      <div class="w-6 h-6 rounded-md bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0 font-bold text-[10px]">
         Coach
       </div>
-      <div class="bg-slate-800 border border-slate-700 rounded-xl rounded-tl-none p-2.5 flex items-center gap-1.5">
-        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce"></span>
-        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce" style="animation-delay: 0.15s"></span>
-        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce" style="animation-delay: 0.3s"></span>
+      <div class="bg-slate-100 border border-slate-200 rounded-xl rounded-tl-none p-2.5 flex items-center gap-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-600 animate-bounce"></span>
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-600 animate-bounce" style="animation-delay: 0.15s"></span>
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-600 animate-bounce" style="animation-delay: 0.3s"></span>
       </div>
     `;
     container.appendChild(loaderEl);
@@ -2775,14 +2775,14 @@ function appendChatMessage(role, content) {
 
   msgEl.innerHTML = `
     ${!isUser ? `
-      <div class="w-8 h-8 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0 font-bold text-xs">
+      <div class="w-8 h-8 rounded-full bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700 shrink-0 font-bold text-xs">
         Coach
       </div>
     ` : ''}
     <div class="max-w-[85%] rounded-2xl p-3.5 text-xs leading-relaxed ${
       isUser 
-        ? 'bg-sky-600 text-white rounded-tr-none' 
-        : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none prose prose-invert'
+        ? 'bg-[#0284c7] text-white rounded-tr-none shadow-xs' 
+        : 'bg-slate-100 border border-slate-200 text-slate-800 rounded-tl-none prose prose-sm'
     }">
       ${formattedContent}
     </div>
@@ -2799,13 +2799,13 @@ function appendChatLoader() {
   el.id = id;
   el.className = 'flex gap-3 justify-start';
   el.innerHTML = `
-    <div class="w-8 h-8 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0 font-bold text-xs">
+    <div class="w-8 h-8 rounded-full bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700 shrink-0 font-bold text-xs">
       Coach
     </div>
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl rounded-tl-none p-3.5 flex items-center gap-1.5">
-      <span class="w-2 h-2 rounded-full bg-purple-400 animate-bounce"></span>
-      <span class="w-2 h-2 rounded-full bg-purple-400 animate-bounce" style="animation-delay: 0.15s"></span>
-      <span class="w-2 h-2 rounded-full bg-purple-400 animate-bounce" style="animation-delay: 0.3s"></span>
+    <div class="bg-slate-100 border border-slate-200 rounded-2xl rounded-tl-none p-3.5 flex items-center gap-1.5">
+      <span class="w-2 h-2 rounded-full bg-purple-600 animate-bounce"></span>
+      <span class="w-2 h-2 rounded-full bg-purple-600 animate-bounce" style="animation-delay: 0.15s"></span>
+      <span class="w-2 h-2 rounded-full bg-purple-600 animate-bounce" style="animation-delay: 0.3s"></span>
     </div>
   `;
   container.appendChild(el);
@@ -2844,7 +2844,7 @@ async function openSettingsModal() {
         geminiBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/30 flex items-center gap-1';
         geminiBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span> <span>Gemini IA Activo</span>';
       } else {
-        geminiBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700';
+        geminiBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-slate-200 text-slate-700 border border-slate-300';
         geminiBadge.innerHTML = '<span>Modo Experto Local</span>';
       }
     }
@@ -2887,9 +2887,9 @@ function populateThresholdsUI(t) {
   if (detailContainer) {
     let syncInfo = '';
     if (t.last_sync) {
-      syncInfo = `<div class="text-[10px] text-emerald-400 font-mono flex items-center justify-between mb-2">
+      syncInfo = `<div class="text-[10px] text-emerald-700 font-mono flex items-center justify-between mb-2">
         <span>Última sincronización: ${t.last_sync}</span>
-        ${t.weight ? `<span class="text-slate-400">Peso: <strong class="text-slate-200">${t.weight} kg</strong></span>` : ''}
+        ${t.weight ? `<span class="text-slate-500">Peso: <strong class="text-slate-800">${t.weight} kg</strong></span>` : ''}
       </div>`;
     }
 
@@ -2897,14 +2897,14 @@ function populateThresholdsUI(t) {
     const bike = t.disciplines?.cycling;
     if (bike?.power_zones?.length) {
       const zPills = bike.power_zones.map(z => 
-        `<div class="flex items-center justify-between py-0.5 px-1 rounded bg-slate-950/70 border border-slate-800/80 font-mono text-[10px]">
-          <span class="text-slate-400">${z.name}</span>
-          <span class="text-sky-300 font-bold">${z.min_watts}-${z.max_watts > 800 ? '+' : z.max_watts}W</span>
+        `<div class="flex items-center justify-between py-0.5 px-1 rounded bg-white border border-slate-200 font-mono text-[10px]">
+          <span class="text-slate-600">${z.name}</span>
+          <span class="text-[#0284c7] font-bold">${z.min_watts}-${z.max_watts > 800 ? '+' : z.max_watts}W</span>
         </div>`
       ).join('');
       pzHtml = `
         <div class="mt-2">
-          <span class="text-[10px] font-semibold text-slate-300 uppercase tracking-wider block mb-1">Zonas de Potencia Ciclismo (Intervals)</span>
+          <span class="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">Zonas de Potencia Ciclismo (Intervals)</span>
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-1">${zPills}</div>
         </div>
       `;
@@ -2915,8 +2915,8 @@ function populateThresholdsUI(t) {
     if (run?.hr_zones?.length) {
       const zList = run.hr_zones.map((val, idx) => `Z${idx+1}: <${val}bpm`).join(' • ');
       hrHtml = `
-        <div class="mt-2 text-[10px] font-mono text-slate-400">
-          <span class="text-slate-300 font-semibold uppercase">Zonas FC Carrera:</span> ${zList}
+        <div class="mt-2 text-[10px] font-mono text-slate-600">
+          <span class="text-slate-700 font-bold uppercase">Zonas FC Carrera:</span> ${zList}
         </div>
       `;
     }
@@ -3100,11 +3100,11 @@ function getSportIcon(type, size = 'sm') {
 function getSportBadge(type, size = 'sm') {
   const t = (type || '').toLowerCase();
   const icon = getSportIcon(t, size);
-  let colorClass = 'bg-slate-800 text-slate-300 border-slate-700';
-  if (t === 'swimming') colorClass = 'bg-[#00a8cc]/15 text-[#00a8cc] border-[#00a8cc]/35';
-  else if (t === 'cycling') colorClass = 'bg-[#f59e0b]/15 text-[#f59e0b] border-[#f59e0b]/35';
-  else if (t === 'running') colorClass = 'bg-[#10b981]/15 text-[#10b981] border-[#10b981]/35';
-  else if (t === 'strength') colorClass = 'bg-[#8b5cf6]/15 text-[#8b5cf6] border-[#8b5cf6]/35';
+  let colorClass = 'bg-slate-100 text-slate-700 border-slate-200';
+  if (t === 'swimming') colorClass = 'bg-sky-50 text-[#00a8cc] border-sky-200';
+  else if (t === 'cycling') colorClass = 'bg-amber-50 text-[#d97706] border-amber-200';
+  else if (t === 'running') colorClass = 'bg-emerald-50 text-[#059669] border-emerald-200';
+  else if (t === 'strength') colorClass = 'bg-purple-50 text-[#7c3aed] border-purple-200';
 
   const pad = size === 'lg' ? 'p-2 rounded-xl' : (size === 'md' ? 'p-1.5 rounded-lg' : 'p-1 rounded-md');
   return `<span class="inline-flex items-center justify-center ${pad} border ${colorClass} shadow-xs shrink-0">${icon}</span>`;
@@ -3113,17 +3113,17 @@ function getSportBadge(type, size = 'sm') {
 function getSportBorderLeftClass(type) {
   const t = (type || '').toLowerCase();
   if (t === 'swimming') return 'border-l-[3.5px] border-l-[#00a8cc]';
-  if (t === 'cycling') return 'border-l-[3.5px] border-l-[#f59e0b]';
-  if (t === 'running') return 'border-l-[3.5px] border-l-[#10b981]';
-  if (t === 'strength') return 'border-l-[3.5px] border-l-[#8b5cf6]';
-  return 'border-l-[3.5px] border-l-slate-600';
+  if (t === 'cycling') return 'border-l-[3.5px] border-l-[#d97706]';
+  if (t === 'running') return 'border-l-[3.5px] border-l-[#059669]';
+  if (t === 'strength') return 'border-l-[3.5px] border-l-[#7c3aed]';
+  return 'border-l-[3.5px] border-l-slate-300';
 }
 
 function formatCoachReport(text) {
   if (!text) return '';
   // Basic markdown conversion for bold and lists
   let formatted = text
-    .replace(/^### (.*$)/gim, '<h4 class="font-bold text-slate-100 text-xs mt-3 mb-1">$1</h4>')
+    .replace(/^### (.*$)/gim, '<h4 class="font-bold text-slate-900 text-xs mt-3 mb-1">$1</h4>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/\n\n/g, '<br/><br/>')

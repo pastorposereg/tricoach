@@ -1,20 +1,19 @@
 <!DOCTYPE html>
-<html lang="es" class="dark">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Triathlon Performance & Health Platform</title>
   <link rel="manifest" href="/static/manifest.json">
-  <meta name="theme-color" content="#00a3e0">
+  <meta name="theme-color" content="#0284c7">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="icon" type="image/svg+xml" href="/static/icons/icon-192.svg">
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
@@ -24,13 +23,13 @@
           colors: {
             tp: {
               blue: '#0284c7',
-              navy: '#0b1324',
-              card: '#131f36',
-              border: '#1e3052',
+              canvas: '#f0f3f8',
+              card: '#ffffff',
+              border: '#e2e8f0',
               swim: '#00a8cc',
-              bike: '#f59e0b',
-              run: '#10b981',
-              strength: '#8b5cf6'
+              bike: '#d97706',
+              run: '#059669',
+              strength: '#7c3aed'
             },
             garmin: '#00A3E0',
             intervals: '#F36C21',
@@ -43,19 +42,19 @@
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 
-  <!-- Custom CSS (TrainingPeaks Aesthetic) -->
-  <link rel="stylesheet" href="/static/css/app.css?v=11">
+  <!-- Custom CSS (TrainingPeaks Light Aesthetic) -->
+  <link rel="stylesheet" href="/static/css/app.css?v=12">
 </head>
-<body class="bg-[#0a0f1d] text-slate-100 min-h-screen flex flex-col antialiased selection:bg-[#0284c7] selection:text-white">
+<body class="bg-[#f0f3f8] text-slate-800 min-h-screen flex flex-col antialiased selection:bg-[#0284c7] selection:text-white">
 
-  <!-- Top Navigation Header (TrainingPeaks Dark Navy Style) -->
-  <header class="sticky top-0 z-30 glass-panel border-b border-[#1c2d4a] px-4 py-2.5 bg-[#0c1424]/95 backdrop-blur-md">
+  <!-- Top Navigation Header (TrainingPeaks Iconic Slate Header) -->
+  <header class="sticky top-0 z-30 px-4 py-2.5 bg-[#1e293b] text-white border-b border-slate-700/80 shadow-sm">
     <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
       
       <!-- Brand & Phase -->
       <div class="flex items-center gap-3">
         <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#0284c7] via-[#00a8cc] to-[#38bdf8] p-0.5 shadow-md shadow-[#0284c7]/25">
-          <div class="w-full h-full bg-[#0b1322] rounded-[10px] flex items-center justify-center font-bold text-[#38bdf8] text-sm">
+          <div class="w-full h-full bg-[#0f172a] rounded-[10px] flex items-center justify-center font-bold text-[#38bdf8] text-sm">
             <svg class="w-5 h-5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 2l3 7h7l-5.5 4.5 2 7L12 16.5 5.5 20.5l2-7L2 9h7z"/>
             </svg>
@@ -63,22 +62,22 @@
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <h1 class="text-sm font-bold tracking-tight text-slate-100">TriCoach <span class="text-[#0284c7]">Pro</span></h1>
-            <span class="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-[#0284c7]/15 text-[#38bdf8] border border-[#0284c7]/30" id="athlete-phase-display">
+            <h1 class="text-sm font-bold tracking-tight text-white">TriCoach <span class="text-[#38bdf8]">Pro</span></h1>
+            <span class="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-[#0284c7]/25 text-[#38bdf8] border border-[#0284c7]/40" id="athlete-phase-display">
               Periodo de Base Aeróbica
             </span>
           </div>
-          <span class="text-[11px] text-slate-400 hidden sm:block">Atleta: <span id="athlete-name-display" class="text-slate-200 font-medium">Pastor</span></span>
+          <span class="text-[11px] text-slate-300 hidden sm:block">Atleta: <span id="athlete-name-display" class="text-white font-medium">Pastor</span></span>
         </div>
       </div>
 
       <!-- Center Desktop Navigation Tabs -->
-      <nav class="hidden md:flex items-center gap-1.5 bg-[#101b30] p-1 rounded-xl border border-[#1d2f4e]">
+      <nav class="hidden md:flex items-center gap-1.5 bg-[#0f172a] p-1 rounded-xl border border-slate-700/70">
         <button data-tab-target="calendar" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 text-white bg-[#0284c7] shadow-sm transition-all">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
           Semana y Entrenamientos
         </button>
-        <button data-tab-target="form" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 text-slate-400 hover:text-slate-100 transition-all">
+        <button data-tab-target="form" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 text-slate-300 hover:text-white transition-all">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
           Estado de Forma & Coach IA
         </button>
@@ -93,12 +92,12 @@
         <div id="intervals-status-pill" class="hidden sm:flex"></div>
 
         <!-- Sync Button -->
-        <button id="btn-sync" title="Sincronizar Garmin & Intervals" class="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-sky-400 border border-slate-800 transition-colors">
+        <button id="btn-sync" title="Sincronizar Garmin & Intervals" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-sky-300 border border-slate-700 transition-colors">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
         </button>
 
         <!-- Settings Button -->
-        <button id="btn-open-settings" title="Ajustes y Credenciales" class="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-sky-400 border border-slate-800 transition-colors">
+        <button id="btn-open-settings" title="Ajustes y Credenciales" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-sky-300 border border-slate-700 transition-colors">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
         </button>
       </div>
@@ -107,7 +106,7 @@
   </header>
 
   <!-- Mobile WiFi Direct Pill Notification -->
-  <div class="sm:hidden bg-slate-900/90 border-b border-slate-800 px-3 py-1.5 flex items-center justify-between text-[11px] text-slate-400">
+  <div class="sm:hidden bg-slate-800 text-slate-300 border-b border-slate-700 px-3 py-1.5 flex items-center justify-between text-[11px]">
     <span>📱 Acceso móvil en la misma Wi-Fi:</span>
     <span class="font-mono text-sky-400 font-semibold">192.168.1.135:8000</span>
   </div>
@@ -120,25 +119,25 @@
     <!-- ========================================== -->
     <section id="page-calendar" class="space-y-6">
       
-      <!-- Week Navigation Bar -->
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl glass-panel border border-slate-800">
+      <!-- Week Navigation Bar (TrainingPeaks Light Surface) -->
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl bg-white border border-slate-200 shadow-xs">
         <div>
           <div class="flex items-center gap-2">
-            <h2 id="week-title-display" class="text-base sm:text-lg font-bold text-slate-100">Cargando semana...</h2>
+            <h2 id="week-title-display" class="text-base sm:text-lg font-bold text-slate-900">Cargando semana...</h2>
           </div>
-          <span id="week-dates-display" class="text-xs text-slate-400 font-mono">--/--/---- al --/--/----</span>
+          <span id="week-dates-display" class="text-xs text-slate-500 font-mono">--/--/---- al --/--/----</span>
         </div>
 
         <!-- Controls: Anterior / Hoy / Siguiente -->
         <div class="flex items-center gap-1.5 self-stretch sm:self-auto justify-end">
-          <button id="btn-prev-week" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-xs font-semibold text-slate-200 flex items-center gap-1 transition-colors">
+          <button id="btn-prev-week" class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 flex items-center gap-1 transition-colors shadow-xs">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
             Anterior
           </button>
-          <button id="btn-current-week" class="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-xs font-semibold text-sky-400 transition-colors">
+          <button id="btn-current-week" class="px-3 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 border border-sky-200 text-xs font-semibold text-[#0284c7] transition-colors shadow-xs">
             Semana Actual
           </button>
-          <button id="btn-next-week" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-xs font-semibold text-slate-200 flex items-center gap-1 transition-colors">
+          <button id="btn-next-week" class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 flex items-center gap-1 transition-colors shadow-xs">
             Siguiente
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
           </button>
@@ -151,14 +150,14 @@
       </div>
 
       <!-- CUADRO RESUMEN DE FIN DE SEMANA: TIEMPOS EN ZONAS PLANIFICADOS VS REALIZADOS -->
-      <div class="p-5 rounded-2xl glass-panel border border-slate-800">
-        <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
+      <div class="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
+        <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-200">
           <div>
-            <h3 class="text-sm sm:text-base font-bold text-slate-100 flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <h3 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
               Resumen Semanal de Carga & Tiempos en Zonas (Planificado vs Realizado)
             </h3>
-            <p class="text-xs text-slate-400">Comparativa directa por disciplina del tiempo total y minutos en cada zona fisiológica.</p>
+            <p class="text-xs text-slate-500">Comparativa directa por disciplina del tiempo total y minutos en cada zona fisiológica.</p>
           </div>
         </div>
 
@@ -178,103 +177,103 @@
       <!-- Top Metrics Scorecards -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <!-- CTL Fitness -->
-        <div class="p-4 rounded-xl glass-panel border border-slate-800 flex flex-col">
-          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+        <div class="p-4 rounded-xl bg-white border border-slate-200 shadow-xs flex flex-col">
+          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
             <span>Fitness / Forma (CTL)</span>
-            <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#0284c7]"></span>
           </div>
-          <span id="pmc-ctl-val" class="text-2xl font-bold font-mono text-sky-400">--</span>
-          <span class="text-[11px] text-slate-500 mt-1">Carga crónica (42 días)</span>
+          <span id="pmc-ctl-val" class="text-2xl font-bold font-mono text-[#0284c7]">--</span>
+          <span class="text-[11px] text-slate-400 mt-1">Carga crónica (42 días)</span>
         </div>
 
         <!-- ATL Fatigue -->
-        <div class="p-4 rounded-xl glass-panel border border-slate-800 flex flex-col">
-          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+        <div class="p-4 rounded-xl bg-white border border-slate-200 shadow-xs flex flex-col">
+          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
             <span>Fatiga (ATL)</span>
-            <span class="w-2.5 h-2.5 rounded-full bg-pink-500"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#ec4899]"></span>
           </div>
-          <span id="pmc-atl-val" class="text-2xl font-bold font-mono text-pink-400">--</span>
-          <span class="text-[11px] text-slate-500 mt-1">Estrés agudo (7 días)</span>
+          <span id="pmc-atl-val" class="text-2xl font-bold font-mono text-[#ec4899]">--</span>
+          <span class="text-[11px] text-slate-400 mt-1">Estrés agudo (7 días)</span>
         </div>
 
         <!-- TSB Form / Freshness -->
-        <div class="p-4 rounded-xl glass-panel border border-[#1c2d4a] flex flex-col">
-          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+        <div class="p-4 rounded-xl bg-white border border-slate-200 shadow-xs flex flex-col">
+          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
             <span>Frescura / Balance (TSB)</span>
-            <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#d97706]"></span>
           </div>
-          <span id="pmc-tsb-val" class="text-2xl font-bold font-mono text-amber-400">--</span>
-          <span class="text-[11px] text-slate-500 mt-1">Balance = CTL - ATL</span>
+          <span id="pmc-tsb-val" class="text-2xl font-bold font-mono text-[#d97706]">--</span>
+          <span class="text-[11px] text-slate-400 mt-1">Balance = CTL - ATL</span>
         </div>
 
         <!-- ACWR Ratio -->
-        <div class="p-4 rounded-xl glass-panel border border-[#1c2d4a] flex flex-col">
-          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+        <div class="p-4 rounded-xl bg-white border border-slate-200 shadow-xs flex flex-col">
+          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
             <span>Ratio ACWR</span>
-            <span class="text-xs font-mono text-emerald-400 font-bold">Óptimo (0.8-1.3)</span>
+            <span class="text-xs font-mono text-emerald-600 font-bold">Óptimo (0.8-1.3)</span>
           </div>
-          <span id="pmc-acwr-val" class="text-2xl font-bold font-mono text-slate-100">--</span>
-          <span class="text-[11px] text-slate-500 mt-1">Control de riesgo lesional</span>
+          <span id="pmc-acwr-val" class="text-2xl font-bold font-mono text-slate-900">--</span>
+          <span class="text-[11px] text-slate-400 mt-1">Control de riesgo lesional</span>
         </div>
       </div>
 
       <!-- PMC Chart Container -->
-      <div class="p-5 rounded-2xl glass-panel border border-[#1c2d4a]">
+      <div class="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
           <div>
-            <h3 class="text-sm sm:text-base font-bold text-slate-100">Gráfica del Estado de Forma (PMC)</h3>
-            <p class="text-xs text-slate-400">Evolución de las curvas de Carga Crónica (Fitness), Carga Aguda (Fatiga) y Balance (Forma).</p>
+            <h3 class="text-sm sm:text-base font-bold text-slate-900">Gráfica del Estado de Forma (PMC)</h3>
+            <p class="text-xs text-slate-500">Evolución de las curvas de Carga Crónica (Fitness), Carga Aguda (Fatiga) y Balance (Forma).</p>
           </div>
           <!-- Range Filters -->
-          <div class="flex items-center gap-1 bg-[#101b30] p-1 rounded-xl border border-[#1c2d4a] text-xs">
-            <button data-pmc-days="30" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition-colors">30D</button>
-            <button data-pmc-days="60" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition-colors">60D</button>
+          <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+            <button data-pmc-days="30" class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition-colors">30D</button>
+            <button data-pmc-days="60" class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition-colors">60D</button>
             <button data-pmc-days="90" class="px-2.5 py-1 rounded-lg bg-[#0284c7] text-white font-semibold shadow-xs">90D</button>
-            <button data-pmc-days="180" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition-colors">180D</button>
-            <button data-pmc-days="365" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition-colors">1 Año</button>
+            <button data-pmc-days="180" class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition-colors">180D</button>
+            <button data-pmc-days="365" class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition-colors">1 Año</button>
           </div>
         </div>
 
-        <div class="h-80 w-full">
+        <div class="h-80 w-full bg-white">
           <canvas id="pmcChart"></canvas>
         </div>
 
         <!-- Zones Legend -->
-        <div class="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center gap-4 text-xs text-slate-400">
-          <span class="font-medium text-slate-300">Zonas TSB:</span>
-          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Pico de Forma (+10 a +25)</span>
-          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-slate-400"></span> Neutro / Transición (-10 a +10)</span>
-          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400"></span> Sobrecarga Productiva (-10 a -30)</span>
-          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rose-500"></span> Fatiga Crítica (&lt; -30)</span>
+        <div class="mt-4 pt-3 border-t border-slate-200 flex flex-wrap items-center gap-4 text-xs text-slate-600">
+          <span class="font-semibold text-slate-700">Zonas TSB:</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Pico de Forma (+10 a +25)</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span> Neutro / Transición (-10 a +10)</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Sobrecarga Productiva (-10 a -30)</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Fatiga Crítica (&lt; -30)</span>
         </div>
       </div>
 
       <!-- AI Coach Chatbot Section -->
-      <div class="p-5 rounded-2xl glass-panel border border-purple-500/30 shadow-xl flex flex-col h-[520px]">
-        <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800 shrink-0">
+      <div class="p-5 rounded-2xl bg-white border border-slate-200 shadow-md flex flex-col h-[520px]">
+        <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 shrink-0">
           <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-400 flex items-center justify-center font-bold text-sm">
+            <div class="w-8 h-8 rounded-xl bg-purple-50 border border-purple-200 text-purple-600 flex items-center justify-center font-bold text-sm">
               🤖
             </div>
             <div>
-              <h3 class="text-sm font-bold text-slate-100">Coach IA • Especialista en Triatlón & Resistencia</h3>
-              <p class="text-[11px] text-purple-400">Pregunta sobre tus métricas, desacople, fatiga y ajustes de entrenamiento</p>
+              <h3 class="text-sm font-bold text-slate-900">Coach IA • Especialista en Triatlón & Resistencia</h3>
+              <p class="text-[11px] text-purple-600">Pregunta sobre tus métricas, desacople, fatiga y ajustes de entrenamiento</p>
             </div>
           </div>
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20">
+          <span class="text-[10px] font-mono px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-semibold">
             Contexto: CTL <span id="chat-ctl-indicator">605</span> • Base Aeróbica
           </span>
         </div>
 
         <!-- Quick Prompts Chips -->
-        <div class="flex items-center gap-2 overflow-x-auto pb-2 mb-2 text-xs text-slate-300 shrink-0 scrollbar-none">
-          <button data-quick-prompt="¿Cómo está mi balance de fatiga y forma (TSB) esta semana?" class="px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 hover:border-purple-500/40 whitespace-nowrap transition-colors">
+        <div class="flex items-center gap-2 overflow-x-auto pb-2 mb-2 text-xs text-slate-700 shrink-0 scrollbar-none">
+          <button data-quick-prompt="¿Cómo está mi balance de fatiga y forma (TSB) esta semana?" class="px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:border-purple-300 whitespace-nowrap transition-colors">
             ⚖️ Balance de fatiga (TSB)
           </button>
-          <button data-quick-prompt="¿Cómo debo interpretar mi desacople cardiovascular en la tirada larga?" class="px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 hover:border-purple-500/40 whitespace-nowrap transition-colors">
+          <button data-quick-prompt="¿Cómo debo interpretar mi desacople cardiovascular en la tirada larga?" class="px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:border-purple-300 whitespace-nowrap transition-colors">
             💓 Desacople y deriva cardíaca
           </button>
-          <button data-quick-prompt="¿Qué ajustes recomiendas para el rodaje de carrera si mi VFC está en 95 ms?" class="px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 hover:border-purple-500/40 whitespace-nowrap transition-colors">
+          <button data-quick-prompt="¿Qué ajustes recomiendas para el rodaje de carrera si mi VFC está en 95 ms?" class="px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:border-purple-300 whitespace-nowrap transition-colors">
             🏃 Ajuste de ritmo según VFC
           </button>
         </div>
@@ -283,10 +282,10 @@
         <div id="chat-messages-container" class="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-thin">
           <!-- Initial welcome greeting from Coach -->
           <div class="flex gap-3 justify-start">
-            <div class="w-8 h-8 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0 font-bold text-xs">
+            <div class="w-8 h-8 rounded-full bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700 shrink-0 font-bold text-xs">
               Coach
             </div>
-            <div class="max-w-[85%] rounded-2xl rounded-tl-none p-3.5 text-xs bg-slate-900 border border-slate-800 text-slate-200 leading-relaxed">
+            <div class="max-w-[85%] rounded-2xl rounded-tl-none p-3.5 text-xs bg-slate-50 border border-slate-200 text-slate-800 leading-relaxed shadow-2xs">
               ¡Hola Pastor! He revisado tus biomarcadores recientes y tu estado de forma. Te encuentras en plena <strong>Fase de Base Aeróbica</strong> con un balance parasimpático muy sólido (FC en reposo 37 bpm y VFC 104 ms).
               <br/><br/>
               ¿En qué aspecto de tus entrenamientos o tu planificación te gustaría profundizar hoy?
@@ -295,10 +294,10 @@
         </div>
 
         <!-- Chat Input Form -->
-        <form id="form-chat" class="mt-3 pt-3 border-t border-slate-800 flex items-center gap-2 shrink-0">
+        <form id="form-chat" class="mt-3 pt-3 border-t border-slate-200 flex items-center gap-2 shrink-0">
           <input type="text" id="chat-input" placeholder="Pregunta a tu entrenador sobre ritmos, desacople, fatiga..." 
-                 class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-purple-500/60 focus:ring-1 focus:ring-purple-500/40">
-          <button type="submit" class="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-md shadow-purple-600/30">
+                 class="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/40">
+          <button type="submit" class="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-sm">
             <span>Enviar</span>
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
           </button>
@@ -313,10 +312,10 @@
   <!-- ========================================== -->
   <!-- MODAL: DETALLES DE ENTRENAMIENTO & DESACOLPE -->
   <!-- ========================================== -->
-  <div id="activity-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-    <div class="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto bg-slate-950 border border-slate-800 rounded-2xl p-5 sm:p-7 shadow-2xl">
+  <div id="activity-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div class="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto bg-white border border-slate-200 rounded-2xl p-5 sm:p-7 shadow-2xl text-slate-900">
       <!-- Close button -->
-      <button id="btn-close-activity-modal" class="absolute top-4 right-4 p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">
+      <button id="btn-close-activity-modal" class="absolute top-4 right-4 p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
       </button>
 
@@ -331,10 +330,10 @@
   <!-- ========================================== -->
   <!-- MODAL: SESIÓN PLANIFICADA (INTERVALS.ICU)  -->
   <!-- ========================================== -->
-  <div id="planned-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-    <div class="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-slate-950 border border-slate-800 rounded-2xl p-5 sm:p-7 shadow-2xl">
+  <div id="planned-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div class="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-white border border-slate-200 rounded-2xl p-5 sm:p-7 shadow-2xl text-slate-900">
       <!-- Close button -->
-      <button id="btn-close-planned-modal" class="absolute top-4 right-4 p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">
+      <button id="btn-close-planned-modal" class="absolute top-4 right-4 p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
       </button>
 
@@ -349,20 +348,20 @@
   <!-- ========================================== -->
   <!-- MODAL: AÑADIR NOTA A INTERVALS.ICU        -->
   <!-- ========================================== -->
-  <div id="note-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-    <div class="relative w-full max-w-lg bg-slate-950 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-2xl">
+  <div id="note-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div class="relative w-full max-w-lg bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-2xl text-slate-900">
       <!-- Close button -->
-      <button id="btn-close-note-modal" type="button" onclick="closeNoteModal()" class="absolute top-4 right-4 p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">
+      <button id="btn-close-note-modal" type="button" onclick="closeNoteModal()" class="absolute top-4 right-4 p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
       </button>
 
-      <div class="flex items-center gap-2.5 mb-4 pb-3 border-b border-slate-800">
-        <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-sm font-bold">
+      <div class="flex items-center gap-2.5 mb-4 pb-3 border-b border-slate-200">
+        <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-sm font-bold">
           📝
         </div>
         <div>
-          <h3 class="text-sm font-bold text-slate-100">Añadir Nota al Calendario</h3>
-          <p id="note-modal-subtitle" class="text-[11px] text-slate-400">Se guardará automáticamente en tu calendario de Intervals.icu</p>
+          <h3 class="text-sm font-bold text-slate-900">Añadir Nota al Calendario</h3>
+          <p id="note-modal-subtitle" class="text-[11px] text-slate-500">Se guardará automáticamente en tu calendario de Intervals.icu</p>
         </div>
       </div>
 
@@ -370,22 +369,22 @@
         <input type="hidden" id="input-note-date" value="">
         
         <div>
-          <label class="block text-slate-400 mb-1 font-medium text-[11px]">Título / Asunto de la Nota</label>
+          <label class="block text-slate-700 mb-1 font-medium text-[11px]">Título / Asunto de la Nota</label>
           <input type="text" id="input-note-title" required placeholder="Ej. Sensaciones descanso, Viaje de trabajo, Fisioterapia..."
-                 class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/40">
+                 class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500">
         </div>
 
         <div>
-          <label class="block text-slate-400 mb-1 font-medium text-[11px]">Descripción / Detalles (Opcional)</label>
+          <label class="block text-slate-700 mb-1 font-medium text-[11px]">Descripción / Detalles (Opcional)</label>
           <textarea id="input-note-desc" rows="3" placeholder="Añade sensaciones físicas, molestias, notas nutricionales o logísticas..."
-                    class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/40"></textarea>
+                    class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"></textarea>
         </div>
 
-        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/80">
-          <button type="button" onclick="closeNoteModal()" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 font-medium text-xs transition-colors">
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+          <button type="button" onclick="closeNoteModal()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition-colors">
             Cancelar
           </button>
-          <button type="submit" id="btn-submit-note" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition-all">
+          <button type="submit" id="btn-submit-note" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
             <span>Guardar en Intervals.icu</span>
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
           </button>
@@ -398,14 +397,14 @@
   <!-- ========================================== -->
   <!-- MODAL: AJUSTES & CONEXIÓN CREDENCIALES     -->
   <!-- ========================================== -->
-  <div id="settings-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-    <div class="relative w-full max-w-xl max-h-[90vh] overflow-y-auto bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-2xl">
-      <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
+  <div id="settings-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div class="relative w-full max-w-xl max-h-[90vh] overflow-y-auto bg-white border border-slate-200 rounded-2xl p-6 shadow-2xl text-slate-900">
+      <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-200">
         <div>
-          <h2 class="text-base font-bold text-slate-100">Conexiones & Ajustes del Atleta</h2>
-          <p class="text-xs text-slate-400">Configura tus credenciales de Garmin Connect, Intervals.icu y tu Coach IA.</p>
+          <h2 class="text-base font-bold text-slate-900">Conexiones & Ajustes del Atleta</h2>
+          <p class="text-xs text-slate-500">Configura tus credenciales de Garmin Connect, Intervals.icu y tu Coach IA.</p>
         </div>
-        <button id="btn-close-settings" class="p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-white">
+        <button id="btn-close-settings" class="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:text-slate-800">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
         </button>
       </div>
@@ -413,44 +412,44 @@
       <div class="space-y-5 text-xs">
         
         <!-- Garmin Connect Section -->
-        <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+        <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
           <div class="flex items-center justify-between mb-2">
-            <h3 class="font-bold text-sky-400 flex items-center gap-1.5">
+            <h3 class="font-bold text-sky-600 flex items-center gap-1.5">
               <span>⌚</span> Garmin Connect
             </h3>
             <span id="garmin-test-result" class="text-[11px] font-mono"></span>
           </div>
-          <p class="text-slate-400 mb-3 text-[11px]">Descarga actividades, métricas de bienestar (sueño, HRV, RHR, body battery) y splits.</p>
+          <p class="text-slate-600 mb-3 text-[11px]">Descarga actividades, métricas de bienestar (sueño, HRV, RHR, body battery) y splits.</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
             <div>
-              <label class="block text-slate-400 mb-1">Email Garmin</label>
-              <input type="email" id="input-garmin-email" placeholder="usuario@email.com" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200">
+              <label class="block text-slate-600 mb-1">Email Garmin</label>
+              <input type="email" id="input-garmin-email" placeholder="usuario@email.com" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900">
             </div>
             <div>
-              <label class="block text-slate-400 mb-1">Contraseña</label>
-              <input type="password" id="input-garmin-password" placeholder="••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200">
+              <label class="block text-slate-600 mb-1">Contraseña</label>
+              <input type="password" id="input-garmin-password" placeholder="••••••••" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900">
             </div>
           </div>
-          <button id="btn-test-garmin" type="button" class="px-3 py-1.5 rounded-lg bg-sky-500/20 text-sky-400 hover:bg-sky-500/30 border border-sky-500/30 font-medium transition-colors">
+          <button id="btn-test-garmin" type="button" class="px-3 py-1.5 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 font-medium transition-colors">
             Probar Conexión / Usar Sesión Activa
           </button>
         </div>
 
         <!-- Intervals.icu Section -->
-        <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+        <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
           <div class="flex items-center justify-between mb-2">
-            <h3 class="font-bold text-amber-500 flex items-center gap-1.5">
+            <h3 class="font-bold text-amber-600 flex items-center gap-1.5">
               <span>📊</span> Intervals.icu
             </h3>
             <span id="intervals-test-result" class="text-[11px] font-mono"></span>
           </div>
-          <p class="text-slate-400 mb-2 text-[11px]">Sincroniza entrenamientos planificados, umbrales y curvas PMC (CTL, ATL, TSB).</p>
+          <p class="text-slate-600 mb-2 text-[11px]">Sincroniza entrenamientos planificados, umbrales y curvas PMC (CTL, ATL, TSB).</p>
           
           <!-- Instructions box -->
-          <div class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-200/90 mb-3 space-y-1">
-            <div class="font-semibold text-amber-400 flex items-center justify-between">
+          <div class="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-900 mb-3 space-y-1">
+            <div class="font-semibold text-amber-800 flex items-center justify-between">
               <span>¿Cómo obtener tu clave de acceso?</span>
-              <a href="https://intervals.icu/settings" target="_blank" rel="noopener" class="underline text-amber-300 hover:text-white flex items-center gap-0.5">
+              <a href="https://intervals.icu/settings" target="_blank" rel="noopener" class="underline text-amber-700 hover:text-amber-900 flex items-center gap-0.5">
                 Ir a intervals.icu/settings ↗
               </a>
             </div>
@@ -461,62 +460,62 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
             <div>
-              <label class="block text-slate-400 mb-1">Athlete ID (deja 0 por defecto)</label>
-              <input type="text" id="input-intervals-id" value="0" placeholder="0" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 font-mono">
+              <label class="block text-slate-600 mb-1">Athlete ID (deja 0 por defecto)</label>
+              <input type="text" id="input-intervals-id" value="0" placeholder="0" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 font-mono">
             </div>
             <div>
-              <label class="block text-slate-400 mb-1">API Key de Intervals.icu</label>
-              <input type="text" id="input-intervals-key" placeholder="Pega aquí tu API Key de Intervals" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 font-mono">
+              <label class="block text-slate-600 mb-1">API Key de Intervals.icu</label>
+              <input type="text" id="input-intervals-key" placeholder="Pega aquí tu API Key de Intervals" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 font-mono">
             </div>
           </div>
-          <button id="btn-test-intervals" type="button" class="px-3.5 py-2 rounded-lg bg-amber-500 text-slate-950 hover:bg-amber-400 font-bold text-xs transition-colors flex items-center gap-1.5 shadow-md shadow-amber-500/20">
+          <button id="btn-test-intervals" type="button" class="px-3.5 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 font-bold text-xs transition-colors flex items-center gap-1.5 shadow-sm">
             <span>Conectar y Sincronizar Intervals.icu</span>
           </button>
         </div>
 
         <!-- Gemini AI API Key -->
-        <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+        <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
           <div class="flex items-center justify-between mb-2">
-            <h3 class="font-bold text-purple-400 flex items-center gap-1.5">
+            <h3 class="font-bold text-purple-600 flex items-center gap-1.5">
               <span>🧠</span> IA Coach Inteligente (Google Gemini API)
             </h3>
-            <span id="gemini-status-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700">
+            <span id="gemini-status-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-slate-200 text-slate-700 border border-slate-300">
               Modo Experto Local
             </span>
           </div>
-          <p class="text-slate-400 mb-2 text-[11px]">Conecta tu clave gratuita de Google Gemini para habilitar el motor conversacional frontier con razonamiento profundo en lenguaje natural.</p>
+          <p class="text-slate-600 mb-2 text-[11px]">Conecta tu clave gratuita de Google Gemini para habilitar el motor conversacional frontier con razonamiento profundo en lenguaje natural.</p>
           
-          <div class="p-2.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-[11px] text-purple-200/90 mb-3 space-y-1">
-            <div class="font-semibold text-purple-300 flex items-center justify-between">
+          <div class="p-2.5 rounded-lg bg-purple-50 border border-purple-200 text-[11px] text-purple-900 mb-3 space-y-1">
+            <div class="font-semibold text-purple-700 flex items-center justify-between">
               <span>¿Cómo activar la IA completa? (100% Gratuito)</span>
-              <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" class="underline text-purple-300 hover:text-white flex items-center gap-0.5">
+              <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" class="underline text-purple-700 hover:text-purple-900 flex items-center gap-0.5">
                 Obtener clave en Google AI Studio ↗
               </a>
             </div>
-            <p>1. Accede a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" class="underline text-purple-300">aistudio.google.com/apikey</a> con tu cuenta de Google.</p>
+            <p>1. Accede a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" class="underline text-purple-700">aistudio.google.com/apikey</a> con tu cuenta de Google.</p>
             <p>2. Pulsa en <strong>"Create API key"</strong> y copia el código.</p>
             <p>3. Pégalo aquí abajo y pulsa en <em>Guardar Ajustes</em>. Tendrás acceso ilimitado a Gemini 2.0 Flash.</p>
           </div>
 
-          <label class="block text-slate-400 mb-1 text-[11px]">Gemini API Key</label>
-          <input type="password" id="input-gemini-key" placeholder="AIzaSy..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 mb-1 font-mono text-xs">
+          <label class="block text-slate-600 mb-1 text-[11px]">Gemini API Key</label>
+          <input type="password" id="input-gemini-key" placeholder="AIzaSy..." class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 mb-1 font-mono text-xs">
         </div>
 
         <!-- Thresholds Section -->
-        <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+        <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
           <div class="flex items-center justify-between mb-2">
             <div>
-              <h3 class="font-bold text-slate-100 flex items-center gap-1.5">
+              <h3 class="font-bold text-slate-900 flex items-center gap-1.5">
                 <span>⚡</span> Umbrales del Atleta
               </h3>
-              <p class="text-[11px] text-slate-400">Actualizados en tiempo real con tus zonas y ritmos de Intervals.icu.</p>
+              <p class="text-[11px] text-slate-500">Actualizados en tiempo real con tus zonas y ritmos de Intervals.icu.</p>
             </div>
             <div class="flex items-center gap-2">
-              <span id="thresholds-sync-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span id="thresholds-sync-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>Intervals.icu</span>
               </span>
-              <button id="btn-sync-thresholds" type="button" title="Forzar sincronización inmediata con Intervals.icu" class="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-400 hover:bg-sky-500/30 border border-sky-500/30 font-medium text-[11px] flex items-center gap-1 transition-colors">
+              <button id="btn-sync-thresholds" type="button" title="Forzar sincronización inmediata con Intervals.icu" class="px-2.5 py-1 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 font-medium text-[11px] flex items-center gap-1 transition-colors">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 <span>Sincronizar</span>
               </button>
@@ -525,92 +524,92 @@
 
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mt-3">
             <div>
-              <label class="block text-slate-400 mb-1 text-[11px]">FTP Ciclismo (W)</label>
+              <label class="block text-slate-600 mb-1 text-[11px]">FTP Ciclismo (W)</label>
               <div class="relative">
-                <input type="number" id="input-ftp" value="348" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 pr-7 text-slate-200 font-mono text-xs">
+                <input type="number" id="input-ftp" value="348" class="w-full bg-white border border-slate-300 rounded-lg p-2 pr-7 text-slate-900 font-mono text-xs">
                 <span class="absolute right-2.5 top-2 text-[10px] text-slate-500 font-mono">W</span>
               </div>
             </div>
             <div>
-              <label class="block text-slate-400 mb-1 text-[11px]">Umbral Carrera (min/km)</label>
+              <label class="block text-slate-600 mb-1 text-[11px]">Umbral Carrera (min/km)</label>
               <div class="relative">
-                <input type="text" id="input-run-thresh" value="3:40" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 pr-8 text-slate-200 font-mono text-xs">
+                <input type="text" id="input-run-thresh" value="3:40" class="w-full bg-white border border-slate-300 rounded-lg p-2 pr-8 text-slate-900 font-mono text-xs">
                 <span class="absolute right-2 top-2 text-[10px] text-slate-500 font-mono">/km</span>
               </div>
             </div>
             <div>
-              <label class="block text-slate-400 mb-1 text-[11px]">CSS Natación (/100m)</label>
+              <label class="block text-slate-600 mb-1 text-[11px]">CSS Natación (/100m)</label>
               <div class="relative">
-                <input type="text" id="input-css" value="1:29.0" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 pr-11 text-slate-200 font-mono text-xs">
+                <input type="text" id="input-css" value="1:29.0" class="w-full bg-white border border-slate-300 rounded-lg p-2 pr-11 text-slate-900 font-mono text-xs">
                 <span class="absolute right-2 top-2 text-[10px] text-slate-500 font-mono">/100m</span>
               </div>
             </div>
             <div>
-              <label class="block text-slate-400 mb-1 text-[11px]">Umbral Lactato (LTHR)</label>
+              <label class="block text-slate-600 mb-1 text-[11px]">Umbral Lactato (LTHR)</label>
               <div class="relative">
-                <input type="number" id="input-lthr" value="159" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 pr-9 text-slate-200 font-mono text-xs">
+                <input type="number" id="input-lthr" value="159" class="w-full bg-white border border-slate-300 rounded-lg p-2 pr-9 text-slate-900 font-mono text-xs">
                 <span class="absolute right-2.5 top-2 text-[10px] text-slate-500 font-mono">bpm</span>
               </div>
             </div>
             <div>
-              <label class="block text-slate-400 mb-1 text-[11px]">FC Máxima</label>
+              <label class="block text-slate-600 mb-1 text-[11px]">FC Máxima</label>
               <div class="relative">
-                <input type="number" id="input-max-hr" value="183" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 pr-9 text-slate-200 font-mono text-xs">
+                <input type="number" id="input-max-hr" value="183" class="w-full bg-white border border-slate-300 rounded-lg p-2 pr-9 text-slate-900 font-mono text-xs">
                 <span class="absolute right-2.5 top-2 text-[10px] text-slate-500 font-mono">bpm</span>
               </div>
             </div>
             <div>
-              <label class="block text-slate-400 mb-1 text-[11px]">FC Reposo Basal</label>
+              <label class="block text-slate-600 mb-1 text-[11px]">FC Reposo Basal</label>
               <div class="relative">
-                <input type="number" id="input-rest-hr" value="36" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 pr-9 text-slate-200 font-mono text-xs">
+                <input type="number" id="input-rest-hr" value="36" class="w-full bg-white border border-slate-300 rounded-lg p-2 pr-9 text-slate-900 font-mono text-xs">
                 <span class="absolute right-2.5 top-2 text-[10px] text-slate-500 font-mono">bpm</span>
               </div>
             </div>
           </div>
 
           <!-- Zones breakdown detail from Intervals.icu -->
-          <div id="thresholds-disciplines-detail" class="mt-3 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-2">
+          <div id="thresholds-disciplines-detail" class="mt-3 pt-3 border-t border-slate-200 text-[11px] text-slate-600 space-y-2">
             <!-- Injected by JavaScript with power & HR zones -->
           </div>
         </div>
 
         <!-- Mobile Access Info -->
-        <div class="p-4 rounded-xl bg-gradient-to-br from-sky-950/40 to-slate-900 border border-sky-500/30 text-slate-300">
+        <div class="p-4 rounded-xl bg-sky-50/80 border border-sky-200 text-slate-800">
           <div class="flex items-center justify-between mb-2">
-            <span class="font-bold text-sky-400 flex items-center gap-1.5 text-xs">
+            <span class="font-bold text-[#0284c7] flex items-center gap-1.5 text-xs">
               <span>📲</span> Acceso desde tu Móvil (Desde Cualquier Lugar / 4G / 5G)
             </span>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold">
               ● Remoto Activo
             </span>
           </div>
 
-          <p class="text-[11px] text-slate-400 mb-3 leading-relaxed">
+          <p class="text-[11px] text-slate-600 mb-3 leading-relaxed">
             Puedes abrir la aplicación desde tu teléfono en cualquier momento, <strong>sin necesidad de estar conectado a la misma red Wi-Fi</strong>.
           </p>
 
           <!-- Public Remote URL Box -->
-          <div class="mb-3 p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-2">
+          <div class="mb-3 p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between gap-2">
             <div class="overflow-hidden">
               <span class="text-[10px] uppercase font-bold text-slate-500 block">Enlace Público Seguro (HTTPS / 4G / 5G)</span>
-              <a id="mobile-public-url" href="#" target="_blank" rel="noopener" class="font-mono text-xs text-sky-300 hover:underline truncate block">
+              <a id="mobile-public-url" href="#" target="_blank" rel="noopener" class="font-mono text-xs text-[#0284c7] hover:underline truncate block">
                 Cargando enlace remoto...
               </a>
             </div>
-            <button id="btn-copy-public-url" type="button" class="px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 border border-sky-500/30 text-[11px] font-semibold shrink-0 transition-colors">
+            <button id="btn-copy-public-url" type="button" class="px-3 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-[#0284c7] border border-sky-200 text-[11px] font-semibold shrink-0 transition-colors">
               Copiar
             </button>
           </div>
 
           <!-- QR Code section -->
-          <div class="flex items-center gap-3 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
-            <div id="mobile-qr-container" class="w-20 h-20 bg-white rounded-lg p-1 shrink-0 flex items-center justify-center">
+          <div class="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-200">
+            <div id="mobile-qr-container" class="w-20 h-20 bg-white rounded-lg p-1 shrink-0 flex items-center justify-center border border-slate-200">
               <img id="mobile-qr-img" src="" alt="Código QR Móvil" class="w-full h-full object-contain">
             </div>
             <div class="text-[11px] space-y-1">
-              <p class="font-semibold text-slate-200">Abre la cámara de tu móvil</p>
-              <p class="text-slate-400 text-[10px] leading-tight">Escanea este código QR desde tu teléfono para abrir la app al instante con datos móviles.</p>
-              <p class="text-[10px] text-amber-300/90 pt-0.5">Tip: En Safari o Chrome pulsa <strong>"Añadir a pantalla de inicio"</strong> para tenerla como app nativa.</p>
+              <p class="font-semibold text-slate-900">Abre la cámara de tu móvil</p>
+              <p class="text-slate-600 text-[10px] leading-tight">Escanea este código QR desde tu teléfono para abrir la app al instante con datos móviles.</p>
+              <p class="text-[10px] text-amber-700 pt-0.5">Tip: En Safari o Chrome pulsa <strong>"Añadir a pantalla de inicio"</strong> para tenerla como app nativa.</p>
             </div>
           </div>
         </div>
@@ -618,7 +617,7 @@
       </div>
 
       <div class="mt-6 flex justify-end gap-2">
-        <button id="btn-save-settings" class="px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold text-xs shadow-md shadow-sky-500/20 transition-all">
+        <button id="btn-save-settings" class="px-5 py-2 rounded-xl bg-[#0284c7] hover:bg-[#0369a1] text-white font-semibold text-xs shadow-sm transition-all">
           Guardar Ajustes
         </button>
       </div>
@@ -629,19 +628,19 @@
   <!-- ========================================== -->
   <!-- MOBILE BOTTOM NAVIGATION BAR               -->
   <!-- ========================================== -->
-  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 glass-panel border-t border-[#1c2d4a] px-4 py-2 flex items-center justify-around safe-bottom bg-[#0c1424]/95 backdrop-blur-md">
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 border-t border-slate-200 px-4 py-2 flex items-center justify-around safe-bottom backdrop-blur-md shadow-lg text-slate-600">
     <button data-tab-target="calendar" class="flex flex-col items-center gap-1 text-[#0284c7]">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
       <span class="text-[10px] font-semibold">Semana</span>
     </button>
-    <button data-tab-target="form" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200">
+    <button data-tab-target="form" class="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-800">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
       <span class="text-[10px] font-semibold">Forma & IA</span>
     </button>
   </nav>
 
   <!-- Application Logic Scripts -->
-  <script src="/static/js/charts.js?v=11"></script>
-  <script src="/static/js/app.js?v=11"></script>
+  <script src="/static/js/charts.js?v=12"></script>
+  <script src="/static/js/app.js?v=12"></script>
 </body>
 </html>
