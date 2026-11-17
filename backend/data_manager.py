@@ -427,3 +427,95 @@ class DataManager:
                 {"zone_number": 3, "seconds_in_zone": 0, "zone_low_boundary": 142},
             ]
         }
+
+    def find_comparison_activity(
+        self,
+        current_activity_id: str,
+        current_date_str: str,
+        sport_type: str,
+        user_query: str
+    ) -> Optional[Dict[str, Any]]:
+        """Finds and parses a referenced historical comparison activity (e.g. from 4 weeks ago,
+        previous Monday, or previous test of same sport).
+        """
+        import re
+        from datetime import datetime, timedelta
+
+        q = (user_query or "").lower()
+
+        # Parse current date
+        curr_dt = None
+        if current_date_str:
+            for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d", "%Y-%m-%dT%H:%M:%S.%f"]:
+                try:
+                    curr_dt = datetime.strptime(str(current_date_str)[:19], fmt)
+                    break
+                except Exception:
+                    continue
+        if not curr_dt:
+            curr_dt = datetime.now()
+
+        target_date = None
+        # Detect relative weeks (e.g. "4 semanas", "cuatro semanas", "3 semanas", etc.)
+        week_match = re.search(r"(\d+)\s*semanas?", q)
+        if week_match:
+            n_weeks = int(week_match.group(1))
+            target_date = curr_dt - timedelta(days=n_weeks * 7)
+        elif "cuatro semanas" in q:
+            target_date = curr_dt - timedelta(days=28)
+        elif "tres semanas" in q:
+            target_date = curr_dt - timedelta(days=21)
+        elif "dos semanas" in q:
+            target_date = curr_dt - timedelta(days=14)
+        elif "una semana" in q or "semana pasada" in q or "semana anterior" in q:
+            target_date = curr_dt - timedelta(days=7)
+        elif "19 de octubre" in q or ("octubre" in q and "19" in q):
+            target_date = datetime(curr_dt.year, 10, 19)
+
+        matched_id = None
+        if target_date:
+            start_search = (target_date - timedelta(days=3)).strftime("%Y-%m-%d")
+            end_search = (target_date + timedelta(days=3)).strftime("%Y-%m-%d")
+            try:
+                acts = self.garmin.get_activities_by_date_range(start_search, end_search)
+                # Filter same sport
+                cands = []
+                for a in acts:
+                    a_sport = self.garmin._map_sport_type(a.get("activityType", {}).get("typeKey", ""))
+                    aid = str(a.get("activityId"))
+                    if a_sport == sport_type and aid != str(current_activity_id):
+                        a_date_str = a.get("startTimeLocal") or ""
+                        try:
+                            a_dt = datetime.strptime(a_date_str[:10], "%Y-%m-%d")
+                            diff_days = abs((a_dt.date() - target_date.date()).days)
+                        except Exception:
+                            diff_days = 999
+                        cands.append((diff_days, aid))
+                if cands:
+                    cands.sort(key=lambda x: x[0])
+                    matched_id = cands[0][1]
+            except Exception as e:
+                logger.warning(f"Error searching Garmin activities for comparison: {e}")
+
+        # Fallback: if user asked for "anterior", "previo", "últim", "compar", search recent activities
+        if not matched_id and any(x in q for x in ["anterior", "previo", "últim", "compar"]):
+            try:
+                acts = self.garmin.get_activities(limit=30)
+                for a in acts:
+                    aid = str(a.get("activityId"))
+                    a_sport = self.garmin._map_sport_type(a.get("activityType", {}).get("typeKey", ""))
+                    a_date_str = str(a.get("startTimeLocal") or "")
+                    if a_sport == sport_type and aid != str(current_activity_id) and a_date_str < str(current_date_str):
+                        matched_id = aid
+                        break
+            except Exception as e:
+                logger.warning(f"Error finding previous activity: {e}")
+
+        if matched_id:
+            try:
+                logger.info(f"Found historical comparison activity: {matched_id} for query '{user_query}'")
+                return self.get_activity_detail(matched_id)
+            except Exception as e:
+                logger.warning(f"Error fetching comparison activity {matched_id} details: {e}")
+
+        return None

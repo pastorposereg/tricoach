@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, date, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from garminconnect import Garmin
 
 from .config import AppConfig, load_config, save_config
@@ -193,6 +193,23 @@ class GarminService:
                         "zone_low_boundary": z.get("zoneLowBoundary"),
                     })
 
+            # If swimming, enrich with detailed lengths, intervals and 100m splits
+            swim_intervals = []
+            swim_lengths = []
+            if sport_type == "swimming":
+                try:
+                    swim_intervals, swim_lengths = self._parse_swim_details(client, str(activity_id))
+                    # Match splits with intervals to attach splits_100m
+                    if swim_intervals and splits:
+                        active_splits = [s for s in splits if (s.get("distance_meters") or 0) > 0]
+                        for s_idx, s in enumerate(active_splits):
+                            if s_idx < len(swim_intervals):
+                                matching_iv = swim_intervals[s_idx]
+                                s["splits_100m"] = matching_iv.get("splits_100m", [])
+                                s["pace_100m_formatted"] = matching_iv.get("pace_100m_formatted")
+                except Exception as swim_err:
+                    logger.warning(f"Could not parse swim details for {activity_id}: {swim_err}")
+
             return {
                 "activity_id": str(activity_id),
                 "name": activity_name,
@@ -218,10 +235,123 @@ class GarminService:
                 "avg_swim_strokes": summary.get("averageStrokes"),
                 "splits": splits,
                 "hr_zones": hr_zones,
+                "swim_intervals": swim_intervals,
+                "swim_lengths_count": len(swim_lengths),
             }
         except Exception as e:
             logger.error(f"Error getting activity details for {activity_id}: {e}")
             raise
+
+    def get_activities_by_date_range(self, start_date: str, end_date: str) -> List[Dict[str, Any]]:
+        """Fetches raw activities in a specific date range (YYYY-MM-DD)."""
+        client = self.get_client()
+        try:
+            acts = client.get_activities_by_date(start_date, end_date)
+            return acts or []
+        except Exception as e:
+            logger.warning(f"Error fetching activities between {start_date} and {end_date}: {e}")
+            return []
+
+    def _parse_swim_details(self, client: Garmin, activity_id: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Extracts individual lengths and active intervals with 100m splits for pool swimming."""
+        try:
+            swim_data = client.get_activity_swim_details(activity_id)
+            if not swim_data or "activityDetailMetrics" not in swim_data:
+                return [], []
+
+            desc_map = {d.get("key"): d.get("metricsIndex") for d in swim_data.get("metricDescriptors", [])}
+
+            lengths = []
+            for m in swim_data.get("activityDetailMetrics", []):
+                vals = m.get("metrics", [])
+                dur = vals[desc_map["sumDuration"]] if "sumDuration" in desc_map and desc_map["sumDuration"] < len(vals) else 0
+                dist = vals[desc_map["sumDistance"]] if "sumDistance" in desc_map and desc_map["sumDistance"] < len(vals) else 25
+                hr = vals[desc_map["weightedMeanHeartRate"]] if "weightedMeanHeartRate" in desc_map and desc_map["weightedMeanHeartRate"] < len(vals) else None
+                strokes = vals[desc_map["sumStrokes"]] if "sumStrokes" in desc_map and desc_map["sumStrokes"] < len(vals) else None
+                swolf = vals[desc_map["weightedMeanSwolf"]] if "weightedMeanSwolf" in desc_map and desc_map["weightedMeanSwolf"] < len(vals) else None
+                active = vals[desc_map["directActive"]] if "directActive" in desc_map and desc_map["directActive"] < len(vals) else 0
+                lengths.append({
+                    "duration": dur,
+                    "distance": dist,
+                    "hr": hr,
+                    "strokes": strokes,
+                    "swolf": swolf,
+                    "active": active == 1.0,
+                })
+
+            raw_intervals = []
+            curr_iv = []
+            for l in lengths:
+                if l["active"]:
+                    curr_iv.append(l)
+                else:
+                    if curr_iv:
+                        raw_intervals.append(curr_iv)
+                        curr_iv = []
+            if curr_iv:
+                raw_intervals.append(curr_iv)
+
+            parsed_intervals = []
+            lengths_per_100 = 4  # standard 25m pool lengths per 100m
+            for idx, iv_lengths in enumerate(raw_intervals):
+                total_dist = sum(l["distance"] for l in iv_lengths)
+                total_dur = sum(l["duration"] for l in iv_lengths)
+                valid_hrs = [l["hr"] for l in iv_lengths if l["hr"]]
+                avg_hr = round(sum(valid_hrs) / len(valid_hrs)) if valid_hrs else None
+                valid_strokes = [l["strokes"] for l in iv_lengths if l["strokes"] is not None]
+                avg_strokes = round(sum(valid_strokes) / len(valid_strokes), 1) if valid_strokes else None
+
+                splits_100m = []
+                for p in range(0, len(iv_lengths), lengths_per_100):
+                    chunk = iv_lengths[p : p + lengths_per_100]
+                    chunk_dist = sum(l["distance"] for l in chunk)
+                    chunk_dur = sum(l["duration"] for l in chunk)
+                    chunk_hrs = [l["hr"] for l in chunk if l["hr"]]
+                    chunk_hr = round(sum(chunk_hrs) / len(chunk_hrs)) if chunk_hrs else None
+                    chunk_strokes = [l["strokes"] for l in chunk if l["strokes"] is not None]
+                    c_strokes = round(sum(chunk_strokes) / len(chunk_strokes), 1) if chunk_strokes else None
+                    cm = int(chunk_dur // 60)
+                    cs = chunk_dur % 60
+                    pace_chunk = (chunk_dur / chunk_dist) * 100 if chunk_dist > 0 else 0
+                    pcm = int(pace_chunk // 60)
+                    pcs = pace_chunk % 60
+                    sp_idx = (p // lengths_per_100) + 1
+                    time_fmt = f"{cm}:{cs:05.2f}"
+                    pace_fmt = f"{pcm}:{pcs:04.1f}/100m"
+                    splits_100m.append({
+                        "split_index": sp_idx,
+                        "split_num": sp_idx,
+                        "distance_meters": chunk_dist,
+                        "duration_seconds": round(chunk_dur, 2),
+                        "time_formatted": time_fmt,
+                        "duration_formatted": time_fmt,
+                        "pace_formatted": pace_fmt,
+                        "avg_heart_rate": chunk_hr,
+                        "avg_strokes_per_length": c_strokes,
+                        "lengths_seconds": [round(l["duration"], 2) for l in chunk]
+                    })
+
+                im = int(total_dur // 60)
+                isec = total_dur % 60
+                pace_100 = (total_dur / total_dist) * 100 if total_dist > 0 else 0
+                pm = int(pace_100 // 60)
+                ps = pace_100 % 60
+
+                parsed_intervals.append({
+                    "interval_index": idx + 1,
+                    "distance_meters": total_dist,
+                    "duration_seconds": round(total_dur, 2),
+                    "duration_formatted": f"{im}:{isec:05.2f}",
+                    "pace_100m_formatted": f"{pm}:{ps:04.1f}/100m",
+                    "avg_heart_rate": avg_hr,
+                    "avg_strokes_per_length": avg_strokes,
+                    "splits_100m": splits_100m
+                })
+
+            return parsed_intervals, lengths
+        except Exception as e:
+            logger.warning(f"Error parsing swim details for {activity_id}: {e}")
+            return [], []
 
     def get_wellness_data(self, target_date: Optional[str] = None) -> Dict[str, Any]:
         """Fetch comprehensive wellness metrics for a given date (defaults to today)."""

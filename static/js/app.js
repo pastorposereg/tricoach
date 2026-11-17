@@ -966,11 +966,21 @@ function renderProportionalLapsSection(act) {
       primaryVal = s.avg_speed_mps ? `${(s.avg_speed_mps * 3.6).toFixed(1)} km/h` : '--';
     }
 
+    const swimSplitsSub = (s.splits_100m && s.splits_100m.length > 1) ? `
+      <div class="mt-1.5 flex flex-wrap gap-1">
+        ${s.splits_100m.map(sp => `
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-950/80 border border-cyan-800/50 text-cyan-300 font-mono">
+            100m #${sp.split_index || sp.split_num}: <b>${sp.duration_formatted || sp.time_formatted}</b> (${sp.avg_heart_rate ? `${sp.avg_heart_rate} bpm` : '--'})
+          </span>
+        `).join('')}
+      </div>
+    ` : '';
+
     return `
       <tr class="border-b border-slate-800/60 hover:bg-slate-800/40 text-xs font-mono">
         <td class="py-2 px-2.5 font-bold text-slate-200">L${lapNum}</td>
         <td class="py-2 px-2.5 text-slate-300">${durFormatted} <span class="text-[10px] text-slate-500">(${durPct}%)</span></td>
-        <td class="py-2 px-2.5 text-slate-300">${distFormatted}</td>
+        <td class="py-2 px-2.5 text-slate-300">${distFormatted}${swimSplitsSub}</td>
         <td class="py-2 px-2.5 font-bold ${primaryColorClass}">${primaryVal}</td>
         <td class="py-2 px-2.5 text-rose-400 font-semibold">${hrVal}</td>
         <td class="py-2 px-2.5 text-rose-500">${maxHrVal}</td>

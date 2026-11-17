@@ -348,6 +348,16 @@ def chat_activity_coach(activity_id: str, payload: ChatRequest):
     """Conversational endpoint specifically discussing a single activity with the AI Coach."""
     try:
         activity_detail = dm.get_activity_detail(activity_id)
+        current_act = activity_detail.get("activity", {})
+
+        # Check if user query refers to a previous or comparison activity (e.g. "hace 4 semanas", "lunes anterior", etc.)
+        comparison_activity = dm.find_comparison_activity(
+            current_activity_id=activity_id,
+            current_date_str=current_act.get("start_time", ""),
+            sport_type=current_act.get("sport_type", ""),
+            user_query=payload.message
+        )
+
         pmc = dm.get_pmc_data(range_days=14)
         cfg = load_config()
         athlete_context = {
@@ -366,13 +376,14 @@ def chat_activity_coach(activity_id: str, payload: ChatRequest):
         }
         coach_service = AICoachService(cfg.gemini_api_key)
         reply = coach_service.chat_about_activity(
-            activity_data=activity_detail.get("activity", {}),
+            activity_data=current_act,
             efficiency=activity_detail.get("efficiency", {}),
             decoupling=activity_detail.get("decoupling", {}),
             wellness=activity_detail.get("wellness", {}),
             athlete_context=athlete_context,
             user_message=payload.message,
             chat_history=payload.history or [],
+            comparison_activity=comparison_activity,
         )
         return {"reply": reply}
     except Exception as e:
