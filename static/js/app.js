@@ -2824,11 +2824,11 @@ async function loadWeeklyVolume(forceRefresh = false) {
 async function loadTestsPage(forceRefresh = false) {
   try {
     if (!state.testsData || forceRefresh) {
-      const resTests = await fetch('/api/seasons/tests');
+      const resTests = await fetch('/api/seasons/tests?t=' + Date.now(), { cache: 'no-store' });
       state.testsData = await resTests.json();
     }
     if (!state.competitionsData || forceRefresh) {
-      const resComps = await fetch('/api/seasons/competitions');
+      const resComps = await fetch('/api/seasons/competitions?t=' + Date.now(), { cache: 'no-store' });
       state.competitionsData = await resComps.json();
     }
 
