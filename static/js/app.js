@@ -2925,233 +2925,144 @@ function renderTestsSection(seasonKey) {
   const seasonTests = allTests[seasonKey] || allTests['Temporada 2027 (Actual)'] || {};
   const isCurrent = seasonTests.is_current !== false && (seasonKey.includes('Actual') || seasonKey.includes('2027'));
 
-  if (isCurrent) {
-    // Current season: Natación (400+200 inicial vs base1), Bici (PAM 5' inicial vs base1), Carrera (5k base1)
-    const swim = seasonTests.swimming || {};
-    const bike = seasonTests.cycling || {};
-    const run = seasonTests.running || {};
+  const swim = seasonTests.swimming || {};
+  const bike = seasonTests.cycling || seasonTests.cycling_bests || {};
+  const run = seasonTests.running || seasonTests.running_bests || {};
 
-    let html = `
-      <!-- 1. NATACIÓN -->
-      <div class="space-y-3">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="w-7 h-7 rounded-lg bg-sky-100 text-[#0284c7] flex items-center justify-center text-sm font-bold">🏊‍♂️</span>
-            <h4 class="text-xs sm:text-sm font-bold text-slate-900">Natación • Tests de Control 400m y 200m</h4>
-          </div>
-          <span class="text-[11px] font-mono text-slate-500">CSS Referencia: 1:29.0/100m</span>
+  const swimSectionHtml = (swim.rows && swim.rows.length > 0) ? `
+    <!-- 1. NATACIÓN -->
+    <div class="space-y-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-7 h-7 rounded-lg bg-sky-100 text-[#0284c7] flex items-center justify-center text-sm font-bold">🏊‍♂️</span>
+          <h4 class="text-xs sm:text-sm font-bold text-slate-900">Natación • Tests de Control 400m y 200m</h4>
         </div>
+        <span class="text-[11px] font-mono text-slate-500">CSS Referencia: 1:29.0/100m</span>
+      </div>
 
-        <div class="overflow-x-auto rounded-xl border border-slate-200">
-          <table class="w-full text-left text-xs">
-            <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 text-[11px]">
-              <tr>
-                <th class="px-3.5 py-2.5">Periodo</th>
-                <th class="px-3.5 py-2.5">Fecha</th>
-                <th class="px-3.5 py-2.5">Distancia</th>
-                <th class="px-3.5 py-2.5">Tiempo Total</th>
-                <th class="px-3.5 py-2.5">Tiempos de cada 100m</th>
-                <th class="px-3.5 py-2.5">FC Media</th>
+      <div class="overflow-x-auto rounded-xl border border-slate-200">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 text-[11px]">
+            <tr>
+              <th class="px-3.5 py-2.5">Periodo</th>
+              <th class="px-3.5 py-2.5">Fecha</th>
+              <th class="px-3.5 py-2.5">Distancia</th>
+              <th class="px-3.5 py-2.5">Tiempo Total</th>
+              <th class="px-3.5 py-2.5">Tiempos de cada 100m</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 text-slate-800">
+            ${(swim.rows || []).map(r => `
+              <tr class="hover:bg-slate-50/80 transition-colors">
+                <td class="px-3.5 py-2.5 font-semibold">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${r.periodo === 'inicial' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-sky-100 text-[#0284c7] border border-sky-200'}">
+                    ${r.periodo}
+                  </span>
+                </td>
+                <td class="px-3.5 py-2.5 font-mono text-slate-600">${r.fecha}</td>
+                <td class="px-3.5 py-2.5 font-bold text-slate-900">${r.distancia}</td>
+                <td class="px-3.5 py-2.5 font-mono font-bold text-sky-600 text-sm">${r.tiempo_total}</td>
+                <td class="px-3.5 py-2.5 font-mono text-slate-700 text-[11px]">${r.splits_100m}</td>
               </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-200 text-slate-800">
-              ${(swim.rows || []).map(r => `
-                <tr class="hover:bg-slate-50/80 transition-colors">
-                  <td class="px-3.5 py-2.5 font-semibold">
-                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${r.periodo === 'inicial' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-sky-100 text-[#0284c7] border border-sky-200'}">
-                      ${r.periodo}
-                    </span>
-                  </td>
-                  <td class="px-3.5 py-2.5 font-mono text-slate-600">${r.fecha}</td>
-                  <td class="px-3.5 py-2.5 font-bold text-slate-900">${r.distancia}</td>
-                  <td class="px-3.5 py-2.5 font-mono font-bold text-sky-600 text-sm">${r.tiempo_total}</td>
-                  <td class="px-3.5 py-2.5 font-mono text-slate-700 text-[11px]">${r.splits_100m}</td>
-                  <td class="px-3.5 py-2.5 font-mono text-rose-600 font-semibold">${r.fc_media || '-'}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  ` : '';
+
+  const html = `
+    ${swimSectionHtml}
+
+    <!-- 2. CICLISMO -->
+    <div class="space-y-3 ${swimSectionHtml ? 'pt-2' : ''}">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-sm font-bold">🚴</span>
+          <h4 class="text-xs sm:text-sm font-bold text-slate-900">${isCurrent ? "Ciclismo • Test de Potencia Aeróbica Máxima (PAM 5')" : "Ciclismo • 3 Mejores Valores (5', 10' y 20')"}</h4>
         </div>
+        <span class="text-[11px] font-mono text-slate-500">${isCurrent ? 'FTP: 348 W' : 'Datos de la actividad (Intervals.icu)'}</span>
       </div>
 
-      <!-- 2. CICLISMO -->
-      <div class="space-y-3 pt-2">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-sm font-bold">🚴</span>
-            <h4 class="text-xs sm:text-sm font-bold text-slate-900">Ciclismo • Test de Potencia Aeróbica Máxima (PAM 5')</h4>
-          </div>
-          <span class="text-[11px] font-mono text-slate-500">FTP: 348 W</span>
-        </div>
-
-        <div class="overflow-x-auto rounded-xl border border-slate-200">
-          <table class="w-full text-left text-xs">
-            <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 text-[11px]">
-              <tr>
-                <th class="px-3.5 py-2.5">Periodo</th>
-                <th class="px-3.5 py-2.5">Fecha</th>
-                <th class="px-3.5 py-2.5">Tiempo</th>
-                <th class="px-3.5 py-2.5">Potencia Media</th>
-                <th class="px-3.5 py-2.5">FC Media</th>
-                <th class="px-3.5 py-2.5">FC Máx</th>
-                <th class="px-3.5 py-2.5">W/kg</th>
+      <div class="overflow-x-auto rounded-xl border border-slate-200">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 text-[11px]">
+            <tr>
+              <th class="px-3.5 py-2.5">Periodo</th>
+              <th class="px-3.5 py-2.5">Fecha</th>
+              <th class="px-3.5 py-2.5">Tiempo</th>
+              <th class="px-3.5 py-2.5">Potencia Media</th>
+              <th class="px-3.5 py-2.5">FC Media</th>
+              <th class="px-3.5 py-2.5">FC Máx</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 text-slate-800">
+            ${(bike.rows || []).map(r => `
+              <tr class="hover:bg-slate-50/80 transition-colors">
+                <td class="px-3.5 py-2.5 font-semibold">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${r.periodo === 'inicial' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-sky-100 text-[#0284c7] border border-sky-200'}">
+                    ${r.periodo || r.duracion || '-'}
+                  </span>
+                </td>
+                <td class="px-3.5 py-2.5 font-mono text-slate-600">${r.fecha || '-'}</td>
+                <td class="px-3.5 py-2.5 font-bold text-slate-900">${r.tiempo || r.duracion || '-'}</td>
+                <td class="px-3.5 py-2.5 font-mono font-bold text-amber-600 text-sm">${r.potencia_media || r.potencia || '-'}</td>
+                <td class="px-3.5 py-2.5 font-mono text-rose-600 font-semibold">${r.fc_media || '-'}</td>
+                <td class="px-3.5 py-2.5 font-mono text-rose-700 font-bold">${r.fc_max || '-'}</td>
               </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-200 text-slate-800">
-              ${(bike.rows || []).map(r => `
-                <tr class="hover:bg-slate-50/80 transition-colors">
-                  <td class="px-3.5 py-2.5 font-semibold">
-                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${r.periodo === 'inicial' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-sky-100 text-[#0284c7] border border-sky-200'}">
-                      ${r.periodo}
-                    </span>
-                  </td>
-                  <td class="px-3.5 py-2.5 font-mono text-slate-600">${r.fecha}</td>
-                  <td class="px-3.5 py-2.5 font-bold text-slate-900">${r.tiempo}</td>
-                  <td class="px-3.5 py-2.5 font-mono font-bold text-amber-600 text-sm">${r.potencia_media}</td>
-                  <td class="px-3.5 py-2.5 font-mono text-rose-600 font-semibold">${r.fc_media}</td>
-                  <td class="px-3.5 py-2.5 font-mono text-rose-700 font-bold">${r.fc_max}</td>
-                  <td class="px-3.5 py-2.5 font-mono font-semibold text-slate-700">${r.wkg || '-'}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 3. CARRERA A PIE -->
+    <div class="space-y-3 pt-2">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold">🏃</span>
+          <h4 class="text-xs sm:text-sm font-bold text-slate-900">${isCurrent ? 'Carrera a Pie • Test 5k' : 'Carrera a Pie • 3 Mejores Ritmos (5k, 10k y 21k)'}</h4>
         </div>
+        <span class="text-[11px] font-mono text-slate-500">${isCurrent ? 'Ritmo Umbral: 3:40 min/km' : 'Datos de la actividad (Intervals.icu)'}</span>
       </div>
 
-      <!-- 3. CARRERA A PIE -->
-      <div class="space-y-3 pt-2">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold">🏃</span>
-            <h4 class="text-xs sm:text-sm font-bold text-slate-900">Carrera a Pie • Test 5k</h4>
-          </div>
-          <span class="text-[11px] font-mono text-slate-500">Ritmo Umbral: 3:40 min/km</span>
-        </div>
-
-        <div class="overflow-x-auto rounded-xl border border-slate-200">
-          <table class="w-full text-left text-xs">
-            <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 text-[11px]">
-              <tr>
-                <th class="px-3.5 py-2.5">Periodo</th>
-                <th class="px-3.5 py-2.5">Fecha</th>
-                <th class="px-3.5 py-2.5">Distancia</th>
-                <th class="px-3.5 py-2.5">Desnivel Positivo</th>
-                <th class="px-3.5 py-2.5">Tiempo</th>
-                <th class="px-3.5 py-2.5">Ritmo</th>
-                <th class="px-3.5 py-2.5">FC Media</th>
-                <th class="px-3.5 py-2.5">FC Máx</th>
+      <div class="overflow-x-auto rounded-xl border border-slate-200">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 text-[11px]">
+            <tr>
+              <th class="px-3.5 py-2.5">Periodo</th>
+              <th class="px-3.5 py-2.5">Fecha</th>
+              <th class="px-3.5 py-2.5">Distancia</th>
+              <th class="px-3.5 py-2.5">Desnivel Positivo</th>
+              <th class="px-3.5 py-2.5">Tiempo</th>
+              <th class="px-3.5 py-2.5">Ritmo</th>
+              <th class="px-3.5 py-2.5">FC Media</th>
+              <th class="px-3.5 py-2.5">FC Máx</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 text-slate-800">
+            ${(run.rows || []).map(r => `
+              <tr class="hover:bg-slate-50/80 transition-colors">
+                <td class="px-3.5 py-2.5 font-semibold">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-sky-100 text-[#0284c7] border border-sky-200">
+                    ${r.periodo || r.actividad || r.distancia || '-'}
+                  </span>
+                </td>
+                <td class="px-3.5 py-2.5 font-mono text-slate-600">${r.fecha || '-'}</td>
+                <td class="px-3.5 py-2.5 font-bold text-slate-900">${r.distancia || '-'}</td>
+                <td class="px-3.5 py-2.5 font-mono text-slate-600">${r.desnivel_pos || '-'}</td>
+                <td class="px-3.5 py-2.5 font-mono font-bold text-emerald-600 text-sm">${r.tiempo || '-'}</td>
+                <td class="px-3.5 py-2.5 font-mono font-bold text-emerald-700">${r.ritmo || '-'}</td>
+                <td class="px-3.5 py-2.5 font-mono text-rose-600 font-semibold">${r.fc_media || '-'}</td>
+                <td class="px-3.5 py-2.5 font-mono text-rose-700 font-bold">${r.fc_max || '-'}</td>
               </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-200 text-slate-800">
-              ${(run.rows || []).map(r => `
-                <tr class="hover:bg-slate-50/80 transition-colors">
-                  <td class="px-3.5 py-2.5 font-semibold">
-                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-sky-100 text-[#0284c7] border border-sky-200">
-                      ${r.periodo}
-                    </span>
-                  </td>
-                  <td class="px-3.5 py-2.5 font-mono text-slate-600">${r.fecha}</td>
-                  <td class="px-3.5 py-2.5 font-bold text-slate-900">${r.distancia}</td>
-                  <td class="px-3.5 py-2.5 font-mono text-slate-600">${r.desnivel_pos}</td>
-                  <td class="px-3.5 py-2.5 font-mono font-bold text-emerald-600 text-sm">${r.tiempo}</td>
-                  <td class="px-3.5 py-2.5 font-mono font-bold text-emerald-700">${r.ritmo}</td>
-                  <td class="px-3.5 py-2.5 font-mono text-rose-600 font-semibold">${r.fc_media}</td>
-                  <td class="px-3.5 py-2.5 font-mono text-rose-700 font-bold">${r.fc_max}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
+            `).join('')}
+          </tbody>
+        </table>
       </div>
-    `;
-    container.innerHTML = html;
-
-  } else {
-    // Previous seasons: 3 best power values in cycling (5', 10', 20') and 3 best pace values in running (5k, 10k, 21k)
-    const bikeBests = seasonTests.cycling_bests || {};
-    const runBests = seasonTests.running_bests || {};
-
-    let html = `
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        <!-- BICICLETA MEJORES VALORES -->
-        <div class="space-y-3">
-          <div class="flex items-center justify-between pb-1 border-b border-slate-200">
-            <div class="flex items-center gap-2">
-              <span class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-sm font-bold">🚴</span>
-              <h4 class="text-xs sm:text-sm font-bold text-slate-900">Bicicleta • 3 Mejores Potencias (5', 10' y 20')</h4>
-            </div>
-            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 font-semibold">Top 3 Intervals</span>
-          </div>
-
-          <div class="overflow-x-auto rounded-xl border border-slate-200">
-            <table class="w-full text-left text-xs">
-              <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 text-[11px]">
-                <tr>
-                  <th class="px-3.5 py-2.5">Duración</th>
-                  <th class="px-3.5 py-2.5">Potencia Máx</th>
-                  <th class="px-3.5 py-2.5">Relación W/kg</th>
-                  <th class="px-3.5 py-2.5">Fecha / Actividad</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-200 text-slate-800">
-                ${(bikeBests.rows || []).map(r => `
-                  <tr class="hover:bg-slate-50/80 transition-colors">
-                    <td class="px-3.5 py-2.5 font-bold text-slate-900">${r.duracion}</td>
-                    <td class="px-3.5 py-2.5 font-mono font-bold text-amber-600 text-sm">${r.potencia}</td>
-                    <td class="px-3.5 py-2.5 font-mono font-semibold text-slate-700">${r.wkg}</td>
-                    <td class="px-3.5 py-2.5 text-[11px] text-slate-600">
-                      <span class="font-mono text-slate-800 block">${r.fecha}</span>
-                      <span class="text-slate-400 text-[10px] truncate block">${r.actividad}</span>
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- CARRERA MEJORES RITMOS -->
-        <div class="space-y-3">
-          <div class="flex items-center justify-between pb-1 border-b border-slate-200">
-            <div class="flex items-center gap-2">
-              <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold">🏃</span>
-              <h4 class="text-xs sm:text-sm font-bold text-slate-900">Carrera • 3 Mejores Ritmos (5k, 10k y 21k)</h4>
-            </div>
-            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold">Top 3 Intervals</span>
-          </div>
-
-          <div class="overflow-x-auto rounded-xl border border-slate-200">
-            <table class="w-full text-left text-xs">
-              <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 text-[11px]">
-                <tr>
-                  <th class="px-3.5 py-2.5">Distancia</th>
-                  <th class="px-3.5 py-2.5">Tiempo Total</th>
-                  <th class="px-3.5 py-2.5">Ritmo Medio</th>
-                  <th class="px-3.5 py-2.5">Fecha / Actividad</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-200 text-slate-800">
-                ${(runBests.rows || []).map(r => `
-                  <tr class="hover:bg-slate-50/80 transition-colors">
-                    <td class="px-3.5 py-2.5 font-bold text-slate-900">${r.distancia}</td>
-                    <td class="px-3.5 py-2.5 font-mono font-bold text-emerald-600 text-sm">${r.tiempo}</td>
-                    <td class="px-3.5 py-2.5 font-mono font-bold text-emerald-700">${r.ritmo}</td>
-                    <td class="px-3.5 py-2.5 text-[11px] text-slate-600">
-                      <span class="font-mono text-slate-800 block">${r.fecha}</span>
-                      <span class="text-slate-400 text-[10px] truncate block">${r.actividad}</span>
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
-    `;
-    container.innerHTML = html;
-  }
+    </div>
+  `;
+  container.innerHTML = html;
 }
 
 function renderCompetitionsSection(seasonKey) {
@@ -3184,7 +3095,7 @@ function renderCompetitionsSection(seasonKey) {
             <th class="px-3 py-2.5 text-sky-700 bg-sky-50/50">Ritmo Natación</th>
             <th class="px-3 py-2.5">T1</th>
             <th class="px-3 py-2.5 text-amber-700 bg-amber-50/50">T. Bici</th>
-            <th class="px-3 py-2.5 text-amber-700 bg-amber-50/50">Potencia Bici</th>
+            <th class="px-3 py-2.5 text-amber-700 bg-amber-50/50">Potencia Media Bici</th>
             <th class="px-3 py-2.5 text-amber-700 bg-amber-50/50">FC Media Bici</th>
             <th class="px-3 py-2.5 text-amber-700 bg-amber-50/50">FC Máx Bici</th>
             <th class="px-3 py-2.5 text-emerald-700 bg-emerald-50/50">T. Carrera</th>
@@ -3231,9 +3142,11 @@ function renderCompetitionsSection(seasonKey) {
                 
                 <!-- Clasificación -->
                 <td class="px-3 py-2.5 bg-yellow-50/40">
-                  <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-900 border border-amber-200 shadow-2xs">
-                    <span>🏆</span> ${c.posicion}
-                  </span>
+                  ${c.posicion && c.posicion !== '-' ? `
+                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-900 border border-amber-200 shadow-2xs">
+                      <span>🏆</span> ${c.posicion}
+                    </span>
+                  ` : `<span class="font-mono text-slate-400">-</span>`}
                 </td>
               </tr>
             `;

@@ -725,96 +725,96 @@ class DataManager:
                 },
                 "Temporada 2026": {
                     "is_current": False,
-                    "cycling_bests": {
-                        "columns": ["Duración", "Potencia", "Relación W/kg", "Fecha / Actividad"],
+                    "cycling": {
+                        "columns": ["Periodo", "Fecha", "Tiempo", "Potencia Media", "FC Media", "FC Máx"],
                         "rows": [
-                            {"duracion": "5 min (PAM)", "potencia": "409 W", "wkg": "5.56 W/kg", "fecha": "2026-06-18", "actividad": "Intervalos PAM"},
-                            {"duracion": "10 min", "potencia": "391 W", "wkg": "5.39 W/kg", "fecha": "2026-08-14", "actividad": "Series Subida"},
-                            {"duracion": "20 min (FTP)", "potencia": "329 W", "wkg": "4.45 W/kg", "fecha": "2026-10-04", "actividad": "Sprint Cadavedo"}
+                            {"periodo": "Mejor 5' (4 subidas celas)", "fecha": "18/06/2026", "tiempo": "5'00\"", "potencia_media": "409 W", "fc_media": "155 bpm", "fc_max": "163 bpm"},
+                            {"periodo": "Mejor 10' (La Coruña Ciclismo)", "fecha": "17/09/2026", "tiempo": "10'00\"", "potencia_media": "391 W", "fc_media": "153 bpm", "fc_max": "162 bpm"},
+                            {"periodo": "Mejor 20' (Sprint Cadavedo)", "fecha": "04/10/2026", "tiempo": "20'00\"", "potencia_media": "329 W", "fc_media": "154 bpm", "fc_max": "165 bpm"}
                         ]
                     },
-                    "running_bests": {
-                        "columns": ["Distancia", "Tiempo", "Ritmo Medio", "Fecha / Actividad"],
+                    "running": {
+                        "columns": ["Periodo", "Fecha", "Distancia", "Desnivel Positivo", "Tiempo", "Ritmo", "FC Media", "FC Máx"],
                         "rows": [
-                            {"distancia": "5k", "tiempo": "17:57", "ritmo": "3:35 min/km", "fecha": "2025-11-16", "actividad": "5k Leyma"},
-                            {"distancia": "10k", "tiempo": "36:32", "ritmo": "3:39 min/km", "fecha": "2026-02-07", "actividad": "10k Padrón"},
-                            {"distancia": "21k (Media Maratón)", "tiempo": "1h 18m 37s", "ritmo": "3:44 min/km", "fecha": "2026-03-01", "actividad": "Coruña 21"}
+                            {"periodo": "Mejor 5k (5k Leyma)", "fecha": "16/11/2025", "distancia": "5,00 km", "desnivel_pos": "+138 m", "tiempo": "17:57", "ritmo": "3:35 min/km", "fc_media": "156 bpm", "fc_max": "168 bpm"},
+                            {"periodo": "Mejor 10k (Coruña 21)", "fecha": "01/03/2026", "distancia": "10,00 km", "desnivel_pos": "+432 m", "tiempo": "36:32", "ritmo": "3:39 min/km", "fc_media": "157 bpm", "fc_max": "163 bpm"},
+                            {"periodo": "Mejor 21k (Coruña 21)", "fecha": "01/03/2026", "distancia": "21,10 km", "desnivel_pos": "+432 m", "tiempo": "1h 18m 37s", "ritmo": "3:44 min/km", "fc_media": "157 bpm", "fc_max": "163 bpm"}
                         ]
                     }
                 },
                 "Temporada 2025": {
                     "is_current": False,
-                    "cycling_bests": {
-                        "columns": ["Duración", "Potencia", "Relación W/kg", "Fecha / Actividad"],
+                    "cycling": {
+                        "columns": ["Periodo", "Fecha", "Tiempo", "Potencia Media", "FC Media", "FC Máx"],
                         "rows": [
-                            {"duracion": "5 min (PAM)", "potencia": "422 W", "wkg": "5.78 W/kg", "fecha": "2025-05-12", "actividad": "Test PAM 5'"},
-                            {"duracion": "10 min", "potencia": "402 W", "wkg": "5.46 W/kg", "fecha": "2025-05-01", "actividad": "Subida Umbral"},
-                            {"duracion": "20 min (FTP)", "potencia": "331 W", "wkg": "4.50 W/kg", "fecha": "2025-05-08", "actividad": "Rodaje Control"}
+                            {"periodo": "Mejor 5' (2 subidas a celas)", "fecha": "04/09/2025", "tiempo": "5'00\"", "potencia_media": "422 W", "fc_media": "161 bpm", "fc_max": "167 bpm"},
+                            {"periodo": "Mejor 10' (Subida sta. Leocadia)", "fecha": "28/08/2025", "tiempo": "10'00\"", "potencia_media": "402 W", "fc_media": "157 bpm", "fc_max": "164 bpm"},
+                            {"periodo": "Mejor 20' (Sin límite)", "fecha": "30/08/2025", "tiempo": "20'00\"", "potencia_media": "331 W", "fc_media": "149 bpm", "fc_max": "160 bpm"}
                         ]
                     },
-                    "running_bests": {
-                        "columns": ["Distancia", "Tiempo", "Ritmo Medio", "Fecha / Actividad"],
+                    "running": {
+                        "columns": ["Periodo", "Fecha", "Distancia", "Desnivel Positivo", "Tiempo", "Ritmo", "FC Media", "FC Máx"],
                         "rows": [
-                            {"distancia": "5k", "tiempo": "17:25", "ritmo": "3:29 min/km", "fecha": "2024-11-17", "actividad": "5k Leyma"},
-                            {"distancia": "10k", "tiempo": "35:42", "ritmo": "3:34 min/km", "fecha": "2025-06-15", "actividad": "10k Popular"},
-                            {"distancia": "21k (Media Maratón)", "tiempo": "1h 20m 23s", "ritmo": "3:49 min/km", "fecha": "2025-02-09", "actividad": "Coruña 21"}
+                            {"periodo": "Mejor 5k (5k Leyma)", "fecha": "17/11/2024", "distancia": "5,00 km", "desnivel_pos": "+48 m", "tiempo": "17:25", "ritmo": "3:29 min/km", "fc_media": "164 bpm", "fc_max": "171 bpm"},
+                            {"periodo": "Mejor 10k (10k Coruña)", "fecha": "05/10/2025", "distancia": "10,00 km", "desnivel_pos": "+205 m", "tiempo": "35:42", "ritmo": "3:34 min/km", "fc_media": "160 bpm", "fc_max": "164 bpm"},
+                            {"periodo": "Mejor 21k (Coruña 21)", "fecha": "09/02/2025", "distancia": "21,10 km", "desnivel_pos": "+442 m", "tiempo": "1h 20m 23s", "ritmo": "3:49 min/km", "fc_media": "161 bpm", "fc_max": "169 bpm"}
                         ]
                     }
                 },
                 "Temporada 2024": {
                     "is_current": False,
-                    "cycling_bests": {
-                        "columns": ["Duración", "Potencia", "Relación W/kg", "Fecha / Actividad"],
+                    "cycling": {
+                        "columns": ["Periodo", "Fecha", "Tiempo", "Potencia Media", "FC Media", "FC Máx"],
                         "rows": [
-                            {"duracion": "5 min (PAM)", "potencia": "414 W", "wkg": "5.67 W/kg", "fecha": "2024-04-10", "actividad": "Intervalos Bici"},
-                            {"duracion": "10 min", "potencia": "361 W", "wkg": "4.95 W/kg", "fecha": "2024-05-18", "actividad": "Test 10m"},
-                            {"duracion": "20 min (FTP)", "potencia": "352 W", "wkg": "4.82 W/kg", "fecha": "2024-05-18", "actividad": "Subida puerto"}
+                            {"periodo": "Mejor 5' (Test P5 calle)", "fecha": "04/11/2023", "tiempo": "5'00\"", "potencia_media": "414 W", "fc_media": "165 bpm", "fc_max": "171 bpm"},
+                            {"periodo": "Mejor 10' (Control FTP)", "fecha": "15/03/2024", "tiempo": "10'00\"", "potencia_media": "361 W", "fc_media": "157 bpm", "fc_max": "163 bpm"},
+                            {"periodo": "Mejor 20' (Control FTP)", "fecha": "15/03/2024", "tiempo": "20'00\"", "potencia_media": "352 W", "fc_media": "161 bpm", "fc_max": "166 bpm"}
                         ]
                     },
-                    "running_bests": {
-                        "columns": ["Distancia", "Tiempo", "Ritmo Medio", "Fecha / Actividad"],
+                    "running": {
+                        "columns": ["Periodo", "Fecha", "Distancia", "Desnivel Positivo", "Tiempo", "Ritmo", "FC Media", "FC Máx"],
                         "rows": [
-                            {"distancia": "5k", "tiempo": "17:30", "ritmo": "3:30 min/km", "fecha": "2024-03-24", "actividad": "5k Control"},
-                            {"distancia": "10k", "tiempo": "36:56", "ritmo": "3:42 min/km", "fecha": "2024-05-05", "actividad": "10k Concello"},
-                            {"distancia": "21k (Media Maratón)", "tiempo": "1h 20m 38s", "ritmo": "3:49 min/km", "fecha": "2024-02-25", "actividad": "Coruña 21"}
+                            {"periodo": "Mejor 5k (5k Leyma)", "fecha": "19/11/2023", "distancia": "5,00 km", "desnivel_pos": "+25 m", "tiempo": "17:30", "ritmo": "3:30 min/km", "fc_media": "164 bpm", "fc_max": "174 bpm"},
+                            {"periodo": "Mejor 10k (Coruña 21)", "fecha": "25/02/2024", "distancia": "10,00 km", "desnivel_pos": "+92 m", "tiempo": "36:56", "ritmo": "3:42 min/km", "fc_media": "157 bpm", "fc_max": "167 bpm"},
+                            {"periodo": "Mejor 21k (Coruña 21)", "fecha": "25/02/2024", "distancia": "21,10 km", "desnivel_pos": "+92 m", "tiempo": "1h 20m 38s", "ritmo": "3:49 min/km", "fc_media": "157 bpm", "fc_max": "167 bpm"}
                         ]
                     }
                 },
                 "Temporada 2023": {
                     "is_current": False,
-                    "cycling_bests": {
-                        "columns": ["Duración", "Potencia", "Relación W/kg", "Fecha / Actividad"],
+                    "cycling": {
+                        "columns": ["Periodo", "Fecha", "Tiempo", "Potencia Media", "FC Media", "FC Máx"],
                         "rows": [
-                            {"duracion": "5 min (PAM)", "potencia": "417 W", "wkg": "5.71 W/kg", "fecha": "2023-05-14", "actividad": "Series Ciclismo"},
-                            {"duracion": "10 min", "potencia": "366 W", "wkg": "5.01 W/kg", "fecha": "2023-04-20", "actividad": "Intervalos Umbral"},
-                            {"duracion": "20 min (FTP)", "potencia": "357 W", "wkg": "4.89 W/kg", "fecha": "2023-04-20", "actividad": "Test FTP 20m"}
+                            {"periodo": "Mejor 5' (Fondo + P5)", "fecha": "02/09/2023", "tiempo": "5'00\"", "potencia_media": "417 W", "fc_media": "155 bpm", "fc_max": "163 bpm"},
+                            {"periodo": "Mejor 10' (Control FTP)", "fecha": "13/07/2023", "tiempo": "10'00\"", "potencia_media": "366 W", "fc_media": "159 bpm", "fc_max": "165 bpm"},
+                            {"periodo": "Mejor 20' (Control FTP)", "fecha": "13/07/2023", "tiempo": "20'00\"", "potencia_media": "357 W", "fc_media": "162 bpm", "fc_max": "170 bpm"}
                         ]
                     },
-                    "running_bests": {
-                        "columns": ["Distancia", "Tiempo", "Ritmo Medio", "Fecha / Actividad"],
+                    "running": {
+                        "columns": ["Periodo", "Fecha", "Distancia", "Desnivel Positivo", "Tiempo", "Ritmo", "FC Media", "FC Máx"],
                         "rows": [
-                            {"distancia": "5k", "tiempo": "17:52", "ritmo": "3:34 min/km", "fecha": "2023-02-12", "actividad": "5k Control"},
-                            {"distancia": "10k", "tiempo": "36:13", "ritmo": "3:37 min/km", "fecha": "2023-03-18", "actividad": "10k Popular"},
-                            {"distancia": "21k (Media Maratón)", "tiempo": "1h 18m 32s", "ritmo": "3:43 min/km", "fecha": "2023-02-26", "actividad": "Coruña 21"}
+                            {"periodo": "Mejor 5k (Coruña 21)", "fecha": "12/02/2023", "distancia": "5,00 km", "desnivel_pos": "+80 m", "tiempo": "17:52", "ritmo": "3:34 min/km", "fc_media": "162 bpm", "fc_max": "168 bpm"},
+                            {"periodo": "Mejor 10k (Ferrol Carrera)", "fecha": "15/01/2023", "distancia": "10,00 km", "desnivel_pos": "+107 m", "tiempo": "36:13", "ritmo": "3:37 min/km", "fc_media": "162 bpm", "fc_max": "166 bpm"},
+                            {"periodo": "Mejor 21k (Coruña 21)", "fecha": "12/02/2023", "distancia": "21,10 km", "desnivel_pos": "+80 m", "tiempo": "1h 18m 32s", "ritmo": "3:43 min/km", "fc_media": "162 bpm", "fc_max": "168 bpm"}
                         ]
                     }
                 },
                 "Temporada 2022": {
                     "is_current": False,
-                    "cycling_bests": {
-                        "columns": ["Duración", "Potencia", "Relación W/kg", "Fecha / Actividad"],
+                    "cycling": {
+                        "columns": ["Periodo", "Fecha", "Tiempo", "Potencia Media", "FC Media", "FC Máx"],
                         "rows": [
-                            {"duracion": "5 min (PAM)", "potencia": "391 W", "wkg": "5.36 W/kg", "fecha": "2022-04-05", "actividad": "Test 5' PAM"},
-                            {"duracion": "10 min", "potencia": "356 W", "wkg": "4.88 W/kg", "fecha": "2022-05-22", "actividad": "Series Subida"},
-                            {"duracion": "20 min (FTP)", "potencia": "354 W", "wkg": "4.85 W/kg", "fecha": "2022-05-22", "actividad": "Test FTP 20'"}
+                            {"periodo": "Mejor 5' (Test P5 calle)", "fecha": "30/10/2021", "tiempo": "5'00\"", "potencia_media": "391 W", "fc_media": "162 bpm", "fc_max": "168 bpm"},
+                            {"periodo": "Mejor 10' (Test FTP subida)", "fecha": "30/07/2022", "tiempo": "10'00\"", "potencia_media": "356 W", "fc_media": "159 bpm", "fc_max": "165 bpm"},
+                            {"periodo": "Mejor 20' (Test FTP subida)", "fecha": "30/07/2022", "tiempo": "20'00\"", "potencia_media": "354 W", "fc_media": "162 bpm", "fc_max": "168 bpm"}
                         ]
                     },
-                    "running_bests": {
-                        "columns": ["Distancia", "Tiempo", "Ritmo Medio", "Fecha / Actividad"],
+                    "running": {
+                        "columns": ["Periodo", "Fecha", "Distancia", "Desnivel Positivo", "Tiempo", "Ritmo", "FC Media", "FC Máx"],
                         "rows": [
-                            {"distancia": "5k", "tiempo": "18:08", "ritmo": "3:38 min/km", "fecha": "2022-03-10", "actividad": "5k Control"},
-                            {"distancia": "10k", "tiempo": "37:45", "ritmo": "3:46 min/km", "fecha": "2022-04-17", "actividad": "10k Carreira"},
-                            {"distancia": "21k (Media Maratón)", "tiempo": "1h 20m 26s", "ritmo": "3:49 min/km", "fecha": "2022-02-20", "actividad": "Coruña 21"}
+                            {"periodo": "Mejor 5k (5k Carrera)", "fecha": "13/03/2022", "distancia": "5,00 km", "desnivel_pos": "+25 m", "tiempo": "18:08", "ritmo": "3:38 min/km", "fc_media": "157 bpm", "fc_max": "165 bpm"},
+                            {"periodo": "Mejor 10k (Coruña 21)", "fecha": "13/02/2022", "distancia": "10,00 km", "desnivel_pos": "+91 m", "tiempo": "37:45", "ritmo": "3:46 min/km", "fc_media": "161 bpm", "fc_max": "166 bpm"},
+                            {"periodo": "Mejor 21k (Coruña 21)", "fecha": "13/02/2022", "distancia": "21,10 km", "desnivel_pos": "+91 m", "tiempo": "1h 20m 26s", "ritmo": "3:49 min/km", "fc_media": "161 bpm", "fc_max": "166 bpm"}
                         ]
                     }
                 }
@@ -856,7 +856,7 @@ class DataManager:
                         "ritmo_carrera": "3:44 min/km",
                         "fcmedia_carrera": "156 bpm",
                         "fcmax_carrera": "166 bpm",
-                        "posicion": "26º General (18:40)"
+                        "posicion": "26º General • 17º Senior M (18:40)"
                     }
                 ],
                 "Temporada 2026": [
@@ -868,16 +868,16 @@ class DataManager:
                         "tiempo_total": "1h 06m 58s",
                         "tiempo_natacion": "08:41",
                         "ritmo_natacion": "1:44 /100m",
-                        "tiempo_t1": "01:12",
+                        "tiempo_t1": "-",
                         "tiempo_bici": "37:13",
-                        "potencia_media_bici": "342 W",
+                        "potencia_media_bici": "303 W",
                         "fcmedia_bici": "152 bpm",
                         "fcmax_bici": "165 bpm",
                         "tiempo_carrera": "21:04",
-                        "ritmo_carrera": "4:39 min/km",
+                        "ritmo_carrera": "4:35 min/km",
                         "fcmedia_carrera": "151 bpm",
                         "fcmax_carrera": "160 bpm",
-                        "posicion": "14º General • 4º Cat (1:07:08)"
+                        "posicion": "6º General (1:07:08)"
                     },
                     {
                         "nombre": "Half Madrid",
@@ -887,16 +887,16 @@ class DataManager:
                         "tiempo_total": "3h 51m 14s",
                         "tiempo_natacion": "28:54",
                         "ritmo_natacion": "1:31 /100m",
-                        "tiempo_t1": "01:45",
+                        "tiempo_t1": "-",
                         "tiempo_bici": "2h 04m 31s",
-                        "potencia_media_bici": "257 W",
+                        "potencia_media_bici": "247 W",
                         "fcmedia_bici": "142 bpm",
                         "fcmax_bici": "155 bpm",
                         "tiempo_carrera": "1h 17m 40s",
-                        "ritmo_carrera": "4:26 min/km",
+                        "ritmo_carrera": "4:22 min/km",
                         "fcmedia_carrera": "150 bpm",
                         "fcmax_carrera": "161 bpm",
-                        "posicion": "18º General • Half Madrid"
+                        "posicion": "28º General • 7º G30-34M (3:57:27)"
                     },
                     {
                         "nombre": "MD Ribadeo",
@@ -906,16 +906,16 @@ class DataManager:
                         "tiempo_total": "4h 03m 43s",
                         "tiempo_natacion": "26:32",
                         "ritmo_natacion": "1:39 /100m",
-                        "tiempo_t1": "01:30",
+                        "tiempo_t1": "-",
                         "tiempo_bici": "2h 15m 15s",
-                        "potencia_media_bici": "268 W",
-                        "fcmedia_bici": "144 bpm",
-                        "fcmax_bici": "156 bpm",
+                        "potencia_media_bici": "-",
+                        "fcmedia_bici": "-",
+                        "fcmax_bici": "-",
                         "tiempo_carrera": "1h 21m 56s",
                         "ritmo_carrera": "4:23 min/km",
-                        "fcmedia_carrera": "149 bpm",
-                        "fcmax_carrera": "158 bpm",
-                        "posicion": "8º General • MD Ribadeo"
+                        "fcmedia_carrera": "-",
+                        "fcmax_carrera": "-",
+                        "posicion": "9º General (4:07:52)"
                     },
                     {
                         "nombre": "Desafío Castilla y León 1,6/60/14",
@@ -927,14 +927,14 @@ class DataManager:
                         "ritmo_natacion": "1:46 /100m",
                         "tiempo_t1": "02:40",
                         "tiempo_bici": "1h 27m 35s",
-                        "potencia_media_bici": "263 W",
+                        "potencia_media_bici": "260 W",
                         "fcmedia_bici": "146 bpm",
                         "fcmax_bici": "154 bpm",
                         "tiempo_carrera": "58:27",
                         "ritmo_carrera": "4:14 min/km",
                         "fcmedia_carrera": "150 bpm",
                         "fcmax_carrera": "158 bpm",
-                        "posicion": "12º General • Desafío CyL"
+                        "posicion": "25º General (2:57:59)"
                     },
                     {
                         "nombre": "MD As Pontes",
@@ -946,33 +946,33 @@ class DataManager:
                         "ritmo_natacion": "1:40 /100m",
                         "tiempo_t1": "01:49",
                         "tiempo_bici": "2h 20m 04s",
-                        "potencia_media_bici": "275 W",
+                        "potencia_media_bici": "252 W",
                         "fcmedia_bici": "143 bpm",
                         "fcmax_bici": "156 bpm",
                         "tiempo_carrera": "1h 26m 58s",
-                        "ritmo_carrera": "4:24 min/km",
+                        "ritmo_carrera": "4:22 min/km",
                         "fcmedia_carrera": "148 bpm",
                         "fcmax_carrera": "156 bpm",
-                        "posicion": "15º General • MD As Pontes"
+                        "posicion": "6º General • 3º G30-34M (4:21:26)"
                     },
                     {
                         "nombre": "Tri Porriño",
                         "fecha": "14/06/2026",
                         "modalidad": "Triatlón Sprint",
-                        "distancia": "25,2 km",
-                        "tiempo_total": "1h 12m 55s",
+                        "distancia": "24,8 km",
+                        "tiempo_total": "1h 06m 24s",
                         "tiempo_natacion": "13:10",
                         "ritmo_natacion": "1:43 /100m",
                         "tiempo_t1": "02:13",
                         "tiempo_bici": "31:14",
-                        "potencia_media_bici": "318 W",
+                        "potencia_media_bici": "307 W",
                         "fcmedia_bici": "146 bpm",
                         "fcmax_bici": "156 bpm",
-                        "tiempo_carrera": "25:19",
-                        "ritmo_carrera": "4:53 min/km",
+                        "tiempo_carrera": "18:48",
+                        "ritmo_carrera": "3:57 min/km",
                         "fcmedia_carrera": "150 bpm",
                         "fcmax_carrera": "156 bpm",
-                        "posicion": "19º General • Tri Porriño"
+                        "posicion": "40º General • 13º ABM (1:07:27)"
                     },
                     {
                         "nombre": "Tri100 Llanes 2/80/18",
@@ -984,14 +984,14 @@ class DataManager:
                         "ritmo_natacion": "1:45 /100m",
                         "tiempo_t1": "02:08",
                         "tiempo_bici": "2h 01m 34s",
-                        "potencia_media_bici": "266 W",
+                        "potencia_media_bici": "248 W",
                         "fcmedia_bici": "137 bpm",
                         "fcmax_bici": "150 bpm",
                         "tiempo_carrera": "1h 09m 57s",
                         "ritmo_carrera": "4:19 min/km",
                         "fcmedia_carrera": "145 bpm",
                         "fcmax_carrera": "153 bpm",
-                        "posicion": "22º General • Tri Llanes 100"
+                        "posicion": "8º General"
                     },
                     {
                         "nombre": "Setúbal Triathlon",
@@ -1000,17 +1000,17 @@ class DataManager:
                         "distancia": "111,8 km",
                         "tiempo_total": "4h 31m 37s",
                         "tiempo_natacion": "38:14",
-                        "ritmo_natacion": "1:48 /100m",
-                        "tiempo_t1": "02:22",
+                        "ritmo_natacion": "1:53 /100m",
+                        "tiempo_t1": "-",
                         "tiempo_bici": "2h 24m 38s",
-                        "potencia_media_bici": "262 W",
-                        "fcmedia_bici": "142 bpm",
-                        "fcmax_bici": "154 bpm",
+                        "potencia_media_bici": "252 W",
+                        "fcmedia_bici": "135 bpm",
+                        "fcmax_bici": "150 bpm",
                         "tiempo_carrera": "1h 28m 45s",
                         "ritmo_carrera": "4:16 min/km",
-                        "fcmedia_carrera": "148 bpm",
+                        "fcmedia_carrera": "144 bpm",
                         "fcmax_carrera": "157 bpm",
-                        "posicion": "28º General • Setúbal Triathlon"
+                        "posicion": "31º General • 10º G30-34M (4:37:52)"
                     },
                     {
                         "nombre": "Popular 10k Oroso",
@@ -1027,9 +1027,9 @@ class DataManager:
                         "fcmax_bici": "-",
                         "tiempo_carrera": "39:00",
                         "ritmo_carrera": "3:52 min/km",
-                        "fcmedia_carrera": "158 bpm",
-                        "fcmax_carrera": "168 bpm",
-                        "posicion": "31º General • 10k Oroso (36:20)"
+                        "fcmedia_carrera": "151 bpm",
+                        "fcmax_carrera": "157 bpm",
+                        "posicion": "19º General • 6º Senior M (39:01)"
                     },
                     {
                         "nombre": "Coruña 21",
@@ -1046,9 +1046,9 @@ class DataManager:
                         "fcmax_bici": "-",
                         "tiempo_carrera": "1h 19m 24s",
                         "ritmo_carrera": "3:44 min/km",
-                        "fcmedia_carrera": "161 bpm",
-                        "fcmax_carrera": "169 bpm",
-                        "posicion": "90º General • 40º Senior (1:19:32)"
+                        "fcmedia_carrera": "157 bpm",
+                        "fcmax_carrera": "163 bpm",
+                        "posicion": "90º General • 40º Senior M (1:19:32)"
                     },
                     {
                         "nombre": "10k Padrón",
@@ -1065,9 +1065,9 @@ class DataManager:
                         "fcmax_bici": "-",
                         "tiempo_carrera": "33:20",
                         "ritmo_carrera": "3:42 min/km",
-                        "fcmedia_carrera": "160 bpm",
-                        "fcmax_carrera": "168 bpm",
-                        "posicion": "24º General • 10k Padrón (35:50)"
+                        "fcmedia_carrera": "139 bpm",
+                        "fcmax_carrera": "158 bpm",
+                        "posicion": "106º General • 51º Senior M (37:09)"
                     },
                     {
                         "nombre": "Carreira Popular Rábade",
@@ -1084,9 +1084,9 @@ class DataManager:
                         "fcmax_bici": "-",
                         "tiempo_carrera": "25:03",
                         "ritmo_carrera": "3:41 min/km",
-                        "fcmedia_carrera": "159 bpm",
-                        "fcmax_carrera": "167 bpm",
-                        "posicion": "18º General • Rábade (36:05)"
+                        "fcmedia_carrera": "153 bpm",
+                        "fcmax_carrera": "174 bpm",
+                        "posicion": "-"
                     },
                     {
                         "nombre": "Sin Son 10k",
@@ -1103,9 +1103,9 @@ class DataManager:
                         "fcmax_bici": "-",
                         "tiempo_carrera": "37:28",
                         "ritmo_carrera": "3:45 min/km",
-                        "fcmedia_carrera": "160 bpm",
-                        "fcmax_carrera": "167 bpm",
-                        "posicion": "42º General • Sin Son 10k (36:12)"
+                        "fcmedia_carrera": "154 bpm",
+                        "fcmax_carrera": "163 bpm",
+                        "posicion": "108º General • 34º Senior M (37:34)"
                     },
                     {
                         "nombre": "5k Leyma",
@@ -1122,9 +1122,9 @@ class DataManager:
                         "fcmax_bici": "-",
                         "tiempo_carrera": "18:00",
                         "ritmo_carrera": "3:36 min/km",
-                        "fcmedia_carrera": "163 bpm",
-                        "fcmax_carrera": "170 bpm",
-                        "posicion": "27º General (18:05)"
+                        "fcmedia_carrera": "156 bpm",
+                        "fcmax_carrera": "168 bpm",
+                        "posicion": "27º General • 21º Senior M (18:05)"
                     },
                     {
                         "nombre": "MD Gandia (Half ICAN)",
@@ -1133,17 +1133,17 @@ class DataManager:
                         "distancia": "104,8 km",
                         "tiempo_total": "4h 05m 58s",
                         "tiempo_natacion": "28:28",
-                        "ritmo_natacion": "1:30 /100m",
-                        "tiempo_t1": "02:12",
+                        "ritmo_natacion": "1:35 /100m",
+                        "tiempo_t1": "00:24",
                         "tiempo_bici": "2h 05m 38s",
-                        "potencia_media_bici": "251 W",
-                        "fcmedia_bici": "142 bpm",
+                        "potencia_media_bici": "242 W",
+                        "fcmedia_bici": "141 bpm",
                         "fcmax_bici": "153 bpm",
                         "tiempo_carrera": "1h 29m 40s",
                         "ritmo_carrera": "4:12 min/km",
                         "fcmedia_carrera": "149 bpm",
-                        "fcmax_carrera": "158 bpm",
-                        "posicion": "Elite Masc • Half Gandia (4:07:35)"
+                        "fcmax_carrera": "161 bpm",
+                        "posicion": "15º Élite Masculina (4:07:35)"
                     }
                 ],
                 "Temporada 2025": [
@@ -1162,9 +1162,9 @@ class DataManager:
                         "fcmax_bici": "-",
                         "tiempo_carrera": "36:08",
                         "ritmo_carrera": "3:34 min/km",
-                        "fcmedia_carrera": "161 bpm",
-                        "fcmax_carrera": "169 bpm",
-                        "posicion": "38º General • 10k Coruña (36:10)"
+                        "fcmedia_carrera": "160 bpm",
+                        "fcmax_carrera": "164 bpm",
+                        "posicion": "98º General • 41º Senior M (36:15)"
                     },
                     {
                         "nombre": "MD Santander",
@@ -1173,17 +1173,74 @@ class DataManager:
                         "distancia": "97,1 km",
                         "tiempo_total": "4h 20m 41s",
                         "tiempo_natacion": "47:12",
-                        "ritmo_natacion": "1:52 /100m",
-                        "tiempo_t1": "03:00",
+                        "ritmo_natacion": "2:13 /100m",
+                        "tiempo_t1": "01:57",
                         "tiempo_bici": "2h 03m 56s",
-                        "potencia_media_bici": "273 W",
-                        "fcmedia_bici": "146 bpm",
+                        "potencia_media_bici": "250 W",
+                        "fcmedia_bici": "139 bpm",
                         "fcmax_bici": "158 bpm",
                         "tiempo_carrera": "1h 26m 35s",
                         "ritmo_carrera": "4:15 min/km",
-                        "fcmedia_carrera": "148 bpm",
-                        "fcmax_carrera": "157 bpm",
-                        "posicion": "25º General • MD Santander"
+                        "fcmedia_carrera": "149 bpm",
+                        "fcmax_carrera": "159 bpm",
+                        "posicion": "-"
+                    },
+                    {
+                        "nombre": "Travesía Miño 3k",
+                        "fecha": "13/09/2025",
+                        "modalidad": "Natación Aguas Abiertas",
+                        "distancia": "2,35 km",
+                        "tiempo_total": "39:17",
+                        "tiempo_natacion": "39:17",
+                        "ritmo_natacion": "1:40 /100m",
+                        "tiempo_t1": "-",
+                        "tiempo_bici": "-",
+                        "potencia_media_bici": "-",
+                        "fcmedia_bici": "-",
+                        "fcmax_bici": "-",
+                        "tiempo_carrera": "-",
+                        "ritmo_carrera": "-",
+                        "fcmedia_carrera": "-",
+                        "fcmax_carrera": "-",
+                        "posicion": "-"
+                    },
+                    {
+                        "nombre": "Travesía San Amaro",
+                        "fecha": "31/08/2025",
+                        "modalidad": "Natación Aguas Abiertas",
+                        "distancia": "1,95 km",
+                        "tiempo_total": "35:02",
+                        "tiempo_natacion": "35:02",
+                        "ritmo_natacion": "1:48 /100m",
+                        "tiempo_t1": "-",
+                        "tiempo_bici": "-",
+                        "potencia_media_bici": "-",
+                        "fcmedia_bici": "-",
+                        "fcmax_bici": "-",
+                        "tiempo_carrera": "-",
+                        "ritmo_carrera": "-",
+                        "fcmedia_carrera": "-",
+                        "fcmax_carrera": "-",
+                        "posicion": "-"
+                    },
+                    {
+                        "nombre": "Triatlón Lugo (Triatlón do Miño)",
+                        "fecha": "17/08/2025",
+                        "modalidad": "Triatlón Sprint",
+                        "distancia": "24,5 km",
+                        "tiempo_total": "1h 07m 11s",
+                        "tiempo_natacion": "13:55",
+                        "ritmo_natacion": "1:45 /100m",
+                        "tiempo_t1": "02:14",
+                        "tiempo_bici": "29:37",
+                        "potencia_media_bici": "303 W",
+                        "fcmedia_bici": "147 bpm",
+                        "fcmax_bici": "161 bpm",
+                        "tiempo_carrera": "19:35",
+                        "ritmo_carrera": "3:58 min/km",
+                        "fcmedia_carrera": "154 bpm",
+                        "fcmax_carrera": "163 bpm",
+                        "posicion": "41º General (1:08:08)"
                     },
                     {
                         "nombre": "1,6/60/14 Medina Rioseco",
@@ -1192,17 +1249,17 @@ class DataManager:
                         "distancia": "75,4 km",
                         "tiempo_total": "2h 58m 14s",
                         "tiempo_natacion": "26:33",
-                        "ritmo_natacion": "1:47 /100m",
-                        "tiempo_t1": "04:08",
+                        "ritmo_natacion": "1:45 /100m",
+                        "tiempo_t1": "02:21",
                         "tiempo_bici": "1h 28m 11s",
-                        "potencia_media_bici": "256 W",
-                        "fcmedia_bici": "144 bpm",
-                        "fcmax_bici": "155 bpm",
+                        "potencia_media_bici": "251 W",
+                        "fcmedia_bici": "145 bpm",
+                        "fcmax_bici": "153 bpm",
                         "tiempo_carrera": "59:22",
                         "ritmo_carrera": "4:17 min/km",
-                        "fcmedia_carrera": "147 bpm",
+                        "fcmedia_carrera": "150 bpm",
                         "fcmax_carrera": "156 bpm",
-                        "posicion": "16º General • Medina Rioseco"
+                        "posicion": "30º General (2:59:53)"
                     },
                     {
                         "nombre": "21k Arzúa - O Pino",
@@ -1219,28 +1276,66 @@ class DataManager:
                         "fcmax_bici": "-",
                         "tiempo_carrera": "1h 31m 24s",
                         "ritmo_carrera": "4:16 min/km",
-                        "fcmedia_carrera": "152 bpm",
-                        "fcmax_carrera": "162 bpm",
-                        "posicion": "14º General • 21k Arzúa"
+                        "fcmedia_carrera": "153 bpm",
+                        "fcmax_carrera": "161 bpm",
+                        "posicion": "-"
                     },
                     {
-                        "nombre": "Camp. España Olímpico Coruña",
+                        "nombre": "Tri Coruña Sprint",
+                        "fecha": "19/07/2025",
+                        "modalidad": "Triatlón Sprint",
+                        "distancia": "24,2 km",
+                        "tiempo_total": "1h 02m 32s",
+                        "tiempo_natacion": "11:59",
+                        "ritmo_natacion": "1:40 /100m",
+                        "tiempo_t1": "01:29",
+                        "tiempo_bici": "29:01",
+                        "potencia_media_bici": "288 W",
+                        "fcmedia_bici": "148 bpm",
+                        "fcmax_bici": "154 bpm",
+                        "tiempo_carrera": "18:46",
+                        "ritmo_carrera": "3:57 min/km",
+                        "fcmedia_carrera": "156 bpm",
+                        "fcmax_carrera": "168 bpm",
+                        "posicion": "-"
+                    },
+                    {
+                        "nombre": "Distancia C Pontevedra (Mundial LD)",
+                        "fecha": "29/06/2025",
+                        "modalidad": "Triatlón Larga Distancia",
+                        "distancia": "152,7 km",
+                        "tiempo_total": "6h 33m 42s",
+                        "tiempo_natacion": "52:12",
+                        "ritmo_natacion": "1:45 /100m",
+                        "tiempo_t1": "03:17",
+                        "tiempo_bici": "3h 20m 17s",
+                        "potencia_media_bici": "230 W",
+                        "fcmedia_bici": "140 bpm",
+                        "fcmax_bici": "152 bpm",
+                        "tiempo_carrera": "2h 17m 48s",
+                        "ritmo_carrera": "4:35 min/km",
+                        "fcmedia_carrera": "144 bpm",
+                        "fcmax_carrera": "149 bpm",
+                        "posicion": "2º GGEE 30-34M (Subcampeón del Mundo)"
+                    },
+                    {
+                        "nombre": "Olímpico Coruña Camp. España",
                         "fecha": "01/06/2025",
                         "modalidad": "Triatlón Olímpico",
                         "distancia": "49,6 km",
                         "tiempo_total": "2h 05m 23s",
                         "tiempo_natacion": "22:34",
                         "ritmo_natacion": "1:41 /100m",
-                        "tiempo_t1": "03:42",
+                        "tiempo_t1": "01:34",
                         "tiempo_bici": "57:38",
-                        "potencia_media_bici": "312 W",
+                        "potencia_media_bici": "302 W",
                         "fcmedia_bici": "150 bpm",
                         "fcmax_bici": "158 bpm",
                         "tiempo_carrera": "41:29",
                         "ritmo_carrera": "4:10 min/km",
                         "fcmedia_carrera": "152 bpm",
                         "fcmax_carrera": "172 bpm",
-                        "posicion": "Camp. España Olímpico Coruña"
+                        "posicion": "-"
                     },
                     {
                         "nombre": "MD Caminha",
@@ -1249,17 +1344,17 @@ class DataManager:
                         "distancia": "112,1 km",
                         "tiempo_total": "4h 18m 33s",
                         "tiempo_natacion": "24:39",
-                        "ritmo_natacion": "1:40 /100m",
-                        "tiempo_t1": "03:27",
+                        "ritmo_natacion": "1:18 /100m",
+                        "tiempo_t1": "02:12",
                         "tiempo_bici": "2h 18m 11s",
-                        "potencia_media_bici": "265 W",
+                        "potencia_media_bici": "257 W",
                         "fcmedia_bici": "144 bpm",
                         "fcmax_bici": "157 bpm",
                         "tiempo_carrera": "1h 32m 16s",
                         "ritmo_carrera": "4:29 min/km",
                         "fcmedia_carrera": "148 bpm",
                         "fcmax_carrera": "154 bpm",
-                        "posicion": "19º General • MD Caminha"
+                        "posicion": "-"
                     },
                     {
                         "nombre": "Setúbal MD",
@@ -1269,16 +1364,16 @@ class DataManager:
                         "tiempo_total": "2h 59m 02s",
                         "tiempo_natacion": "29:48",
                         "ritmo_natacion": "1:52 /100m",
-                        "tiempo_t1": "02:29",
+                        "tiempo_t1": "02:24",
                         "tiempo_bici": "2h 26m 45s",
-                        "potencia_media_bici": "278 W",
+                        "potencia_media_bici": "262 W",
                         "fcmedia_bici": "142 bpm",
                         "fcmax_bici": "158 bpm",
                         "tiempo_carrera": "-",
                         "ritmo_carrera": "-",
                         "fcmedia_carrera": "-",
                         "fcmax_carrera": "-",
-                        "posicion": "24º General • MD Setúbal"
+                        "posicion": "DNF (Retirada tras ciclismo)"
                     },
                     {
                         "nombre": "Coruña 21",
@@ -1297,7 +1392,7 @@ class DataManager:
                         "ritmo_carrera": "3:49 min/km",
                         "fcmedia_carrera": "161 bpm",
                         "fcmax_carrera": "169 bpm",
-                        "posicion": "94º General • 32º Senior (1:21:24)"
+                        "posicion": "94º General • 32º Senior M (1:21:24)"
                     },
                     {
                         "nombre": "10k + 10' Soltar",
@@ -1316,7 +1411,7 @@ class DataManager:
                         "ritmo_carrera": "3:42 min/km",
                         "fcmedia_carrera": "160 bpm",
                         "fcmax_carrera": "166 bpm",
-                        "posicion": "Carrera Control 10k"
+                        "posicion": "-"
                     },
                     {
                         "nombre": "5k Leyma",
@@ -1335,7 +1430,7 @@ class DataManager:
                         "ritmo_carrera": "3:29 min/km",
                         "fcmedia_carrera": "164 bpm",
                         "fcmax_carrera": "171 bpm",
-                        "posicion": "29º General • 5k Leyma (17:41)"
+                        "posicion": "-"
                     }
                 ]
             }
