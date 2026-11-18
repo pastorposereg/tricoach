@@ -546,3 +546,797 @@ class DataManager:
                 logger.warning(f"Error fetching comparison activity {matched_id} details: {e}")
 
         return None
+
+    def get_weekly_volume_history(self, num_weeks: int = 10) -> Dict[str, Any]:
+        """Calculates planned vs actual volume (in hours) for the requested number of weeks."""
+        try:
+            today = date.today()
+            cur_monday = today - timedelta(days=today.weekday())
+            start_monday = cur_monday - timedelta(weeks=num_weeks - 1)
+            end_sunday = cur_monday + timedelta(days=6)
+
+            start_str = start_monday.strftime("%Y-%m-%d")
+            end_str = end_sunday.strftime("%Y-%m-%d")
+
+            # 1. Fetch planned workouts from Intervals.icu
+            events = self.intervals.get_planned_events(start_str, end_str)
+
+            # 2. Fetch actual activities
+            acts = []
+            if self.config.intervals_api_key and self.config.intervals_connected:
+                athlete_id = self.intervals._get_athlete_id()
+                try:
+                    import requests
+                    url = f"https://intervals.icu/api/v1/athlete/{athlete_id}/activities?oldest={start_str}&newest={end_str}"
+                    r = requests.get(url, headers=self.intervals._get_auth_header(), timeout=12)
+                    if r.status_code == 200:
+                        acts = r.json()
+                except Exception as e:
+                    logger.warning(f"Error fetching activities from Intervals: {e}")
+
+            # Fallback to Garmin if Intervals had no activities
+            if not acts:
+                try:
+                    acts = self.garmin.get_activities_by_date_range(start_str, end_str)
+                except Exception:
+                    pass
+
+            weeks_list = []
+            for w in range(num_weeks):
+                w_mon = start_monday + timedelta(weeks=w)
+                w_sun = w_mon + timedelta(days=6)
+                m_str = w_mon.strftime("%Y-%m-%d")
+                s_str = w_sun.strftime("%Y-%m-%d")
+                iso_yr, iso_wk, _ = w_mon.isocalendar()
+                label = f"S{iso_wk} ({w_mon.strftime('%d/%m')})"
+
+                # Planned
+                w_planned = [e for e in events if (e.get("is_workout") or e.get("category") == "WORKOUT") and m_str <= str(e.get("date") or e.get("start_time", ""))[:10] <= s_str]
+                planned_sec = sum((e.get("planned_duration_seconds") or e.get("moving_time") or e.get("duration") or 0) for e in w_planned)
+                planned_hrs = round(planned_sec / 3600.0, 1)
+
+                # Actual
+                w_actual = [a for a in acts if m_str <= str(a.get("start_date_local") or a.get("startTimeLocal") or a.get("start_time") or "")[:10] <= s_str]
+                actual_sec = sum((a.get("moving_time") or a.get("duration") or a.get("durationInSeconds") or a.get("duration_seconds") or 0) for a in w_actual)
+                actual_hrs = round(actual_sec / 3600.0, 1)
+
+                completion = round((actual_hrs / planned_hrs) * 100) if planned_hrs > 0 else (100 if actual_hrs > 0 else 0)
+
+                weeks_list.append({
+                    "week_label": label,
+                    "iso_week": iso_wk,
+                    "start_date": m_str,
+                    "end_date": s_str,
+                    "date_range": f"{w_mon.strftime('%d/%m')} - {w_sun.strftime('%d/%m')}",
+                    "planned_hours": planned_hrs,
+                    "actual_hours": actual_hrs,
+                    "completion_percent": completion,
+                    "is_current": (w_mon <= today <= w_sun)
+                })
+
+            return {
+                "status": "success",
+                "weeks": weeks_list,
+                "labels": [w["week_label"] for w in weeks_list],
+                "planned": [w["planned_hours"] for w in weeks_list],
+                "actual": [w["actual_hours"] for w in weeks_list],
+            }
+        except Exception as e:
+            logger.error(f"Error computing weekly volume history: {e}")
+            return {"status": "error", "message": str(e), "weeks": [], "labels": [], "planned": [], "actual": []}
+
+    def get_seasons_tests_data(self) -> Dict[str, Any]:
+        """Provides structured test and benchmark data across athlete seasons."""
+        return {
+            "seasons": [
+                "Temporada 2027 (Actual)",
+                "Temporada 2026",
+                "Temporada 2025",
+                "Temporada 2024",
+                "Temporada 2023",
+                "Temporada 2022"
+            ],
+            "current_season": "Temporada 2027 (Actual)",
+            "tests": {
+                "Temporada 2027 (Actual)": {
+                    "is_current": True,
+                    "swimming": {
+                        "columns": ["Periodo", "Fecha", "Distancia", "Tiempo Total", "Tiempos de cada 100m"],
+                        "rows": [
+                            {
+                                "periodo": "inicial",
+                                "fecha": "19/10/2026",
+                                "distancia": "400m",
+                                "tiempo_total": "5:53.17",
+                                "splits_100m": "1:25.44, 1:29.75, 1:30.75, 1:27.23",
+                                "fc_media": "142 bpm",
+                                "observaciones": "Test 400m Inicial • Ritmo medio 1:28.3/100m"
+                            },
+                            {
+                                "periodo": "inicial",
+                                "fecha": "19/10/2026",
+                                "distancia": "200m",
+                                "tiempo_total": "2:54.43",
+                                "splits_100m": "1:27.62, 1:26.81",
+                                "fc_media": "121 bpm",
+                                "observaciones": "Test 200m Inicial • Ritmo medio 1:27.2/100m"
+                            },
+                            {
+                                "periodo": "base1",
+                                "fecha": "16/11/2026",
+                                "distancia": "400m",
+                                "tiempo_total": "5:58.95",
+                                "splits_100m": "1:27.75, 1:30.37, 1:32.87, 1:27.95",
+                                "fc_media": "110 bpm",
+                                "observaciones": "Test 400m Base 1 • Desplome de 32 bpm (110 vs 142 bpm)"
+                            },
+                            {
+                                "periodo": "base1",
+                                "fecha": "16/11/2026",
+                                "distancia": "200m",
+                                "tiempo_total": "2:56.28",
+                                "splits_100m": "1:27.37, 1:28.91",
+                                "fc_media": "108 bpm",
+                                "observaciones": "Test 200m Base 1 • 108 bpm vs 121 bpm inicial"
+                            }
+                        ]
+                    },
+                    "cycling": {
+                        "columns": ["Periodo", "Fecha", "Tiempo", "Potencia Media", "FC Media", "FC Máx"],
+                        "rows": [
+                            {
+                                "periodo": "inicial",
+                                "fecha": "20/10/2026",
+                                "tiempo": "5'00\"",
+                                "potencia_media": "434 W",
+                                "fc_media": "161 bpm",
+                                "fc_max": "167 bpm",
+                                "wkg": "5.83 W/kg",
+                                "observaciones": "Test PAM 5' Inicial (FTP estimado Intervals: 348 W)"
+                            },
+                            {
+                                "periodo": "base1",
+                                "fecha": "17/11/2026",
+                                "tiempo": "5'00\"",
+                                "potencia_media": "424 W",
+                                "fc_media": "156 bpm",
+                                "fc_max": "163 bpm",
+                                "wkg": "5.70 W/kg",
+                                "observaciones": "Test PAM 5' Base 1 • Menor FC (-5 bpm) a 424W"
+                            }
+                        ]
+                    },
+                    "running": {
+                        "columns": ["Periodo", "Fecha", "Distancia", "Desnivel Positivo", "Tiempo", "Ritmo", "FC Media", "FC Máx"],
+                        "rows": [
+                            {
+                                "periodo": "base1",
+                                "fecha": "15/11/2026",
+                                "distancia": "5,00 km",
+                                "desnivel_pos": "+60 m",
+                                "tiempo": "18:38",
+                                "ritmo": "3:44 min/km",
+                                "fc_media": "156 bpm",
+                                "fc_max": "166 bpm",
+                                "observaciones": "5k Leyma • Puesto 26º General • Gran estabilidad aeróbica"
+                            }
+                        ]
+                    }
+                },
+                "Temporada 2026": {
+                    "is_current": False,
+                    "cycling_bests": {
+                        "columns": ["Duración", "Potencia", "Relación W/kg", "Fecha / Actividad"],
+                        "rows": [
+                            {"duracion": "5 min (PAM)", "potencia": "409 W", "wkg": "5.56 W/kg", "fecha": "2026-06-18", "actividad": "Intervalos PAM"},
+                            {"duracion": "10 min", "potencia": "391 W", "wkg": "5.39 W/kg", "fecha": "2026-08-14", "actividad": "Series Subida"},
+                            {"duracion": "20 min (FTP)", "potencia": "329 W", "wkg": "4.45 W/kg", "fecha": "2026-10-04", "actividad": "Sprint Cadavedo"}
+                        ]
+                    },
+                    "running_bests": {
+                        "columns": ["Distancia", "Tiempo", "Ritmo Medio", "Fecha / Actividad"],
+                        "rows": [
+                            {"distancia": "5k", "tiempo": "17:57", "ritmo": "3:35 min/km", "fecha": "2025-11-16", "actividad": "5k Leyma"},
+                            {"distancia": "10k", "tiempo": "36:32", "ritmo": "3:39 min/km", "fecha": "2026-02-07", "actividad": "10k Padrón"},
+                            {"distancia": "21k (Media Maratón)", "tiempo": "1h 18m 37s", "ritmo": "3:44 min/km", "fecha": "2026-03-01", "actividad": "Coruña 21"}
+                        ]
+                    }
+                },
+                "Temporada 2025": {
+                    "is_current": False,
+                    "cycling_bests": {
+                        "columns": ["Duración", "Potencia", "Relación W/kg", "Fecha / Actividad"],
+                        "rows": [
+                            {"duracion": "5 min (PAM)", "potencia": "422 W", "wkg": "5.78 W/kg", "fecha": "2025-05-12", "actividad": "Test PAM 5'"},
+                            {"duracion": "10 min", "potencia": "402 W", "wkg": "5.46 W/kg", "fecha": "2025-05-01", "actividad": "Subida Umbral"},
+                            {"duracion": "20 min (FTP)", "potencia": "331 W", "wkg": "4.50 W/kg", "fecha": "2025-05-08", "actividad": "Rodaje Control"}
+                        ]
+                    },
+                    "running_bests": {
+                        "columns": ["Distancia", "Tiempo", "Ritmo Medio", "Fecha / Actividad"],
+                        "rows": [
+                            {"distancia": "5k", "tiempo": "17:25", "ritmo": "3:29 min/km", "fecha": "2024-11-17", "actividad": "5k Leyma"},
+                            {"distancia": "10k", "tiempo": "35:42", "ritmo": "3:34 min/km", "fecha": "2025-06-15", "actividad": "10k Popular"},
+                            {"distancia": "21k (Media Maratón)", "tiempo": "1h 20m 23s", "ritmo": "3:49 min/km", "fecha": "2025-02-09", "actividad": "Coruña 21"}
+                        ]
+                    }
+                },
+                "Temporada 2024": {
+                    "is_current": False,
+                    "cycling_bests": {
+                        "columns": ["Duración", "Potencia", "Relación W/kg", "Fecha / Actividad"],
+                        "rows": [
+                            {"duracion": "5 min (PAM)", "potencia": "414 W", "wkg": "5.67 W/kg", "fecha": "2024-04-10", "actividad": "Intervalos Bici"},
+                            {"duracion": "10 min", "potencia": "361 W", "wkg": "4.95 W/kg", "fecha": "2024-05-18", "actividad": "Test 10m"},
+                            {"duracion": "20 min (FTP)", "potencia": "352 W", "wkg": "4.82 W/kg", "fecha": "2024-05-18", "actividad": "Subida puerto"}
+                        ]
+                    },
+                    "running_bests": {
+                        "columns": ["Distancia", "Tiempo", "Ritmo Medio", "Fecha / Actividad"],
+                        "rows": [
+                            {"distancia": "5k", "tiempo": "17:30", "ritmo": "3:30 min/km", "fecha": "2024-03-24", "actividad": "5k Control"},
+                            {"distancia": "10k", "tiempo": "36:56", "ritmo": "3:42 min/km", "fecha": "2024-05-05", "actividad": "10k Concello"},
+                            {"distancia": "21k (Media Maratón)", "tiempo": "1h 20m 38s", "ritmo": "3:49 min/km", "fecha": "2024-02-25", "actividad": "Coruña 21"}
+                        ]
+                    }
+                },
+                "Temporada 2023": {
+                    "is_current": False,
+                    "cycling_bests": {
+                        "columns": ["Duración", "Potencia", "Relación W/kg", "Fecha / Actividad"],
+                        "rows": [
+                            {"duracion": "5 min (PAM)", "potencia": "417 W", "wkg": "5.71 W/kg", "fecha": "2023-05-14", "actividad": "Series Ciclismo"},
+                            {"duracion": "10 min", "potencia": "366 W", "wkg": "5.01 W/kg", "fecha": "2023-04-20", "actividad": "Intervalos Umbral"},
+                            {"duracion": "20 min (FTP)", "potencia": "357 W", "wkg": "4.89 W/kg", "fecha": "2023-04-20", "actividad": "Test FTP 20m"}
+                        ]
+                    },
+                    "running_bests": {
+                        "columns": ["Distancia", "Tiempo", "Ritmo Medio", "Fecha / Actividad"],
+                        "rows": [
+                            {"distancia": "5k", "tiempo": "17:52", "ritmo": "3:34 min/km", "fecha": "2023-02-12", "actividad": "5k Control"},
+                            {"distancia": "10k", "tiempo": "36:13", "ritmo": "3:37 min/km", "fecha": "2023-03-18", "actividad": "10k Popular"},
+                            {"distancia": "21k (Media Maratón)", "tiempo": "1h 18m 32s", "ritmo": "3:43 min/km", "fecha": "2023-02-26", "actividad": "Coruña 21"}
+                        ]
+                    }
+                },
+                "Temporada 2022": {
+                    "is_current": False,
+                    "cycling_bests": {
+                        "columns": ["Duración", "Potencia", "Relación W/kg", "Fecha / Actividad"],
+                        "rows": [
+                            {"duracion": "5 min (PAM)", "potencia": "391 W", "wkg": "5.36 W/kg", "fecha": "2022-04-05", "actividad": "Test 5' PAM"},
+                            {"duracion": "10 min", "potencia": "356 W", "wkg": "4.88 W/kg", "fecha": "2022-05-22", "actividad": "Series Subida"},
+                            {"duracion": "20 min (FTP)", "potencia": "354 W", "wkg": "4.85 W/kg", "fecha": "2022-05-22", "actividad": "Test FTP 20'"}
+                        ]
+                    },
+                    "running_bests": {
+                        "columns": ["Distancia", "Tiempo", "Ritmo Medio", "Fecha / Actividad"],
+                        "rows": [
+                            {"distancia": "5k", "tiempo": "18:08", "ritmo": "3:38 min/km", "fecha": "2022-03-10", "actividad": "5k Control"},
+                            {"distancia": "10k", "tiempo": "37:45", "ritmo": "3:46 min/km", "fecha": "2022-04-17", "actividad": "10k Carreira"},
+                            {"distancia": "21k (Media Maratón)", "tiempo": "1h 20m 26s", "ritmo": "3:49 min/km", "fecha": "2022-02-20", "actividad": "Coruña 21"}
+                        ]
+                    }
+                }
+            }
+        }
+
+    def get_seasons_competitions_data(self) -> Dict[str, Any]:
+        """Provides all recorded competitions across seasons with full 16-column breakdown."""
+        return {
+            "seasons": [
+                "Temporada 2027 (Actual)",
+                "Temporada 2026",
+                "Temporada 2025"
+            ],
+            "current_season": "Temporada 2027 (Actual)",
+            "columns": [
+                "Nombre competición", "Fecha", "Distancia", "Tiempo total",
+                "Tiempo natación", "Ritmo natación", "Tiempo T1",
+                "Tiempo bici", "Potencia media bici", "FC media bici", "FC máx bici",
+                "Tiempo carrera", "Ritmo carrera", "FC media carrera", "FC máx carrera",
+                "Posición clasificación"
+            ],
+            "competitions": {
+                "Temporada 2027 (Actual)": [
+                    {
+                        "nombre": "5k Leyma",
+                        "fecha": "15/11/2026",
+                        "modalidad": "Carrera a pie",
+                        "distancia": "5,00 km",
+                        "tiempo_total": "18:38",
+                        "tiempo_natacion": "-",
+                        "ritmo_natacion": "-",
+                        "tiempo_t1": "-",
+                        "tiempo_bici": "-",
+                        "potencia_media_bici": "-",
+                        "fcmedia_bici": "-",
+                        "fcmax_bici": "-",
+                        "tiempo_carrera": "18:38",
+                        "ritmo_carrera": "3:44 min/km",
+                        "fcmedia_carrera": "156 bpm",
+                        "fcmax_carrera": "166 bpm",
+                        "posicion": "26º General (18:40)"
+                    }
+                ],
+                "Temporada 2026": [
+                    {
+                        "nombre": "Sprint Cadavedo",
+                        "fecha": "04/10/2026",
+                        "modalidad": "Triatlón Sprint",
+                        "distancia": "24,0 km",
+                        "tiempo_total": "1h 06m 58s",
+                        "tiempo_natacion": "08:41",
+                        "ritmo_natacion": "1:44 /100m",
+                        "tiempo_t1": "01:12",
+                        "tiempo_bici": "37:13",
+                        "potencia_media_bici": "342 W",
+                        "fcmedia_bici": "152 bpm",
+                        "fcmax_bici": "165 bpm",
+                        "tiempo_carrera": "21:04",
+                        "ritmo_carrera": "4:39 min/km",
+                        "fcmedia_carrera": "151 bpm",
+                        "fcmax_carrera": "160 bpm",
+                        "posicion": "14º General • 4º Cat (1:07:08)"
+                    },
+                    {
+                        "nombre": "Half Madrid",
+                        "fecha": "27/09/2026",
+                        "modalidad": "Triatlón Media Distancia",
+                        "distancia": "102,0 km",
+                        "tiempo_total": "3h 51m 14s",
+                        "tiempo_natacion": "28:54",
+                        "ritmo_natacion": "1:31 /100m",
+                        "tiempo_t1": "01:45",
+                        "tiempo_bici": "2h 04m 31s",
+                        "potencia_media_bici": "257 W",
+                        "fcmedia_bici": "142 bpm",
+                        "fcmax_bici": "155 bpm",
+                        "tiempo_carrera": "1h 17m 40s",
+                        "ritmo_carrera": "4:26 min/km",
+                        "fcmedia_carrera": "150 bpm",
+                        "fcmax_carrera": "161 bpm",
+                        "posicion": "18º General • Half Madrid"
+                    },
+                    {
+                        "nombre": "MD Ribadeo",
+                        "fecha": "05/09/2026",
+                        "modalidad": "Triatlón Media Distancia",
+                        "distancia": "100,4 km",
+                        "tiempo_total": "4h 03m 43s",
+                        "tiempo_natacion": "26:32",
+                        "ritmo_natacion": "1:39 /100m",
+                        "tiempo_t1": "01:30",
+                        "tiempo_bici": "2h 15m 15s",
+                        "potencia_media_bici": "268 W",
+                        "fcmedia_bici": "144 bpm",
+                        "fcmax_bici": "156 bpm",
+                        "tiempo_carrera": "1h 21m 56s",
+                        "ritmo_carrera": "4:23 min/km",
+                        "fcmedia_carrera": "149 bpm",
+                        "fcmax_carrera": "158 bpm",
+                        "posicion": "8º General • MD Ribadeo"
+                    },
+                    {
+                        "nombre": "Desafío Castilla y León 1,6/60/14",
+                        "fecha": "09/08/2026",
+                        "modalidad": "Triatlón Media Distancia",
+                        "distancia": "75,0 km",
+                        "tiempo_total": "2h 55m 50s",
+                        "tiempo_natacion": "24:53",
+                        "ritmo_natacion": "1:46 /100m",
+                        "tiempo_t1": "02:40",
+                        "tiempo_bici": "1h 27m 35s",
+                        "potencia_media_bici": "263 W",
+                        "fcmedia_bici": "146 bpm",
+                        "fcmax_bici": "154 bpm",
+                        "tiempo_carrera": "58:27",
+                        "ritmo_carrera": "4:14 min/km",
+                        "fcmedia_carrera": "150 bpm",
+                        "fcmax_carrera": "158 bpm",
+                        "posicion": "12º General • Desafío CyL"
+                    },
+                    {
+                        "nombre": "MD As Pontes",
+                        "fecha": "28/06/2026",
+                        "modalidad": "Triatlón Media Distancia",
+                        "distancia": "104,9 km",
+                        "tiempo_total": "4h 19m 34s",
+                        "tiempo_natacion": "29:02",
+                        "ritmo_natacion": "1:40 /100m",
+                        "tiempo_t1": "01:49",
+                        "tiempo_bici": "2h 20m 04s",
+                        "potencia_media_bici": "275 W",
+                        "fcmedia_bici": "143 bpm",
+                        "fcmax_bici": "156 bpm",
+                        "tiempo_carrera": "1h 26m 58s",
+                        "ritmo_carrera": "4:24 min/km",
+                        "fcmedia_carrera": "148 bpm",
+                        "fcmax_carrera": "156 bpm",
+                        "posicion": "15º General • MD As Pontes"
+                    },
+                    {
+                        "nombre": "Tri Porriño",
+                        "fecha": "14/06/2026",
+                        "modalidad": "Triatlón Sprint",
+                        "distancia": "25,2 km",
+                        "tiempo_total": "1h 12m 55s",
+                        "tiempo_natacion": "13:10",
+                        "ritmo_natacion": "1:43 /100m",
+                        "tiempo_t1": "02:13",
+                        "tiempo_bici": "31:14",
+                        "potencia_media_bici": "318 W",
+                        "fcmedia_bici": "146 bpm",
+                        "fcmax_bici": "156 bpm",
+                        "tiempo_carrera": "25:19",
+                        "ritmo_carrera": "4:53 min/km",
+                        "fcmedia_carrera": "150 bpm",
+                        "fcmax_carrera": "156 bpm",
+                        "posicion": "19º General • Tri Porriño"
+                    },
+                    {
+                        "nombre": "Tri100 Llanes 2/80/18",
+                        "fecha": "24/05/2026",
+                        "modalidad": "Triatlón Media Distancia",
+                        "distancia": "91,7 km",
+                        "tiempo_total": "3h 48m 22s",
+                        "tiempo_natacion": "33:01",
+                        "ritmo_natacion": "1:45 /100m",
+                        "tiempo_t1": "02:08",
+                        "tiempo_bici": "2h 01m 34s",
+                        "potencia_media_bici": "266 W",
+                        "fcmedia_bici": "137 bpm",
+                        "fcmax_bici": "150 bpm",
+                        "tiempo_carrera": "1h 09m 57s",
+                        "ritmo_carrera": "4:19 min/km",
+                        "fcmedia_carrera": "145 bpm",
+                        "fcmax_carrera": "153 bpm",
+                        "posicion": "22º General • Tri Llanes 100"
+                    },
+                    {
+                        "nombre": "Setúbal Triathlon",
+                        "fecha": "12/04/2026",
+                        "modalidad": "Triatlón Media Distancia",
+                        "distancia": "111,8 km",
+                        "tiempo_total": "4h 31m 37s",
+                        "tiempo_natacion": "38:14",
+                        "ritmo_natacion": "1:48 /100m",
+                        "tiempo_t1": "02:22",
+                        "tiempo_bici": "2h 24m 38s",
+                        "potencia_media_bici": "262 W",
+                        "fcmedia_bici": "142 bpm",
+                        "fcmax_bici": "154 bpm",
+                        "tiempo_carrera": "1h 28m 45s",
+                        "ritmo_carrera": "4:16 min/km",
+                        "fcmedia_carrera": "148 bpm",
+                        "fcmax_carrera": "157 bpm",
+                        "posicion": "28º General • Setúbal Triathlon"
+                    },
+                    {
+                        "nombre": "Popular 10k Oroso",
+                        "fecha": "29/03/2026",
+                        "modalidad": "Carrera a pie",
+                        "distancia": "10,10 km",
+                        "tiempo_total": "39:00",
+                        "tiempo_natacion": "-",
+                        "ritmo_natacion": "-",
+                        "tiempo_t1": "-",
+                        "tiempo_bici": "-",
+                        "potencia_media_bici": "-",
+                        "fcmedia_bici": "-",
+                        "fcmax_bici": "-",
+                        "tiempo_carrera": "39:00",
+                        "ritmo_carrera": "3:52 min/km",
+                        "fcmedia_carrera": "158 bpm",
+                        "fcmax_carrera": "168 bpm",
+                        "posicion": "31º General • 10k Oroso (36:20)"
+                    },
+                    {
+                        "nombre": "Coruña 21",
+                        "fecha": "01/03/2026",
+                        "modalidad": "Carrera a pie",
+                        "distancia": "21,31 km",
+                        "tiempo_total": "1h 19m 24s",
+                        "tiempo_natacion": "-",
+                        "ritmo_natacion": "-",
+                        "tiempo_t1": "-",
+                        "tiempo_bici": "-",
+                        "potencia_media_bici": "-",
+                        "fcmedia_bici": "-",
+                        "fcmax_bici": "-",
+                        "tiempo_carrera": "1h 19m 24s",
+                        "ritmo_carrera": "3:44 min/km",
+                        "fcmedia_carrera": "161 bpm",
+                        "fcmax_carrera": "169 bpm",
+                        "posicion": "90º General • 40º Senior (1:19:32)"
+                    },
+                    {
+                        "nombre": "10k Padrón",
+                        "fecha": "07/02/2026",
+                        "modalidad": "Carrera a pie",
+                        "distancia": "9,01 km",
+                        "tiempo_total": "33:20",
+                        "tiempo_natacion": "-",
+                        "ritmo_natacion": "-",
+                        "tiempo_t1": "-",
+                        "tiempo_bici": "-",
+                        "potencia_media_bici": "-",
+                        "fcmedia_bici": "-",
+                        "fcmax_bici": "-",
+                        "tiempo_carrera": "33:20",
+                        "ritmo_carrera": "3:42 min/km",
+                        "fcmedia_carrera": "160 bpm",
+                        "fcmax_carrera": "168 bpm",
+                        "posicion": "24º General • 10k Padrón (35:50)"
+                    },
+                    {
+                        "nombre": "Carreira Popular Rábade",
+                        "fecha": "24/01/2026",
+                        "modalidad": "Carrera a pie",
+                        "distancia": "6,81 km",
+                        "tiempo_total": "25:03",
+                        "tiempo_natacion": "-",
+                        "ritmo_natacion": "-",
+                        "tiempo_t1": "-",
+                        "tiempo_bici": "-",
+                        "potencia_media_bici": "-",
+                        "fcmedia_bici": "-",
+                        "fcmax_bici": "-",
+                        "tiempo_carrera": "25:03",
+                        "ritmo_carrera": "3:41 min/km",
+                        "fcmedia_carrera": "159 bpm",
+                        "fcmax_carrera": "167 bpm",
+                        "posicion": "18º General • Rábade (36:05)"
+                    },
+                    {
+                        "nombre": "Sin Son 10k",
+                        "fecha": "21/12/2025",
+                        "modalidad": "Carrera a pie",
+                        "distancia": "10,02 km",
+                        "tiempo_total": "37:28",
+                        "tiempo_natacion": "-",
+                        "ritmo_natacion": "-",
+                        "tiempo_t1": "-",
+                        "tiempo_bici": "-",
+                        "potencia_media_bici": "-",
+                        "fcmedia_bici": "-",
+                        "fcmax_bici": "-",
+                        "tiempo_carrera": "37:28",
+                        "ritmo_carrera": "3:45 min/km",
+                        "fcmedia_carrera": "160 bpm",
+                        "fcmax_carrera": "167 bpm",
+                        "posicion": "42º General • Sin Son 10k (36:12)"
+                    },
+                    {
+                        "nombre": "5k Leyma",
+                        "fecha": "16/11/2025",
+                        "modalidad": "Carrera a pie",
+                        "distancia": "5,03 km",
+                        "tiempo_total": "18:00",
+                        "tiempo_natacion": "-",
+                        "ritmo_natacion": "-",
+                        "tiempo_t1": "-",
+                        "tiempo_bici": "-",
+                        "potencia_media_bici": "-",
+                        "fcmedia_bici": "-",
+                        "fcmax_bici": "-",
+                        "tiempo_carrera": "18:00",
+                        "ritmo_carrera": "3:36 min/km",
+                        "fcmedia_carrera": "163 bpm",
+                        "fcmax_carrera": "170 bpm",
+                        "posicion": "27º General (18:05)"
+                    },
+                    {
+                        "nombre": "MD Gandia (Half ICAN)",
+                        "fecha": "18/10/2025",
+                        "modalidad": "Triatlón Media Distancia",
+                        "distancia": "104,8 km",
+                        "tiempo_total": "4h 05m 58s",
+                        "tiempo_natacion": "28:28",
+                        "ritmo_natacion": "1:30 /100m",
+                        "tiempo_t1": "02:12",
+                        "tiempo_bici": "2h 05m 38s",
+                        "potencia_media_bici": "251 W",
+                        "fcmedia_bici": "142 bpm",
+                        "fcmax_bici": "153 bpm",
+                        "tiempo_carrera": "1h 29m 40s",
+                        "ritmo_carrera": "4:12 min/km",
+                        "fcmedia_carrera": "149 bpm",
+                        "fcmax_carrera": "158 bpm",
+                        "posicion": "Elite Masc • Half Gandia (4:07:35)"
+                    }
+                ],
+                "Temporada 2025": [
+                    {
+                        "nombre": "10k Coruña",
+                        "fecha": "05/10/2025",
+                        "modalidad": "Carrera a pie",
+                        "distancia": "10,13 km",
+                        "tiempo_total": "36:08",
+                        "tiempo_natacion": "-",
+                        "ritmo_natacion": "-",
+                        "tiempo_t1": "-",
+                        "tiempo_bici": "-",
+                        "potencia_media_bici": "-",
+                        "fcmedia_bici": "-",
+                        "fcmax_bici": "-",
+                        "tiempo_carrera": "36:08",
+                        "ritmo_carrera": "3:34 min/km",
+                        "fcmedia_carrera": "161 bpm",
+                        "fcmax_carrera": "169 bpm",
+                        "posicion": "38º General • 10k Coruña (36:10)"
+                    },
+                    {
+                        "nombre": "MD Santander",
+                        "fecha": "21/09/2025",
+                        "modalidad": "Triatlón Media Distancia",
+                        "distancia": "97,1 km",
+                        "tiempo_total": "4h 20m 41s",
+                        "tiempo_natacion": "47:12",
+                        "ritmo_natacion": "1:52 /100m",
+                        "tiempo_t1": "03:00",
+                        "tiempo_bici": "2h 03m 56s",
+                        "potencia_media_bici": "273 W",
+                        "fcmedia_bici": "146 bpm",
+                        "fcmax_bici": "158 bpm",
+                        "tiempo_carrera": "1h 26m 35s",
+                        "ritmo_carrera": "4:15 min/km",
+                        "fcmedia_carrera": "148 bpm",
+                        "fcmax_carrera": "157 bpm",
+                        "posicion": "25º General • MD Santander"
+                    },
+                    {
+                        "nombre": "1,6/60/14 Medina Rioseco",
+                        "fecha": "10/08/2025",
+                        "modalidad": "Triatlón Media Distancia",
+                        "distancia": "75,4 km",
+                        "tiempo_total": "2h 58m 14s",
+                        "tiempo_natacion": "26:33",
+                        "ritmo_natacion": "1:47 /100m",
+                        "tiempo_t1": "04:08",
+                        "tiempo_bici": "1h 28m 11s",
+                        "potencia_media_bici": "256 W",
+                        "fcmedia_bici": "144 bpm",
+                        "fcmax_bici": "155 bpm",
+                        "tiempo_carrera": "59:22",
+                        "ritmo_carrera": "4:17 min/km",
+                        "fcmedia_carrera": "147 bpm",
+                        "fcmax_carrera": "156 bpm",
+                        "posicion": "16º General • Medina Rioseco"
+                    },
+                    {
+                        "nombre": "21k Arzúa - O Pino",
+                        "fecha": "02/08/2025",
+                        "modalidad": "Carrera a pie",
+                        "distancia": "21,41 km",
+                        "tiempo_total": "1h 31m 24s",
+                        "tiempo_natacion": "-",
+                        "ritmo_natacion": "-",
+                        "tiempo_t1": "-",
+                        "tiempo_bici": "-",
+                        "potencia_media_bici": "-",
+                        "fcmedia_bici": "-",
+                        "fcmax_bici": "-",
+                        "tiempo_carrera": "1h 31m 24s",
+                        "ritmo_carrera": "4:16 min/km",
+                        "fcmedia_carrera": "152 bpm",
+                        "fcmax_carrera": "162 bpm",
+                        "posicion": "14º General • 21k Arzúa"
+                    },
+                    {
+                        "nombre": "Camp. España Olímpico Coruña",
+                        "fecha": "01/06/2025",
+                        "modalidad": "Triatlón Olímpico",
+                        "distancia": "49,6 km",
+                        "tiempo_total": "2h 05m 23s",
+                        "tiempo_natacion": "22:34",
+                        "ritmo_natacion": "1:41 /100m",
+                        "tiempo_t1": "03:42",
+                        "tiempo_bici": "57:38",
+                        "potencia_media_bici": "312 W",
+                        "fcmedia_bici": "150 bpm",
+                        "fcmax_bici": "158 bpm",
+                        "tiempo_carrera": "41:29",
+                        "ritmo_carrera": "4:10 min/km",
+                        "fcmedia_carrera": "152 bpm",
+                        "fcmax_carrera": "172 bpm",
+                        "posicion": "Camp. España Olímpico Coruña"
+                    },
+                    {
+                        "nombre": "MD Caminha",
+                        "fecha": "24/05/2025",
+                        "modalidad": "Triatlón Media Distancia",
+                        "distancia": "112,1 km",
+                        "tiempo_total": "4h 18m 33s",
+                        "tiempo_natacion": "24:39",
+                        "ritmo_natacion": "1:40 /100m",
+                        "tiempo_t1": "03:27",
+                        "tiempo_bici": "2h 18m 11s",
+                        "potencia_media_bici": "265 W",
+                        "fcmedia_bici": "144 bpm",
+                        "fcmax_bici": "157 bpm",
+                        "tiempo_carrera": "1h 32m 16s",
+                        "ritmo_carrera": "4:29 min/km",
+                        "fcmedia_carrera": "148 bpm",
+                        "fcmax_carrera": "154 bpm",
+                        "posicion": "19º General • MD Caminha"
+                    },
+                    {
+                        "nombre": "Setúbal MD",
+                        "fecha": "06/04/2025",
+                        "modalidad": "Triatlón Media Distancia",
+                        "distancia": "91,0 km",
+                        "tiempo_total": "2h 59m 02s",
+                        "tiempo_natacion": "29:48",
+                        "ritmo_natacion": "1:52 /100m",
+                        "tiempo_t1": "02:29",
+                        "tiempo_bici": "2h 26m 45s",
+                        "potencia_media_bici": "278 W",
+                        "fcmedia_bici": "142 bpm",
+                        "fcmax_bici": "158 bpm",
+                        "tiempo_carrera": "-",
+                        "ritmo_carrera": "-",
+                        "fcmedia_carrera": "-",
+                        "fcmax_carrera": "-",
+                        "posicion": "24º General • MD Setúbal"
+                    },
+                    {
+                        "nombre": "Coruña 21",
+                        "fecha": "09/02/2025",
+                        "modalidad": "Carrera a pie",
+                        "distancia": "21,35 km",
+                        "tiempo_total": "1h 21m 17s",
+                        "tiempo_natacion": "-",
+                        "ritmo_natacion": "-",
+                        "tiempo_t1": "-",
+                        "tiempo_bici": "-",
+                        "potencia_media_bici": "-",
+                        "fcmedia_bici": "-",
+                        "fcmax_bici": "-",
+                        "tiempo_carrera": "1h 21m 17s",
+                        "ritmo_carrera": "3:49 min/km",
+                        "fcmedia_carrera": "161 bpm",
+                        "fcmax_carrera": "169 bpm",
+                        "posicion": "94º General • 32º Senior (1:21:24)"
+                    },
+                    {
+                        "nombre": "10k + 10' Soltar",
+                        "fecha": "22/12/2024",
+                        "modalidad": "Carrera a pie",
+                        "distancia": "10,06 km",
+                        "tiempo_total": "37:08",
+                        "tiempo_natacion": "-",
+                        "ritmo_natacion": "-",
+                        "tiempo_t1": "-",
+                        "tiempo_bici": "-",
+                        "potencia_media_bici": "-",
+                        "fcmedia_bici": "-",
+                        "fcmax_bici": "-",
+                        "tiempo_carrera": "37:08",
+                        "ritmo_carrera": "3:42 min/km",
+                        "fcmedia_carrera": "160 bpm",
+                        "fcmax_carrera": "166 bpm",
+                        "posicion": "Carrera Control 10k"
+                    },
+                    {
+                        "nombre": "5k Leyma",
+                        "fecha": "17/11/2024",
+                        "modalidad": "Carrera a pie",
+                        "distancia": "5,10 km",
+                        "tiempo_total": "17:41",
+                        "tiempo_natacion": "-",
+                        "ritmo_natacion": "-",
+                        "tiempo_t1": "-",
+                        "tiempo_bici": "-",
+                        "potencia_media_bici": "-",
+                        "fcmedia_bici": "-",
+                        "fcmax_bici": "-",
+                        "tiempo_carrera": "17:41",
+                        "ritmo_carrera": "3:29 min/km",
+                        "fcmedia_carrera": "164 bpm",
+                        "fcmax_carrera": "171 bpm",
+                        "posicion": "29º General • 5k Leyma (17:41)"
+                    }
+                ]
+            }
+        }

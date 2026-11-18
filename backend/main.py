@@ -423,6 +423,36 @@ def get_pmc(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/volume/history")
+def get_volume_history(weeks: int = Query(10, description="Number of weeks to look back")):
+    """Returns weekly planned vs completed volume (in hours) for the last N weeks."""
+    try:
+        return dm.get_weekly_volume_history(num_weeks=weeks)
+    except Exception as e:
+        logger.error(f"Error getting volume history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/seasons/tests")
+def get_seasons_tests():
+    """Returns test and performance metrics structured by season."""
+    try:
+        return dm.get_seasons_tests_data()
+    except Exception as e:
+        logger.error(f"Error getting seasons tests: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/seasons/competitions")
+def get_seasons_competitions():
+    """Returns past and present race events with 16 performance telemetry columns."""
+    try:
+        return dm.get_seasons_competitions_data()
+    except Exception as e:
+        logger.error(f"Error getting seasons competitions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/chat")
 def chat_coach(payload: ChatRequest):
     """Conversational endpoint with the AI Triathlon Coach."""

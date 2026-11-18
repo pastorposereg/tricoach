@@ -5,6 +5,7 @@
 
 let pmcChartInstance = null;
 let workoutSplitsChartInstance = null;
+let weeklyVolumeChartInstance = null;
 
 /**
  * Helper to determine TSB zone classification, name and color.
@@ -450,3 +451,113 @@ function renderWorkoutSplitsChart(canvasId, splits, sportType) {
     }
   });
 }
+
+function renderWeeklyVolumeChart(canvasId, volumeData) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx || !volumeData || !volumeData.labels) return;
+
+  if (weeklyVolumeChartInstance) {
+    weeklyVolumeChartInstance.destroy();
+  }
+
+  const weeks = volumeData.weeks || [];
+
+  weeklyVolumeChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: volumeData.labels,
+      datasets: [
+        {
+          label: 'Horas Planificadas',
+          data: volumeData.planned,
+          backgroundColor: 'rgba(2, 132, 199, 0.25)',
+          borderColor: '#0284c7',
+          borderWidth: 2,
+          borderRadius: 6,
+          barPercentage: 0.85,
+          categoryPercentage: 0.8,
+        },
+        {
+          label: 'Horas Reales',
+          data: volumeData.actual,
+          backgroundColor: weeks.map(w => w.is_current ? 'rgba(5, 150, 105, 0.75)' : '#059669'),
+          borderColor: '#047857',
+          borderWidth: 1.5,
+          borderRadius: 6,
+          barPercentage: 0.85,
+          categoryPercentage: 0.8,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
+      plugins: {
+        legend: {
+          display: false // Shown in custom header badges
+        },
+        tooltip: {
+          backgroundColor: '#1e293b',
+          titleColor: '#ffffff',
+          bodyColor: '#e2e8f0',
+          borderColor: '#475569',
+          borderWidth: 1,
+          padding: 10,
+          titleFont: { family: 'Inter, sans-serif', weight: 600, size: 12 },
+          bodyFont: { family: 'Inter, sans-serif', size: 12 },
+          callbacks: {
+            title: function(items) {
+              if (!items || !items.length) return '';
+              const idx = items[0].dataIndex;
+              const w = weeks[idx];
+              return `${items[0].label} (${w ? w.date_range : ''})${w && w.is_current ? ' • Semana en curso' : ''}`;
+            },
+            label: function(ctx) {
+              const val = ctx.parsed.y;
+              if (ctx.datasetIndex === 0) {
+                return `⏱️ Planificado: ${val.toFixed(1)} h`;
+              } else {
+                const idx = ctx.dataIndex;
+                const w = weeks[idx];
+                const pct = w ? w.completion_percent : 0;
+                return `✅ Real: ${val.toFixed(1)} h (${pct}% cumplimiento)`;
+              }
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            color: '#64748b',
+            font: { family: 'Inter, sans-serif', size: 11, weight: 600 }
+          }
+        },
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: 'rgba(226, 232, 240, 0.8)',
+            borderDash: [3, 3]
+          },
+          ticks: {
+            color: '#64748b',
+            font: { family: 'JetBrains Mono, monospace', size: 11 },
+            callback: function(v) { return v + ' h'; }
+          },
+          title: {
+            display: true,
+            text: 'Horas Semanales',
+            color: '#64748b',
+            font: { family: 'Inter, sans-serif', size: 11, weight: 600 }
+          }
+        }
+      }
+    }
+  });
+}
+window.renderWeeklyVolumeChart = renderWeeklyVolumeChart;

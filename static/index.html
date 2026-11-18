@@ -79,7 +79,11 @@
         </button>
         <button data-tab-target="form" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 text-slate-300 hover:text-white transition-all">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
-          Estado de Forma & Coach IA
+          Progresión
+        </button>
+        <button data-tab-target="tests" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 text-slate-300 hover:text-white transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+          Pruebas
         </button>
       </nav>
 
@@ -249,6 +253,27 @@
         </div>
       </div>
 
+      <!-- Weekly Volume Chart Card: Planificado vs Real (Últimas 10 semanas) -->
+      <div class="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-[#0284c7]"></span>
+              Volumen Semanal en Horas (Planificado vs Real)
+            </h3>
+            <p class="text-xs text-slate-500">Comparativa directa de horas de entrenamiento planificadas frente al volumen real completado en las últimas 10 semanas.</p>
+          </div>
+          <div class="flex items-center gap-3 text-xs">
+            <span class="flex items-center gap-1.5 font-medium text-slate-700"><span class="w-3.5 h-3.5 rounded-sm border-2 border-[#0284c7] bg-sky-100"></span> Horas Planificadas</span>
+            <span class="flex items-center gap-1.5 font-medium text-slate-700"><span class="w-3.5 h-3.5 rounded-sm bg-[#059669]"></span> Horas Reales</span>
+          </div>
+        </div>
+
+        <div class="h-64 sm:h-72 w-full bg-white relative">
+          <canvas id="weeklyVolumeChart"></canvas>
+        </div>
+      </div>
+
       <!-- AI Coach Chatbot Section -->
       <div class="p-5 rounded-2xl bg-white border border-slate-200 shadow-md flex flex-col h-[520px]">
         <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 shrink-0">
@@ -303,6 +328,94 @@
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
           </button>
         </form>
+      </div>
+
+    </section>
+
+
+    <!-- ========================================== -->
+    <!-- PÁGINA 3: PRUEBAS (TESTS & COMPETICIONES)  -->
+    <!-- ========================================== -->
+    <section id="page-tests" class="space-y-6 hidden">
+
+      <!-- Season Navigation & Selector Bar (TrainingPeaks Surface) -->
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl bg-white border border-slate-200 shadow-xs">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center font-bold text-base shadow-xs">
+            🏆
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 id="season-title-display" class="text-base sm:text-lg font-bold text-slate-900">Temporada 2027 (Actual)</h2>
+              <span id="season-badge-display" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                En Curso
+              </span>
+            </div>
+            <p class="text-xs text-slate-500">Historial de tests fisiológicos y competiciones oficiales en Intervals.icu</p>
+          </div>
+        </div>
+
+        <!-- Controls: Anterior / Selector / Siguiente -->
+        <div class="flex items-center gap-2 self-stretch sm:self-auto justify-end">
+          <button id="btn-prev-season" class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 flex items-center gap-1 transition-colors shadow-xs">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            Temp. Anterior
+          </button>
+          
+          <select id="season-select" class="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-300 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#0284c7]">
+            <option value="Temporada 2027 (Actual)">Temporada 2027 (Actual)</option>
+            <option value="Temporada 2026">Temporada 2026</option>
+            <option value="Temporada 2025">Temporada 2025</option>
+            <option value="Temporada 2024">Temporada 2024</option>
+            <option value="Temporada 2023">Temporada 2023</option>
+            <option value="Temporada 2022">Temporada 2022</option>
+          </select>
+
+          <button id="btn-next-season" class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 flex items-center gap-1 transition-colors shadow-xs">
+            Temp. Siguiente
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- TABLA 1: TESTS DE RENDIMIENTO & MEJORES MARCAS -->
+      <div class="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-6">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-[#0284c7]"></span>
+              Tests de Rendimiento & Mejores Marcas por Disciplina
+            </h3>
+            <p id="tests-subtitle-display" class="text-xs text-slate-500">Tests de control fisiológico realizados por periodo.</p>
+          </div>
+          <span class="px-2.5 py-1 rounded-full bg-sky-50 text-[#0284c7] text-[11px] font-semibold border border-sky-200">
+            Natación • Ciclismo • Carrera
+          </span>
+        </div>
+
+        <div id="tests-tables-container" class="space-y-6">
+          <!-- Injected via JavaScript -->
+        </div>
+      </div>
+
+      <!-- TABLA 2: HISTÓRICO DE COMPETICIONES -->
+      <div class="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              Histórico Oficial de Competiciones & Clasificación
+            </h3>
+            <p class="text-xs text-slate-500">Registro cronológico con tiempos por segmento, transiciones y puesto en la clasificación oficial.</p>
+          </div>
+          <span class="text-[11px] font-mono px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+            Atleta: Pastor Adrián Pose Regueiro
+          </span>
+        </div>
+
+        <div id="competitions-table-container">
+          <!-- Injected via JavaScript -->
+        </div>
       </div>
 
     </section>
@@ -636,12 +749,16 @@
     </button>
     <button data-tab-target="form" class="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-800">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
-      <span class="text-[10px] font-semibold">Forma & IA</span>
+      <span class="text-[10px] font-semibold">Progresión</span>
+    </button>
+    <button data-tab-target="tests" class="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-800">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+      <span class="text-[10px] font-semibold">Pruebas</span>
     </button>
   </nav>
 
   <!-- Application Logic Scripts -->
-  <script src="/static/js/charts.js?v=14"></script>
-  <script src="/static/js/app.js?v=14"></script>
+  <script src="/static/js/charts.js?v=15"></script>
+  <script src="/static/js/app.js?v=15"></script>
 </body>
 </html>

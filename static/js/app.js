@@ -5,11 +5,15 @@
  */
 
 const state = {
-  currentTab: 'calendar', // 'calendar' | 'form'
+  currentTab: 'calendar', // 'calendar' | 'form' | 'tests'
   weekOffset: 0,
   weekData: null,
   pmcDays: 90,
   pmcData: null,
+  volumeHistoryData: null,
+  selectedSeason: 'Temporada 2027 (Actual)',
+  testsData: null,
+  competitionsData: null,
   activeZoneSport: 'all',
   chatHistory: [],
   athleteStatus: null,
@@ -100,6 +104,7 @@ function switchTab(tabId) {
   state.currentTab = tabId;
   const page1 = document.getElementById('page-calendar');
   const page2 = document.getElementById('page-form');
+  const page3 = document.getElementById('page-tests');
 
   // Desktop & mobile tab buttons
   document.querySelectorAll('[data-tab-target]').forEach(btn => {
@@ -108,18 +113,18 @@ function switchTab(tabId) {
     if (isMobile) {
       if (isTarget) {
         btn.classList.add('text-[#0284c7]');
-        btn.classList.remove('text-slate-400');
+        btn.classList.remove('text-slate-500', 'text-slate-400');
       } else {
         btn.classList.remove('text-[#0284c7]');
-        btn.classList.add('text-slate-400');
+        btn.classList.add('text-slate-500');
       }
     } else {
       if (isTarget) {
         btn.classList.add('text-white', 'bg-[#0284c7]', 'shadow-sm');
-        btn.classList.remove('text-slate-400', 'hover:text-slate-100');
+        btn.classList.remove('text-slate-300', 'hover:text-white', 'text-slate-400');
       } else {
         btn.classList.remove('text-white', 'bg-[#0284c7]', 'shadow-sm');
-        btn.classList.add('text-slate-400', 'hover:text-slate-100');
+        btn.classList.add('text-slate-300', 'hover:text-white');
       }
     }
   });
@@ -127,13 +132,24 @@ function switchTab(tabId) {
   if (tabId === 'calendar') {
     page1?.classList.remove('hidden');
     page2?.classList.add('hidden');
-  } else {
+    page3?.classList.add('hidden');
+  } else if (tabId === 'form') {
     page1?.classList.add('hidden');
     page2?.classList.remove('hidden');
+    page3?.classList.add('hidden');
     // Load PMC if not loaded yet
     if (!state.pmcData) {
       loadPMC(state.pmcDays);
     }
+    // Load weekly volume history
+    if (!state.volumeHistoryData) {
+      loadWeeklyVolume();
+    }
+  } else if (tabId === 'tests') {
+    page1?.classList.add('hidden');
+    page2?.classList.add('hidden');
+    page3?.classList.remove('hidden');
+    loadTestsPage();
   }
 }
 
@@ -2783,9 +2799,450 @@ async function loadPMC(days, forceRefresh = false) {
 
     // Render Canvas
     renderPMCChart('pmcChart', data.series);
+
+    // Also load weekly volume chart (last 10 weeks)
+    loadWeeklyVolume(forceRefresh);
   } catch (err) {
     console.error('Error loading PMC:', err);
   }
+}
+
+async function loadWeeklyVolume(forceRefresh = false) {
+  try {
+    const res = await fetch('/api/volume/history?weeks=10' + (forceRefresh ? '&refresh=true' : ''));
+    const data = await res.json();
+    state.volumeHistoryData = data;
+    if (window.renderWeeklyVolumeChart) {
+      window.renderWeeklyVolumeChart('weeklyVolumeChart', data);
+    }
+  } catch (err) {
+    console.error('Error loading weekly volume:', err);
+  }
+}
+
+// Page 3: Pruebas (Tests & Competiciones)
+async function loadTestsPage(forceRefresh = false) {
+  try {
+    if (!state.testsData || forceRefresh) {
+      const resTests = await fetch('/api/seasons/tests');
+      state.testsData = await resTests.json();
+    }
+    if (!state.competitionsData || forceRefresh) {
+      const resComps = await fetch('/api/seasons/competitions');
+      state.competitionsData = await resComps.json();
+    }
+
+    setupSeasonControls();
+    renderSeasonView(state.selectedSeason);
+  } catch (err) {
+    console.error('Error loading tests page:', err);
+  }
+}
+
+function setupSeasonControls() {
+  const select = document.getElementById('season-select');
+  const btnPrev = document.getElementById('btn-prev-season');
+  const btnNext = document.getElementById('btn-next-season');
+  if (!select) return;
+
+  const seasons = (state.testsData && state.testsData.seasons) || [
+    "Temporada 2027 (Actual)",
+    "Temporada 2026",
+    "Temporada 2025",
+    "Temporada 2024",
+    "Temporada 2023",
+    "Temporada 2022"
+  ];
+
+  select.value = state.selectedSeason;
+  select.onchange = (e) => {
+    state.selectedSeason = e.target.value;
+    renderSeasonView(state.selectedSeason);
+  };
+
+  if (btnPrev) {
+    btnPrev.onclick = () => {
+      const currIdx = seasons.indexOf(state.selectedSeason);
+      if (currIdx < seasons.length - 1) {
+        state.selectedSeason = seasons[currIdx + 1];
+        select.value = state.selectedSeason;
+        renderSeasonView(state.selectedSeason);
+      }
+    };
+  }
+
+  if (btnNext) {
+    btnNext.onclick = () => {
+      const currIdx = seasons.indexOf(state.selectedSeason);
+      if (currIdx > 0) {
+        state.selectedSeason = seasons[currIdx - 1];
+        select.value = state.selectedSeason;
+        renderSeasonView(state.selectedSeason);
+      }
+    };
+  }
+}
+
+function renderSeasonView(seasonKey) {
+  const seasons = (state.testsData && state.testsData.seasons) || [];
+  const currIdx = seasons.indexOf(seasonKey);
+  const btnPrev = document.getElementById('btn-prev-season');
+  const btnNext = document.getElementById('btn-next-season');
+  if (btnPrev) btnPrev.disabled = (currIdx >= seasons.length - 1);
+  if (btnNext) btnNext.disabled = (currIdx <= 0);
+
+  const titleEl = document.getElementById('season-title-display');
+  const badgeEl = document.getElementById('season-badge-display');
+  const subtitleEl = document.getElementById('tests-subtitle-display');
+  if (titleEl) titleEl.textContent = seasonKey;
+
+  const isCurrent = seasonKey.includes('Actual') || seasonKey.includes('2027');
+  if (badgeEl) {
+    if (isCurrent) {
+      badgeEl.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200';
+      badgeEl.textContent = 'En Curso';
+    } else {
+      badgeEl.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200';
+      badgeEl.textContent = 'Finalizada';
+    }
+  }
+
+  if (subtitleEl) {
+    subtitleEl.textContent = isCurrent 
+      ? 'Control fisiológico de la temporada actual por periodos (inicial vs base1).'
+      : 'Los 3 mejores valores registrados en Intervals.icu en Ciclismo y Carrera a pie.';
+  }
+
+  renderTestsSection(seasonKey);
+  renderCompetitionsSection(seasonKey);
+}
+
+function renderTestsSection(seasonKey) {
+  const container = document.getElementById('tests-tables-container');
+  if (!container) return;
+
+  const allTests = (state.testsData && state.testsData.tests) || {};
+  const seasonTests = allTests[seasonKey] || allTests['Temporada 2027 (Actual)'] || {};
+  const isCurrent = seasonTests.is_current !== false && (seasonKey.includes('Actual') || seasonKey.includes('2027'));
+
+  if (isCurrent) {
+    // Current season: Natación (400+200 inicial vs base1), Bici (PAM 5' inicial vs base1), Carrera (5k base1)
+    const swim = seasonTests.swimming || {};
+    const bike = seasonTests.cycling || {};
+    const run = seasonTests.running || {};
+
+    let html = `
+      <!-- 1. NATACIÓN -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-sky-100 text-[#0284c7] flex items-center justify-center text-sm font-bold">🏊‍♂️</span>
+            <h4 class="text-xs sm:text-sm font-bold text-slate-900">Natación • Tests de Control 400m y 200m</h4>
+          </div>
+          <span class="text-[11px] font-mono text-slate-500">CSS Referencia: 1:29.0/100m</span>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-200">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 text-[11px]">
+              <tr>
+                <th class="px-3.5 py-2.5">Periodo</th>
+                <th class="px-3.5 py-2.5">Fecha</th>
+                <th class="px-3.5 py-2.5">Distancia</th>
+                <th class="px-3.5 py-2.5">Tiempo Total</th>
+                <th class="px-3.5 py-2.5">Tiempos de cada 100m</th>
+                <th class="px-3.5 py-2.5">FC Media</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 text-slate-800">
+              ${(swim.rows || []).map(r => `
+                <tr class="hover:bg-slate-50/80 transition-colors">
+                  <td class="px-3.5 py-2.5 font-semibold">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${r.periodo === 'inicial' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-sky-100 text-[#0284c7] border border-sky-200'}">
+                      ${r.periodo}
+                    </span>
+                  </td>
+                  <td class="px-3.5 py-2.5 font-mono text-slate-600">${r.fecha}</td>
+                  <td class="px-3.5 py-2.5 font-bold text-slate-900">${r.distancia}</td>
+                  <td class="px-3.5 py-2.5 font-mono font-bold text-sky-600 text-sm">${r.tiempo_total}</td>
+                  <td class="px-3.5 py-2.5 font-mono text-slate-700 text-[11px]">${r.splits_100m}</td>
+                  <td class="px-3.5 py-2.5 font-mono text-rose-600 font-semibold">${r.fc_media || '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 2. CICLISMO -->
+      <div class="space-y-3 pt-2">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-sm font-bold">🚴</span>
+            <h4 class="text-xs sm:text-sm font-bold text-slate-900">Ciclismo • Test de Potencia Aeróbica Máxima (PAM 5')</h4>
+          </div>
+          <span class="text-[11px] font-mono text-slate-500">FTP: 348 W</span>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-200">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 text-[11px]">
+              <tr>
+                <th class="px-3.5 py-2.5">Periodo</th>
+                <th class="px-3.5 py-2.5">Fecha</th>
+                <th class="px-3.5 py-2.5">Tiempo</th>
+                <th class="px-3.5 py-2.5">Potencia Media</th>
+                <th class="px-3.5 py-2.5">FC Media</th>
+                <th class="px-3.5 py-2.5">FC Máx</th>
+                <th class="px-3.5 py-2.5">W/kg</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 text-slate-800">
+              ${(bike.rows || []).map(r => `
+                <tr class="hover:bg-slate-50/80 transition-colors">
+                  <td class="px-3.5 py-2.5 font-semibold">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${r.periodo === 'inicial' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-sky-100 text-[#0284c7] border border-sky-200'}">
+                      ${r.periodo}
+                    </span>
+                  </td>
+                  <td class="px-3.5 py-2.5 font-mono text-slate-600">${r.fecha}</td>
+                  <td class="px-3.5 py-2.5 font-bold text-slate-900">${r.tiempo}</td>
+                  <td class="px-3.5 py-2.5 font-mono font-bold text-amber-600 text-sm">${r.potencia_media}</td>
+                  <td class="px-3.5 py-2.5 font-mono text-rose-600 font-semibold">${r.fc_media}</td>
+                  <td class="px-3.5 py-2.5 font-mono text-rose-700 font-bold">${r.fc_max}</td>
+                  <td class="px-3.5 py-2.5 font-mono font-semibold text-slate-700">${r.wkg || '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 3. CARRERA A PIE -->
+      <div class="space-y-3 pt-2">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold">🏃</span>
+            <h4 class="text-xs sm:text-sm font-bold text-slate-900">Carrera a Pie • Test 5k</h4>
+          </div>
+          <span class="text-[11px] font-mono text-slate-500">Ritmo Umbral: 3:40 min/km</span>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-200">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 text-[11px]">
+              <tr>
+                <th class="px-3.5 py-2.5">Periodo</th>
+                <th class="px-3.5 py-2.5">Fecha</th>
+                <th class="px-3.5 py-2.5">Distancia</th>
+                <th class="px-3.5 py-2.5">Desnivel Positivo</th>
+                <th class="px-3.5 py-2.5">Tiempo</th>
+                <th class="px-3.5 py-2.5">Ritmo</th>
+                <th class="px-3.5 py-2.5">FC Media</th>
+                <th class="px-3.5 py-2.5">FC Máx</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 text-slate-800">
+              ${(run.rows || []).map(r => `
+                <tr class="hover:bg-slate-50/80 transition-colors">
+                  <td class="px-3.5 py-2.5 font-semibold">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-sky-100 text-[#0284c7] border border-sky-200">
+                      ${r.periodo}
+                    </span>
+                  </td>
+                  <td class="px-3.5 py-2.5 font-mono text-slate-600">${r.fecha}</td>
+                  <td class="px-3.5 py-2.5 font-bold text-slate-900">${r.distancia}</td>
+                  <td class="px-3.5 py-2.5 font-mono text-slate-600">${r.desnivel_pos}</td>
+                  <td class="px-3.5 py-2.5 font-mono font-bold text-emerald-600 text-sm">${r.tiempo}</td>
+                  <td class="px-3.5 py-2.5 font-mono font-bold text-emerald-700">${r.ritmo}</td>
+                  <td class="px-3.5 py-2.5 font-mono text-rose-600 font-semibold">${r.fc_media}</td>
+                  <td class="px-3.5 py-2.5 font-mono text-rose-700 font-bold">${r.fc_max}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    container.innerHTML = html;
+
+  } else {
+    // Previous seasons: 3 best power values in cycling (5', 10', 20') and 3 best pace values in running (5k, 10k, 21k)
+    const bikeBests = seasonTests.cycling_bests || {};
+    const runBests = seasonTests.running_bests || {};
+
+    let html = `
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- BICICLETA MEJORES VALORES -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between pb-1 border-b border-slate-200">
+            <div class="flex items-center gap-2">
+              <span class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-sm font-bold">🚴</span>
+              <h4 class="text-xs sm:text-sm font-bold text-slate-900">Bicicleta • 3 Mejores Potencias (5', 10' y 20')</h4>
+            </div>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 font-semibold">Top 3 Intervals</span>
+          </div>
+
+          <div class="overflow-x-auto rounded-xl border border-slate-200">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 text-[11px]">
+                <tr>
+                  <th class="px-3.5 py-2.5">Duración</th>
+                  <th class="px-3.5 py-2.5">Potencia Máx</th>
+                  <th class="px-3.5 py-2.5">Relación W/kg</th>
+                  <th class="px-3.5 py-2.5">Fecha / Actividad</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200 text-slate-800">
+                ${(bikeBests.rows || []).map(r => `
+                  <tr class="hover:bg-slate-50/80 transition-colors">
+                    <td class="px-3.5 py-2.5 font-bold text-slate-900">${r.duracion}</td>
+                    <td class="px-3.5 py-2.5 font-mono font-bold text-amber-600 text-sm">${r.potencia}</td>
+                    <td class="px-3.5 py-2.5 font-mono font-semibold text-slate-700">${r.wkg}</td>
+                    <td class="px-3.5 py-2.5 text-[11px] text-slate-600">
+                      <span class="font-mono text-slate-800 block">${r.fecha}</span>
+                      <span class="text-slate-400 text-[10px] truncate block">${r.actividad}</span>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- CARRERA MEJORES RITMOS -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between pb-1 border-b border-slate-200">
+            <div class="flex items-center gap-2">
+              <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold">🏃</span>
+              <h4 class="text-xs sm:text-sm font-bold text-slate-900">Carrera • 3 Mejores Ritmos (5k, 10k y 21k)</h4>
+            </div>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold">Top 3 Intervals</span>
+          </div>
+
+          <div class="overflow-x-auto rounded-xl border border-slate-200">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 text-[11px]">
+                <tr>
+                  <th class="px-3.5 py-2.5">Distancia</th>
+                  <th class="px-3.5 py-2.5">Tiempo Total</th>
+                  <th class="px-3.5 py-2.5">Ritmo Medio</th>
+                  <th class="px-3.5 py-2.5">Fecha / Actividad</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200 text-slate-800">
+                ${(runBests.rows || []).map(r => `
+                  <tr class="hover:bg-slate-50/80 transition-colors">
+                    <td class="px-3.5 py-2.5 font-bold text-slate-900">${r.distancia}</td>
+                    <td class="px-3.5 py-2.5 font-mono font-bold text-emerald-600 text-sm">${r.tiempo}</td>
+                    <td class="px-3.5 py-2.5 font-mono font-bold text-emerald-700">${r.ritmo}</td>
+                    <td class="px-3.5 py-2.5 text-[11px] text-slate-600">
+                      <span class="font-mono text-slate-800 block">${r.fecha}</span>
+                      <span class="text-slate-400 text-[10px] truncate block">${r.actividad}</span>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    `;
+    container.innerHTML = html;
+  }
+}
+
+function renderCompetitionsSection(seasonKey) {
+  const container = document.getElementById('competitions-table-container');
+  if (!container) return;
+
+  const compsData = (state.competitionsData && state.competitionsData.competitions) || {};
+  const list = compsData[seasonKey] || [];
+
+  if (!list.length) {
+    container.innerHTML = `
+      <div class="p-8 text-center bg-slate-50 border border-slate-200 rounded-xl text-slate-500 text-xs">
+        <p class="font-semibold text-slate-700 mb-1">No hay competiciones registradas en esta temporada.</p>
+        <p class="text-[11px] text-slate-400">Puedes consultar temporadas anteriores mediante el selector superior.</p>
+      </div>
+    `;
+    return;
+  }
+
+  let html = `
+    <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
+      <table class="w-full text-left text-xs whitespace-nowrap">
+        <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 text-[11px]">
+          <tr>
+            <th class="px-3 py-2.5 sticky left-0 bg-slate-50 z-10">Nombre Competición</th>
+            <th class="px-3 py-2.5">Fecha</th>
+            <th class="px-3 py-2.5">Distancia</th>
+            <th class="px-3 py-2.5 font-bold text-slate-900">Tiempo Total</th>
+            <th class="px-3 py-2.5 text-sky-700 bg-sky-50/50">T. Natación</th>
+            <th class="px-3 py-2.5 text-sky-700 bg-sky-50/50">Ritmo Natación</th>
+            <th class="px-3 py-2.5">T1</th>
+            <th class="px-3 py-2.5 text-amber-700 bg-amber-50/50">T. Bici</th>
+            <th class="px-3 py-2.5 text-amber-700 bg-amber-50/50">Potencia Bici</th>
+            <th class="px-3 py-2.5 text-amber-700 bg-amber-50/50">FC Media Bici</th>
+            <th class="px-3 py-2.5 text-amber-700 bg-amber-50/50">FC Máx Bici</th>
+            <th class="px-3 py-2.5 text-emerald-700 bg-emerald-50/50">T. Carrera</th>
+            <th class="px-3 py-2.5 text-emerald-700 bg-emerald-50/50">Ritmo Carrera</th>
+            <th class="px-3 py-2.5 text-emerald-700 bg-emerald-50/50">FC Media Carrera</th>
+            <th class="px-3 py-2.5 text-emerald-700 bg-emerald-50/50">FC Máx Carrera</th>
+            <th class="px-3 py-2.5 bg-yellow-50/60 font-bold text-slate-900">Posición Clasificación</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 text-slate-800">
+          ${list.map(c => {
+            const isRunOnly = c.modalidad === 'Carrera a pie';
+            return `
+              <tr class="hover:bg-slate-50/80 transition-colors">
+                <td class="px-3 py-2.5 font-semibold text-slate-900 sticky left-0 bg-white z-10 shadow-xs">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full ${isRunOnly ? 'bg-emerald-500' : 'bg-[#0284c7]'}"></span>
+                    <span>${c.nombre}</span>
+                  </div>
+                  <span class="text-[10px] text-slate-400 font-normal block pl-3.5">${c.modalidad}</span>
+                </td>
+                <td class="px-3 py-2.5 font-mono text-slate-600 text-[11px]">${c.fecha}</td>
+                <td class="px-3 py-2.5 font-semibold text-slate-700">${c.distancia}</td>
+                <td class="px-3 py-2.5 font-mono font-bold text-slate-900 text-sm">${c.tiempo_total}</td>
+                
+                <!-- Natación -->
+                <td class="px-3 py-2.5 font-mono ${c.tiempo_natacion !== '-' ? 'text-sky-700 font-semibold' : 'text-slate-400'} bg-sky-50/30">${c.tiempo_natacion}</td>
+                <td class="px-3 py-2.5 font-mono ${c.ritmo_natacion !== '-' ? 'text-sky-800' : 'text-slate-400'} bg-sky-50/30 text-[11px]">${c.ritmo_natacion}</td>
+                
+                <!-- Transición 1 -->
+                <td class="px-3 py-2.5 font-mono text-slate-600">${c.tiempo_t1}</td>
+                
+                <!-- Ciclismo -->
+                <td class="px-3 py-2.5 font-mono ${c.tiempo_bici !== '-' ? 'text-amber-700 font-semibold' : 'text-slate-400'} bg-amber-50/30">${c.tiempo_bici}</td>
+                <td class="px-3 py-2.5 font-mono font-bold ${c.potencia_media_bici !== '-' ? 'text-amber-700' : 'text-slate-400'} bg-amber-50/30">${c.potencia_media_bici}</td>
+                <td class="px-3 py-2.5 font-mono text-slate-600 bg-amber-50/30">${c.fcmedia_bici}</td>
+                <td class="px-3 py-2.5 font-mono text-slate-600 bg-amber-50/30">${c.fcmax_bici}</td>
+                
+                <!-- Carrera -->
+                <td class="px-3 py-2.5 font-mono ${c.tiempo_carrera !== '-' ? 'text-emerald-700 font-semibold' : 'text-slate-400'} bg-emerald-50/30">${c.tiempo_carrera}</td>
+                <td class="px-3 py-2.5 font-mono font-bold ${c.ritmo_carrera !== '-' ? 'text-emerald-800' : 'text-slate-400'} bg-emerald-50/30">${c.ritmo_carrera}</td>
+                <td class="px-3 py-2.5 font-mono text-slate-600 bg-emerald-50/30">${c.fcmedia_carrera}</td>
+                <td class="px-3 py-2.5 font-mono text-slate-600 bg-emerald-50/30">${c.fcmax_carrera}</td>
+                
+                <!-- Clasificación -->
+                <td class="px-3 py-2.5 bg-yellow-50/40">
+                  <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-900 border border-amber-200 shadow-2xs">
+                    <span>🏆</span> ${c.posicion}
+                  </span>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+  container.innerHTML = html;
 }
 
 async function submitChatMessage() {
@@ -3123,6 +3580,9 @@ async function syncAllData() {
   await loadWeek(state.weekOffset, true);
   if (state.currentTab === 'form') {
     await loadPMC(state.pmcDays, true);
+    await loadWeeklyVolume(true);
+  } else if (state.currentTab === 'tests') {
+    await loadTestsPage(true);
   }
   if (btn) btn.classList.remove('animate-spin');
 }
