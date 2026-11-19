@@ -253,6 +253,58 @@
         </div>
       </div>
 
+      <!-- Combined Health & Training Load Chart + Traffic Light Status (Semáforo SNA) -->
+      <div class="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3">
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              Carga Diaria por Zonas (TSS) &amp; Respuesta Fisiológica SNA (VFC, FCR y Sueño)
+            </h3>
+            <p class="text-xs text-slate-500">Eje Y izq.: TSS diario por proporción en zonas (y fuerza en negro) • Eje Y der.: VFC (azul) con rango normal personal Garmin (verde claro) y FC Reposo (rojo) • Bajo eje X: Horas de sueño.</p>
+          </div>
+          <!-- Range Filters (30d, 60d, 90d, 180d, 1 año) -->
+          <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs shrink-0">
+            <button data-health-days="30" class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition-colors">30D</button>
+            <button data-health-days="60" class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition-colors">60D</button>
+            <button data-health-days="90" class="px-2.5 py-1 rounded-lg bg-[#0284c7] text-white font-semibold shadow-xs">90D</button>
+            <button data-health-days="180" class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition-colors">180D</button>
+            <button data-health-days="365" class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition-colors">1 Año</button>
+          </div>
+        </div>
+
+        <!-- Custom Compact Legend -->
+        <div class="mb-3 pb-2.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
+          <div class="flex flex-wrap items-center gap-2.5">
+            <span class="font-semibold text-slate-700">TSS por Zona:</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-[#009e80]"></span>Z1</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-[#009e00]"></span>Z2</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-[#ffcb0e]"></span>Z3</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-[#ff7f0e]"></span>Z4</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-[#dd0447]"></span>Z5</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-[#6633cc]"></span>Z6</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-[#504861]"></span>Z7</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-[#111827]"></span>Fuerza</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="flex items-center gap-1.5 font-semibold text-[#0284c7]"><span class="w-3.5 h-0.5 bg-[#0284c7] inline-block"></span>VFC (ms)</span>
+            <span class="flex items-center gap-1.5 text-emerald-700"><span class="w-3.5 h-2.5 rounded-xs bg-emerald-500/20 border border-emerald-500/40 inline-block"></span>Rango Normal Garmin</span>
+            <span class="flex items-center gap-1.5 font-semibold text-rose-600"><span class="w-3.5 h-0.5 bg-rose-600 inline-block"></span>FC Reposo (ppm)</span>
+            <span class="flex items-center gap-1 text-indigo-600 font-mono"><span>☾</span> Sueño (h) bajo eje X</span>
+          </div>
+        </div>
+
+        <!-- Combined Chart Canvas -->
+        <div class="h-80 sm:h-96 w-full bg-white relative">
+          <canvas id="healthLoadChart"></canvas>
+        </div>
+
+        <!-- Semáforo de Estado Actual (Traffic Light Status) -->
+        <div id="health-semaphore-container" class="mt-5 pt-4 border-t border-slate-200">
+          <!-- Injected via JavaScript -->
+        </div>
+      </div>
+
       <!-- Weekly Volume Chart Card: Planificado vs Real (Últimas 10 semanas) -->
       <div class="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
@@ -341,9 +393,9 @@
       <!-- Season Navigation & Selector Bar (TrainingPeaks Surface) -->
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl bg-white border border-slate-200 shadow-xs">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center font-bold text-base shadow-xs">
-            🏆
-          </div>
+          <span class="text-amber-600 flex items-center justify-center shrink-0">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+          </span>
           <div>
             <div class="flex items-center gap-2">
               <h2 id="season-title-display" class="text-base sm:text-lg font-bold text-slate-900">Temporada 2027 (Actual)</h2>
@@ -758,7 +810,7 @@
   </nav>
 
   <!-- Application Logic Scripts -->
-  <script src="/static/js/charts.js?v=17"></script>
-  <script src="/static/js/app.js?v=17"></script>
+  <script src="/static/js/charts.js?v=18"></script>
+  <script src="/static/js/app.js?v=18"></script>
 </body>
 </html>

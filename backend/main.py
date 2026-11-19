@@ -423,6 +423,19 @@ def get_pmc(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/health-load/history")
+def get_health_load_history(
+    days: int = Query(90, description="Range in days for the combined health & load chart"),
+    refresh: bool = Query(False, description="Force fresh fetch from external APIs")
+):
+    """Returns daily zone-colored TSS bars, HRV with Garmin personal normal range, RHR, sleep hours, and traffic light evaluation."""
+    try:
+        return dm.get_health_load_history(range_days=days, force_refresh=refresh)
+    except Exception as e:
+        logger.error(f"Error getting health-load history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/volume/history")
 def get_volume_history(weeks: int = Query(10, description="Number of weeks to look back")):
     """Returns weekly planned vs completed volume (in hours) for the last N weeks."""

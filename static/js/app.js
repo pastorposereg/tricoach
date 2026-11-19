@@ -10,6 +10,8 @@ const state = {
   weekData: null,
   pmcDays: 90,
   pmcData: null,
+  healthDays: 90,
+  healthLoadData: null,
   volumeHistoryData: null,
   selectedSeason: 'Temporada 2027 (Actual)',
   testsData: null,
@@ -82,6 +84,20 @@ function setupEventListeners() {
     });
   });
 
+  // Combined Health & Load Range Pills (30d, 60d, 90d, 180d, 1 año)
+  document.querySelectorAll('[data-health-days]').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const days = parseInt(pill.getAttribute('data-health-days'), 10);
+      document.querySelectorAll('[data-health-days]').forEach(p => {
+        p.classList.remove('bg-[#0284c7]', 'text-white', 'shadow-xs');
+        p.classList.add('text-slate-600', 'hover:text-slate-900');
+      });
+      pill.classList.remove('text-slate-600', 'hover:text-slate-900');
+      pill.classList.add('bg-[#0284c7]', 'text-white', 'shadow-xs');
+      loadHealthLoadHistory(days);
+    });
+  });
+
   // Chatbot
   document.getElementById('form-chat')?.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -140,6 +156,10 @@ function switchTab(tabId) {
     // Load PMC if not loaded yet
     if (!state.pmcData) {
       loadPMC(state.pmcDays);
+    }
+    // Load Combined Health & Load Chart + Semaphore
+    if (!state.healthLoadData) {
+      loadHealthLoadHistory(state.healthDays);
     }
     // Load weekly volume history
     if (!state.volumeHistoryData) {
@@ -679,7 +699,7 @@ function renderDisciplineTotalRows(zoneSummary, totals) {
   rows += `
     <tr class="bg-slate-50 font-bold border-t-2 border-slate-300 text-slate-900">
       <td class="py-2.5 px-2 flex items-center gap-2 text-slate-900">
-        <span class="text-base">🏆</span>
+        <span class="text-amber-600 inline-flex items-center">${getTrophyIcon('sm')}</span>
         <span>TOTAL SEMANAL</span>
       </td>
       <td class="py-2.5 px-2 text-right text-slate-600 font-mono">${totPHours.toFixed(1)} h</td>
@@ -927,72 +947,229 @@ window.toggleLapsTable = toggleLapsTable;
 function renderProportionalLapsSection(act) {
   if (!act.splits || act.splits.length === 0) return '';
   const splits = act.splits;
-  const isCycling = act.sport_type === 'cycling';
-  const isRunning = act.sport_type === 'running';
-  const isSwim = act.sport_type === 'swimming';
+  const sportType = act.sport_type || 'running';
+  const isCycling = sportType === 'cycling';
+  const isRunning = sportType === 'running';
+  const isSwim = sportType === 'swimming';
 
+  const ftp = state.athleteStatus?.thresholds?.ftp || 348;
   const totalDuration = splits.reduce((acc, s) => acc + (s.duration_seconds || 0), 0) || act.duration_seconds || 1;
+  const totalDist = act.distance_meters || splits.reduce((acc, s) => acc + (s.distance_meters || 0), 0) || 0;
 
   let primaryLabel = isCycling ? 'Potencia (W)' : (isRunning ? 'Ritmo (min/km)' : (isSwim ? 'Ritmo (min/100m)' : 'Velocidad'));
   let primaryColorClass = isCycling ? 'text-[#d97706]' : (isRunning ? 'text-[#059669]' : (isSwim ? 'text-[#00a8cc]' : 'text-[#0284c7]'));
   let badgeColorClass = isCycling ? 'border-amber-200 bg-amber-50 text-amber-700 font-semibold' : (isRunning ? 'border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold' : 'border-sky-200 bg-sky-50 text-[#00a8cc] font-semibold');
 
-  // Build the proportional ribbon blocks
-  const ribbonBlocksHtml = splits.map((s, idx) => {
-    const durSec = s.duration_seconds || 0;
-    const durPct = Math.max(1, ((durSec / totalDuration) * 100)).toFixed(1);
+  // Build blocks in the exact same structure as Planned Workouts so the SVG chart & floating card work identically
+  const hMap = { 1: 38, 2: 60, 3: 78, 4: 92, 5: 110, 6: 128, 7: 140 };
+  const lapBlocks = splits.map((s, idx) => {
+    const durSec = Math.max(1, s.duration_seconds || 0);
+    const distM = s.distance_meters || 0;
     const lapNum = s.lap_index || (idx + 1);
-    const durFormatted = formatLapDuration(durSec);
-    const distFormatted = formatLapDistance(s.distance_meters, act.sport_type);
-    const hrVal = s.avg_heart_rate ? `${Math.round(s.avg_heart_rate)} bpm` : '--';
-    const zInfo = window.getLapZoneInfo ? window.getLapZoneInfo(act.sport_type, s, state.athleteStatus?.thresholds?.ftp || 348) : null;
+    const isRestLap = isSwim && distM <= 0;
+
+    const zInfo = isRestLap
+      ? { zone: 'rest', name: INTERVALS_ZONE_NAMES.rest, color: INTERVALS_COLORS.rest }
+      : (window.getLapZoneInfo ? window.getLapZoneInfo(sportType, s, ftp) : { zone: 2, name: INTERVALS_ZONE_NAMES[2], color: INTERVALS_COLORS[2] });
+
+    const zNum = zInfo.zone;
+    const color = zInfo.color || INTERVALS_COLORS[zNum] || INTERVALS_COLORS[2];
 
     let primaryVal = '--';
-    if (isCycling) {
-      primaryVal = s.avg_power ? `${Math.round(s.avg_power)} W` : '-- W';
+    let shortLabel = '';
+    let barHeight = hMap[zNum] || 60;
+
+    if (isRestLap) {
+      primaryVal = `Descanso (${formatLapDuration(durSec)})`;
+      shortLabel = `${Math.round(durSec)}s`;
+      barHeight = 14;
+    } else if (isCycling) {
+      const pwr = s.avg_power ? Math.round(s.avg_power) : (s.normalised_power ? Math.round(s.normalised_power) : 0);
+      const pct = Math.round((pwr / ftp) * 100);
+      primaryVal = pwr > 0 ? `${pwr} W (${pct}% FTP)` : '-- W';
+      shortLabel = pwr > 0 ? `${pwr}W` : `L${lapNum}`;
+      barHeight = pwr > 0 ? Math.min(142, Math.max(22, Math.round((pct / 100) * 92))) : (hMap[zNum] || 60);
     } else if (isRunning) {
-      primaryVal = s.avg_speed_mps ? `${formatPace(s.avg_speed_mps)}/km` : '--:--';
+      const paceFormatted = s.avg_speed_mps ? formatPace(s.avg_speed_mps) : '--:--';
+      primaryVal = s.avg_speed_mps ? `${paceFormatted} min/km` : '--:--';
+      shortLabel = s.avg_speed_mps ? `${paceFormatted}` : `L${lapNum}`;
+      barHeight = hMap[zNum] || 60;
     } else if (isSwim) {
-      primaryVal = s.avg_speed_mps ? `${formatSwimPace(s.avg_speed_mps)}/100m` : '--:--';
+      const paceFormatted = s.avg_speed_mps ? formatSwimPace(s.avg_speed_mps) : '--:--';
+      primaryVal = s.avg_speed_mps ? `${paceFormatted} min/100m` : '--:--';
+      shortLabel = s.avg_speed_mps ? `${paceFormatted}` : `${Math.round(distM)}m`;
+      barHeight = hMap[zNum] || 60;
     } else {
       primaryVal = s.avg_speed_mps ? `${(s.avg_speed_mps * 3.6).toFixed(1)} km/h` : '--';
+      shortLabel = `L${lapNum}`;
     }
 
-    const cardTopStyle = zInfo ? `border-top: 3.5px solid ${zInfo.color};` : '';
+    const avgHr = s.avg_heart_rate ? Math.round(s.avg_heart_rate) : null;
+    const maxHr = s.max_heart_rate ? Math.round(s.max_heart_rate) : null;
 
+    const blockObj = {
+      duration: durSec,
+      distance: Math.round(distM),
+      zone: zNum,
+      color: color,
+      zoneName: zInfo.name,
+      label: `Lap #${lapNum} • ${formatLapDistance(distM, sportType)}`,
+      shortLabel: shortLabel,
+      isRamp: false,
+      heightStart: barHeight,
+      heightEnd: barHeight,
+      isRest: isRestLap,
+      isMax: zNum === 7,
+      repInfo: null,
+      avgHr: avgHr,
+      maxHr: maxHr,
+      recordedPrimary: primaryVal
+    };
+
+    // Enrich with zone target ranges, then prepend the recorded value so the floating card shows both!
+    enrichBlockTargetDetails(blockObj, sportType);
+    const zoneTargetRange = blockObj.targetRange;
+    blockObj.targetMetricType = isCycling ? 'Potencia Media Lap' : (isRunning ? 'Ritmo Medio Lap' : 'Ritmo Medio Lap');
+    blockObj.targetRange = primaryVal;
+    blockObj.targetSubtext = zoneTargetRange ? `Rango de la zona (${zInfo.name.split(' ')[0]}): ${zoneTargetRange}` : blockObj.targetSubtext;
+
+    if (!isSwim) {
+      blockObj.secondaryLabel = 'Pulso Registrado';
+      blockObj.secondaryTarget = avgHr ? `${avgHr} ppm media${maxHr ? ` (máx ${maxHr} ppm)` : ''}` : 'Sin datos de FC';
+      blockObj.secondaryIcon = '❤️';
+    } else if (s.splits_100m && s.splits_100m.length > 1) {
+      blockObj.secondaryLabel = 'Parciales 100m';
+      blockObj.secondaryTarget = s.splits_100m.map(sp => sp.duration_formatted || sp.time_formatted).join(' • ');
+      blockObj.secondaryIcon = '⏱️';
+    }
+
+    return blockObj;
+  });
+
+  // Save globally so hovering/clicking any lap opens the interactive floating card
+  window._currentWorkoutBlocks = lapBlocks;
+
+  // Build SVG Stepped Chart (identical coordinate system to renderPlannedWorkoutChart)
+  const svgWidth = 1000;
+  const svgHeight = 165;
+  const baselineY = 140;
+  const threshY = baselineY - 92;
+  const plotWidth = (!isSwim) ? 950 : 1000; // Reserve 50px on the right for HR Y-axis in cycling/running
+
+  let currentX = 0;
+  const stepElements = [];
+  const hrPoints = [];
+
+  // Determine HR scale for right Y-axis (Cycling & Running)
+  const validHrs = lapBlocks.map(b => b.avgHr).filter(h => h !== null && h > 0);
+  const minHrVal = validHrs.length ? Math.max(80, Math.min(...validHrs) - 12) : 100;
+  const maxHrVal = validHrs.length ? Math.min(205, Math.max(...validHrs) + 10) : 180;
+  const hrSpan = Math.max(20, maxHrVal - minHrVal);
+
+  function hrToY(hr) {
+    const ratio = (hr - minHrVal) / hrSpan;
+    const clamped = Math.max(0, Math.min(1, ratio));
+    return baselineY - 12 - (clamped * 114);
+  }
+
+  lapBlocks.forEach((b, idx) => {
+    const blockW = (b.duration / totalDuration) * plotWidth;
+    const x = currentX;
+    currentX += blockW;
+
+    const y = baselineY - b.heightStart;
+    const h = b.heightStart;
+
+    stepElements.push(`
+      <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1.2, blockW).toFixed(1)}" height="${h.toFixed(1)}"
+        fill="${b.color}" fill-opacity="0.9" stroke="#0f172a" stroke-width="1" rx="1.5"
+        class="transition-opacity hover:opacity-100 cursor-pointer"
+        onmouseenter="window.showWorkoutStepTip(event, ${idx})"
+        onmousemove="window.moveWorkoutStepTip(event)"
+        onmouseleave="window.hideWorkoutStepTip()"
+        onclick="window.showWorkoutStepTip(event, ${idx})" />
+    `);
+
+    if (blockW > 38 && b.shortLabel) {
+      const midX = x + blockW / 2;
+      const textY = Math.min(baselineY - 6, y + 14);
+      stepElements.push(`
+        <text x="${midX.toFixed(1)}" y="${textY.toFixed(1)}" text-anchor="middle" fill="#ffffff" font-size="9.5" font-weight="bold" font-family="monospace" pointer-events="none" opacity="0.95">${b.shortLabel}</text>
+      `);
+    }
+
+    if (!isSwim && b.avgHr && b.avgHr > 0) {
+      const midX = x + blockW / 2;
+      const hrY = hrToY(b.avgHr);
+      hrPoints.push({ x: midX, xStart: x, xEnd: x + blockW, y: hrY, hr: b.avgHr, idx });
+    }
+  });
+
+  // Build HR Line & Right Y-Axis for Cycling and Running
+  let hrOverlaySvg = '';
+  if (!isSwim && hrPoints.length > 0) {
+    const polyPts = hrPoints.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const midHrTick = Math.round((minHrVal + maxHrVal) / 2);
+    const yTopHr = hrToY(maxHrVal);
+    const yMidHr = hrToY(midHrTick);
+    const yBotHr = hrToY(minHrVal);
+
+    const circlesSvg = hrPoints.map(p => `
+      <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="#ef4444" stroke="#ffffff" stroke-width="1.5"
+        class="cursor-pointer"
+        onmouseenter="window.showWorkoutStepTip(event, ${p.idx})"
+        onmousemove="window.moveWorkoutStepTip(event)"
+        onmouseleave="window.hideWorkoutStepTip()"
+        onclick="window.showWorkoutStepTip(event, ${p.idx})" />
+    `).join('');
+
+    hrOverlaySvg = `
+      <!-- Right Y-Axis for Heart Rate -->
+      <line x1="${plotWidth}" y1="10" x2="${plotWidth}" y2="${baselineY}" stroke="#fca5a5" stroke-width="1" />
+      <text x="${svgWidth - 4}" y="${yTopHr + 3}" text-anchor="end" fill="#dc2626" font-size="9" font-family="monospace" font-weight="bold">${Math.round(maxHrVal)} ppm</text>
+      <text x="${svgWidth - 4}" y="${yMidHr + 3}" text-anchor="end" fill="#ef4444" font-size="8.5" font-family="monospace">${midHrTick} ppm</text>
+      <text x="${svgWidth - 4}" y="${yBotHr + 3}" text-anchor="end" fill="#f87171" font-size="8.5" font-family="monospace">${Math.round(minHrVal)} ppm</text>
+
+      <!-- Heart Rate Line across Laps -->
+      <polyline fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${polyPts}" opacity="0.75" pointer-events="none" />
+      <polyline fill="none" stroke="#ef4444" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" points="${polyPts}" pointer-events="none" />
+      ${circlesSvg}
+    `;
+  }
+
+  // Zone Distribution Ribbon & Legend Pills across active laps
+  const zAgg = {};
+  let activeTotal = 0;
+  lapBlocks.forEach(b => {
+    if (b.isRest) return;
+    const key = `Z${b.zone || 2}`;
+    if (!zAgg[key]) {
+      zAgg[key] = { zone: b.zone || 2, name: b.zoneName || key, color: b.color, secs: 0 };
+    }
+    zAgg[key].secs += b.duration;
+    activeTotal += b.duration;
+  });
+
+  const sortedZones = Object.values(zAgg).sort((a, b) => (a.zone || 0) - (b.zone || 0));
+  const ribbonSegments = sortedZones.map(item => {
+    const pct = Math.round((item.secs / (activeTotal || 1)) * 100);
+    const mins = Math.round(item.secs / 60);
+    return `<div style="width: ${(item.secs / (activeTotal || 1) * 100).toFixed(1)}%; background-color: ${item.color};" class="h-3 relative group transition-transform hover:scale-y-125" title="${item.name}: ${mins}m (${pct}%)"></div>`;
+  });
+
+  const legendPills = sortedZones.map(item => {
+    const pct = Math.round((item.secs / (activeTotal || 1)) * 100);
+    const mins = Math.round(item.secs / 60);
     return `
-      <div class="group relative flex flex-col justify-between p-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer shrink-0 shadow-2xs"
-           style="flex: ${Math.max(15, durSec)} 1 0; min-width: 96px; ${cardTopStyle}"
-           title="Lap ${lapNum}: ${durFormatted} • ${distFormatted} • ${primaryVal}${!isSwim ? ` • ${hrVal}` : ''}${zInfo ? ` • ${zInfo.name}` : ''}">
-        <div class="flex items-center justify-between gap-1 mb-1 pb-1 border-b border-slate-100">
-          <div class="flex items-center gap-1">
-            <span class="text-[10px] font-mono font-bold text-slate-800">L${lapNum}</span>
-            ${zInfo ? `<span class="px-1 py-0.5 rounded text-[8.5px] font-mono font-bold" style="background-color: ${zInfo.color}20; color: ${zInfo.color};">${zInfo.name.split(' ')[0]}</span>` : ''}
-          </div>
-          <span class="text-[10px] font-mono text-slate-500">${durFormatted}</span>
-        </div>
-        <div class="space-y-1 my-1">
-          <div class="flex items-baseline justify-between gap-1">
-            <span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">${isCycling ? 'Pot' : 'Ritmo'}</span>
-            <span class="text-xs font-mono font-bold ${primaryColorClass}">${primaryVal}</span>
-          </div>
-          ${!isSwim ? `
-          <div class="flex items-baseline justify-between gap-1">
-            <span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">FC</span>
-            <span class="text-[11px] font-mono font-semibold text-rose-600 flex items-center gap-0.5">
-              <span class="text-[9px] text-rose-500">❤️</span>${hrVal}
-            </span>
-          </div>` : ''}
-        </div>
-        <div class="mt-1 pt-1 border-t border-slate-100 flex justify-between text-[9px] font-mono text-slate-500">
-          <span>${distFormatted}</span>
-          <span>${durPct}%</span>
-        </div>
+      <div class="flex items-center gap-1.5 px-2 py-1 rounded bg-white border border-slate-200 text-[11px] font-mono shadow-2xs">
+        <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background-color: ${item.color};"></span>
+        <span class="font-bold text-slate-800">${item.name}</span>
+        <span class="text-slate-500">${mins}m <span class="text-slate-400">(${pct}%)</span></span>
       </div>
     `;
-  }).join('');
+  });
 
-  // Table rows for full breakdown
+  // Table rows for collapsible full breakdown
   const tableRowsHtml = splits.map((s, idx) => {
     const lapNum = s.lap_index || (idx + 1);
     const durSec = s.duration_seconds || 0;
@@ -1000,7 +1177,7 @@ function renderProportionalLapsSection(act) {
     const durFormatted = formatLapDuration(durSec);
     const distFormatted = formatLapDistance(s.distance_meters, act.sport_type);
     const hrVal = s.avg_heart_rate ? `${Math.round(s.avg_heart_rate)} bpm` : '--';
-    const maxHrVal = s.max_heart_rate ? `${Math.round(s.max_heart_rate)} bpm` : '--';
+    const maxHrLapVal = s.max_heart_rate ? `${Math.round(s.max_heart_rate)} bpm` : '--';
 
     let primaryVal = '--';
     if (isCycling) {
@@ -1030,24 +1207,31 @@ function renderProportionalLapsSection(act) {
         <td class="py-2 px-2.5 text-slate-600">${distFormatted}${swimSplitsSub}</td>
         <td class="py-2 px-2.5 font-bold ${primaryColorClass}">${primaryVal}</td>
         <td class="py-2 px-2.5 text-rose-600 font-semibold">${hrVal}</td>
-        <td class="py-2 px-2.5 text-rose-700">${maxHrVal}</td>
+        <td class="py-2 px-2.5 text-rose-700">${maxHrLapVal}</td>
       </tr>
     `;
   }).join('');
 
   return `
     <div class="mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200 shadow-xs">
+      <!-- Chart Header & Metrics -->
       <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 flex-wrap gap-2">
         <div class="flex items-center gap-2">
-          <div class="w-7 h-7 rounded-lg ${badgeColorClass} flex items-center justify-center font-bold text-sm">
-            ⏱️
-          </div>
+          ${getSportBadge(act.sport_type, 'md')}
           <div>
-            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Laps Grabados en Dispositivo (${splits.length} laps)</h3>
-            <p class="text-[10px] text-slate-500">Ancho proporcional a la duración real • Métricas: ${isCycling ? 'Vatios (W) y Frecuencia Cardíaca (FC)' : (isRunning ? 'Ritmo (min/km) y FC' : 'Ritmo (min/100m) y FC')}</p>
+            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+              Estructura de Laps Realizados (${splits.length} laps)
+              <span class="text-[10px] px-2 py-0.5 rounded font-mono font-normal bg-sky-50 text-[#0284c7] border border-sky-200">Zonas &amp; Tiempo</span>
+            </h3>
+            <p class="text-[10px] text-slate-500">Eje X proporcional al tiempo • ${isCycling ? 'Zonas por Potencia (W) + Línea de Pulso (eje Y der.)' : (isRunning ? 'Zonas por Ritmo (min/km) + Línea de Pulso (eje Y der.)' : 'Zonas por Ritmo (min/100m)')} • Pasa el cursor o pulsa en un lap para ver detalles.</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
+          ${!isSwim ? `
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 font-semibold flex items-center gap-1">
+              <span class="w-2.5 h-0.5 bg-rose-600 inline-block"></span> Pulso (FC)
+            </span>
+          ` : ''}
           <span class="text-[10px] font-mono px-2 py-0.5 rounded border ${badgeColorClass}">
             Total: ${formatLapDuration(totalDuration)}
           </span>
@@ -1057,22 +1241,47 @@ function renderProportionalLapsSection(act) {
         </div>
       </div>
 
-      <!-- Proportional Ribbon Timeline Container (Horizontally Scrollable) -->
-      <div class="mb-4">
-        <div class="flex items-center justify-between text-[10px] font-mono text-slate-500 mb-1 px-1">
-          <span>00:00 (Inicio)</span>
-          <span class="text-slate-400">Bloques con ancho proporcional al tiempo de cada lap</span>
-          <span>${formatLapDuration(totalDuration)} (Fin)</span>
-        </div>
-        <div class="flex items-stretch gap-1.5 overflow-x-auto pb-2 p-1.5 rounded-xl bg-slate-100 border border-slate-200 scrollbar-thin">
-          ${ribbonBlocksHtml}
-        </div>
+      <!-- SVG Stepped Chart (Same Design as Planned Workouts + Right Y-Axis HR Line) -->
+      <div class="relative bg-white p-3 rounded-lg border border-slate-200 overflow-hidden shadow-2xs">
+        <svg viewBox="0 0 ${svgWidth} ${svgHeight}" class="w-full h-44 sm:h-52 overflow-visible select-none" preserveAspectRatio="none">
+          <!-- Reference Grid lines -->
+          <line x1="0" y1="${threshY}" x2="${plotWidth}" y2="${threshY}" stroke="#d97706" stroke-dasharray="3,3" stroke-width="1.2" opacity="0.75" />
+          <text x="${plotWidth - 6}" y="${threshY - 4}" text-anchor="end" fill="#d97706" font-size="9" font-family="monospace" font-weight="bold" opacity="0.95">100% Umbral / ${isCycling ? 'FTP' : (isSwim ? 'CSS' : 'Ritmo')}</text>
+
+          <line x1="0" y1="${baselineY - 46}" x2="${plotWidth}" y2="${baselineY - 46}" stroke="#cbd5e1" stroke-dasharray="2,4" stroke-width="0.8" opacity="0.7" />
+          <text x="${plotWidth - 6}" y="${baselineY - 50}" text-anchor="end" fill="#64748b" font-size="8.5" font-family="monospace" opacity="0.8">50%</text>
+
+          <!-- Baseline ground -->
+          <line x1="0" y1="${baselineY}" x2="${plotWidth}" y2="${baselineY}" stroke="#94a3b8" stroke-width="1.2" />
+
+          <!-- Time-proportional Lap Step Blocks -->
+          ${stepElements.join('')}
+
+          <!-- Heart Rate Right Y-Axis & Line (Cycling & Running) -->
+          ${hrOverlaySvg}
+
+          <!-- Time axis labels (X-Axis) -->
+          <text x="4" y="${svgHeight - 4}" fill="#64748b" font-size="9.5" font-family="monospace">0:00</text>
+          <text x="${plotWidth * 0.25}" y="${svgHeight - 4}" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="monospace">${formatSecsToMinSec(Math.round(totalDuration * 0.25))}</text>
+          <text x="${plotWidth * 0.5}" y="${svgHeight - 4}" text-anchor="middle" fill="#64748b" font-size="9.5" font-family="monospace">${formatSecsToMinSec(Math.round(totalDuration * 0.5))}</text>
+          <text x="${plotWidth * 0.75}" y="${svgHeight - 4}" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="monospace">${formatSecsToMinSec(Math.round(totalDuration * 0.75))}</text>
+          <text x="${plotWidth - 4}" y="${svgHeight - 4}" text-anchor="end" fill="#64748b" font-size="9.5" font-family="monospace">${formatSecsToMinSec(totalDuration)} ${totalDist > 0 ? `• ${(totalDist >= 1000 && !isSwim) ? (totalDist/1000).toFixed(2)+'km' : Math.round(totalDist)+'m'}` : ''}</text>
+        </svg>
       </div>
 
-      <!-- Dual-Axis Telemetry Chart -->
-      <div>
-        <div class="h-48 w-full bg-white rounded-xl p-2 border border-slate-200 shadow-2xs">
-          <canvas id="splitsChart"></canvas>
+      <!-- Zone Distribution Ribbon -->
+      <div class="mt-3.5 pt-3 border-t border-slate-200">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Distribución de Tiempo en Zonas Realizadas</span>
+          <span class="text-[10px] font-mono text-slate-500">${formatSecsToMinSec(totalDuration)} total</span>
+        </div>
+
+        <div class="w-full flex rounded-full overflow-hidden bg-slate-100 border border-slate-200 mb-2.5">
+          ${ribbonSegments.join('')}
+        </div>
+
+        <div class="flex flex-wrap gap-1.5">
+          ${legendPills.join('')}
         </div>
       </div>
 
@@ -1167,9 +1376,7 @@ function renderSwimTestComparisonSection(act) {
     <div class="mb-6 p-4 rounded-xl bg-slate-50 border border-sky-200 shadow-xs">
       <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 flex-wrap gap-2">
         <div class="flex items-center gap-2">
-          <div class="w-7 h-7 rounded-lg bg-sky-100 text-[#00a8cc] flex items-center justify-center font-bold text-sm">
-            🏊‍♂️
-          </div>
+          ${getSportBadge('swimming', 'md')}
           <div>
             <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Comparativa de Tests (100m Superpuestos): 16 Nov vs 19 Oct</h3>
             <p class="text-[11px] text-slate-500">Comparativa con el lunes de hace 4 semanas • Test 400m y Test 200m</p>
@@ -2820,6 +3027,149 @@ async function loadWeeklyVolume(forceRefresh = false) {
   }
 }
 
+async function loadHealthLoadHistory(days = 90, forceRefresh = false) {
+  state.healthDays = days;
+  try {
+    const url = `/api/health-load/history?days=${days}` + (forceRefresh ? '&refresh=true' : '');
+    const res = await fetch(url);
+    const data = await res.json();
+    state.healthLoadData = data;
+
+    if (window.renderHealthLoadChart && data.series) {
+      window.renderHealthLoadChart('healthLoadChart', data.series);
+    }
+    if (data.semaphore) {
+      renderHealthSemaphore(data.semaphore);
+    }
+  } catch (err) {
+    console.error('Error loading health & load history:', err);
+  }
+}
+
+function renderHealthSemaphore(sem) {
+  const container = document.getElementById('health-semaphore-container');
+  if (!container || !sem) return;
+
+  const isGreen = sem.color === 'green';
+  const isYellow = sem.color === 'yellow';
+  const isRed = sem.color === 'red';
+  const m = sem.metrics || {};
+  const t = sem.triggers || {};
+
+  const bannerStyle = isRed
+    ? 'bg-rose-50 border-rose-300 text-rose-900'
+    : (isYellow
+        ? 'bg-amber-50 border-amber-300 text-amber-900'
+        : 'bg-emerald-50 border-emerald-300 text-emerald-900');
+
+  const deltaSign = (m.rhr_delta || 0) > 0 ? '+' : '';
+
+  container.innerHTML = `
+    <!-- Active Traffic Light Banner -->
+    <div class="p-4 rounded-xl border ${bannerStyle} shadow-2xs mb-4">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <!-- Traffic Light Housing (Semáforo Visual) -->
+          <div class="flex items-center gap-2 px-3 py-2 rounded-full bg-slate-900 border border-slate-700 shadow-inner shrink-0">
+            <span class="w-4 h-4 rounded-full transition-all ${isRed ? 'bg-rose-500 shadow-[0_0_12px_#f43f5e] scale-110 ring-2 ring-rose-300' : 'bg-rose-950/60 opacity-35'}" title="Rojo: Riesgo sobreentrenamiento"></span>
+            <span class="w-4 h-4 rounded-full transition-all ${isYellow ? 'bg-amber-400 shadow-[0_0_12px_#fbbf24] scale-110 ring-2 ring-amber-200' : 'bg-amber-950/60 opacity-35'}" title="Amarillo: Fatiga aguda"></span>
+            <span class="w-4 h-4 rounded-full transition-all ${isGreen ? 'bg-emerald-400 shadow-[0_0_12px_#34d399] scale-110 ring-2 ring-emerald-200' : 'bg-emerald-950/60 opacity-35'}" title="Verde: Estado óptimo"></span>
+          </div>
+
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-white/80 border border-current/20 font-bold">
+                Semáforo de Estado Actual
+              </span>
+              <h4 class="text-sm sm:text-base font-bold">${sem.label}</h4>
+            </div>
+            <p class="text-xs mt-1 font-medium opacity-90">${sem.recommendation}</p>
+          </div>
+        </div>
+
+        <!-- Live Biomarker Snapshot Pills -->
+        <div class="flex flex-wrap items-center gap-2 text-[11px] font-mono">
+          <div class="px-2.5 py-1 rounded-lg bg-white/90 border border-slate-200 text-slate-800 shadow-2xs">
+            <span class="text-slate-500">TSS 48h:</span> <strong>${m.tss_48h ?? '--'}</strong>
+          </div>
+          <div class="px-2.5 py-1 rounded-lg bg-white/90 border border-slate-200 text-slate-800 shadow-2xs">
+            <span class="text-slate-500">VFC:</span> <strong class="text-[#0284c7]">${m.hrv_current ?? '--'} ms</strong> <span class="text-[10px] text-emerald-700">(${m.hrv_baseline_low}-${m.hrv_baseline_high})</span>
+          </div>
+          <div class="px-2.5 py-1 rounded-lg bg-white/90 border border-slate-200 text-slate-800 shadow-2xs">
+            <span class="text-slate-500">FCR:</span> <strong class="text-rose-600">${m.rhr_current ?? '--'} ppm</strong> <span class="text-[10px] text-slate-500">(${deltaSign}${m.rhr_delta ?? 0} vs base ${m.rhr_baseline})</span>
+          </div>
+          <div class="px-2.5 py-1 rounded-lg bg-white/90 border border-slate-200 text-slate-800 shadow-2xs">
+            <span class="text-slate-500">Sueño:</span> <strong class="text-indigo-600">${m.latest_sleep_hours ? m.latest_sleep_hours.toFixed(1) + 'h' : '--'}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reference Criteria Grid: Amarillo vs Rojo -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+      <!-- AMARILLO CRITERIA CARD -->
+      <div class="p-4 rounded-xl border ${isYellow ? 'bg-amber-50/90 border-amber-400 ring-1 ring-amber-400/50' : 'bg-amber-50/30 border-amber-200/80'}">
+        <div class="flex items-center justify-between pb-2 mb-2.5 border-b border-amber-200/80">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-amber-400 shadow-xs"></span>
+            <h5 class="font-bold text-amber-950 uppercase tracking-wide text-xs">Amarillo • Fatiga Aguda</h5>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded ${isYellow ? 'bg-amber-200 text-amber-950 font-bold' : 'bg-white text-amber-800 border border-amber-200'}">
+            ${isYellow ? '● Estado Activo' : 'Criterios de Control'}
+          </span>
+        </div>
+        <ul class="space-y-1.5 text-slate-700 mb-3">
+          <li class="flex items-start gap-2">
+            <span class="${t.yellow_tss_48h ? 'text-amber-600 font-bold' : 'text-slate-400'}">${t.yellow_tss_48h ? '⚠' : '•'}</span>
+            <span class="${t.yellow_tss_48h ? 'font-semibold text-amber-950' : ''}">TSS alto últimas 48h <span class="text-[10px] font-mono text-slate-500">(Actual: ${m.tss_48h ?? 0} TSS)</span></span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="${t.yellow_hrv ? 'text-amber-600 font-bold' : 'text-slate-400'}">${t.yellow_hrv ? '⚠' : '•'}</span>
+            <span class="${t.yellow_hrv ? 'font-semibold text-amber-950' : ''}">VFC cae por debajo del rango normal durante 2 días seguidos o sube de forma anormalmente alta <span class="text-[10px] font-mono text-slate-500">(${m.hrv_current ?? '--'} ms vs ${m.hrv_baseline_low}-${m.hrv_baseline_high} ms)</span></span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="${t.yellow_rhr ? 'text-amber-600 font-bold' : 'text-slate-400'}">${t.yellow_rhr ? '⚠' : '•'}</span>
+            <span class="${t.yellow_rhr ? 'font-semibold text-amber-950' : ''}">FCR sube +2 o +4 sobre la base <span class="text-[10px] font-mono text-slate-500">(${deltaSign}${m.rhr_delta ?? 0} ppm sobre ${m.rhr_baseline} ppm)</span></span>
+          </li>
+        </ul>
+        <div class="p-2.5 rounded-lg bg-amber-100/70 border border-amber-200 text-amber-950 font-semibold text-[11px]">
+          Pauta: Fatiga aguda, modular carga y sustituir intensidad por rodajes.
+        </div>
+      </div>
+
+      <!-- ROJO CRITERIA CARD -->
+      <div class="p-4 rounded-xl border ${isRed ? 'bg-rose-50/90 border-rose-400 ring-1 ring-rose-400/50' : 'bg-rose-50/30 border-rose-200/80'}">
+        <div class="flex items-center justify-between pb-2 mb-2.5 border-b border-rose-200/80">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-rose-500 shadow-xs"></span>
+            <h5 class="font-bold text-rose-950 uppercase tracking-wide text-xs">Rojo • Riesgo Sobreentrenamiento / Enfermedad</h5>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded ${isRed ? 'bg-rose-200 text-rose-950 font-bold' : 'bg-white text-rose-800 border border-rose-200'}">
+            ${isRed ? '● Estado Activo' : 'Criterios de Alerta'}
+          </span>
+        </div>
+        <ul class="space-y-1.5 text-slate-700 mb-3">
+          <li class="flex items-start gap-2">
+            <span class="${t.red_tss_accum ? 'text-rose-600 font-bold' : 'text-slate-400'}">${t.red_tss_accum ? '🚨' : '•'}</span>
+            <span class="${t.red_tss_accum ? 'font-semibold text-rose-950' : ''}">TSS alto acumulado <span class="text-[10px] font-mono text-slate-500">(7d: ${m.tss_7d ?? 0} TSS • TSB: ${m.tsb ?? 0})</span></span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="${t.red_hrv ? 'text-rose-600 font-bold' : 'text-slate-400'}">${t.red_hrv ? '🚨' : '•'}</span>
+            <span class="${t.red_hrv ? 'font-semibold text-rose-950' : ''}">VFC caída brusca y sostenida durante más de 3 días por debajo del rango habitual <span class="text-[10px] font-mono text-slate-500">(${m.consecutive_low_hrv_days ?? 0} días seguidos bajo rango)</span></span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="${t.red_rhr ? 'text-rose-600 font-bold' : 'text-slate-400'}">${t.red_rhr ? '🚨' : '•'}</span>
+            <span class="${t.red_rhr ? 'font-semibold text-rose-950' : ''}">FCR sube de forma persistente +5 sobre la base <span class="text-[10px] font-mono text-slate-500">(${deltaSign}${m.rhr_delta ?? 0} ppm vs base)</span></span>
+          </li>
+        </ul>
+        <div class="p-2.5 rounded-lg bg-rose-100/70 border border-rose-200 text-rose-950 font-semibold text-[11px]">
+          Pauta: Riesgo de sobreentrenamiento o incubación de enfermedad. Descanso o movilidad 24-48h.
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 // Page 3: Pruebas (Tests & Competiciones)
 async function loadTestsPage(forceRefresh = false) {
   try {
@@ -2934,7 +3284,7 @@ function renderTestsSection(seasonKey) {
     <div class="space-y-3">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <span class="w-7 h-7 rounded-lg bg-sky-100 text-[#0284c7] flex items-center justify-center text-sm font-bold">🏊‍♂️</span>
+          ${getSportBadge('swimming', 'md')}
           <h4 class="text-xs sm:text-sm font-bold text-slate-900">Natación • Tests de Control 400m y 200m</h4>
         </div>
         <span class="text-[11px] font-mono text-slate-500">CSS Referencia: 1:29.0/100m</span>
@@ -2978,7 +3328,7 @@ function renderTestsSection(seasonKey) {
     <div class="space-y-3 ${swimSectionHtml ? 'pt-2' : ''}">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <span class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-sm font-bold">🚴</span>
+          ${getSportBadge('cycling', 'md')}
           <h4 class="text-xs sm:text-sm font-bold text-slate-900">${isCurrent ? "Ciclismo • Test de Potencia Aeróbica Máxima (PAM 5')" : "Ciclismo • 3 Mejores Valores (5', 10' y 20')"}</h4>
         </div>
         <span class="text-[11px] font-mono text-slate-500">${isCurrent ? 'FTP: 348 W' : 'Datos de la actividad (Intervals.icu)'}</span>
@@ -3020,7 +3370,7 @@ function renderTestsSection(seasonKey) {
     <div class="space-y-3 pt-2">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold">🏃</span>
+          ${getSportBadge('running', 'md')}
           <h4 class="text-xs sm:text-sm font-bold text-slate-900">${isCurrent ? 'Carrera a Pie • Test 5k' : 'Carrera a Pie • 3 Mejores Ritmos (5k, 10k y 21k)'}</h4>
         </div>
         <span class="text-[11px] font-mono text-slate-500">${isCurrent ? 'Ritmo Umbral: 3:40 min/km' : 'Datos de la actividad (Intervals.icu)'}</span>
@@ -3143,8 +3493,9 @@ function renderCompetitionsSection(seasonKey) {
                 <!-- Clasificación -->
                 <td class="px-3 py-2.5 bg-yellow-50/40">
                   ${c.posicion && c.posicion !== '-' ? `
-                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-900 border border-amber-200 shadow-2xs">
-                      <span>🏆</span> ${c.posicion}
+                    <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-800">
+                      <span class="text-amber-600 inline-flex items-center">${getTrophyIcon('xs')}</span>
+                      <span>${c.posicion}</span>
                     </span>
                   ` : `<span class="font-mono text-slate-400">-</span>`}
                 </td>
@@ -3493,6 +3844,7 @@ async function syncAllData() {
   await loadWeek(state.weekOffset, true);
   if (state.currentTab === 'form') {
     await loadPMC(state.pmcDays, true);
+    await loadHealthLoadHistory(state.healthDays, true);
     await loadWeeklyVolume(true);
   } else if (state.currentTab === 'tests') {
     await loadTestsPage(true);
@@ -3500,40 +3852,49 @@ async function syncAllData() {
   if (btn) btn.classList.remove('animate-spin');
 }
 
-// Helpers & Sport Presentation (TrainingPeaks Aesthetic)
+// Helpers & Sport Presentation (Minimalist Frameless Icons)
+function getTrophyIcon(size = 'sm') {
+  const dim = size === 'lg' ? 'w-6 h-6' : (size === 'md' ? 'w-5 h-5' : (size === 'xs' ? 'w-3.5 h-3.5' : 'w-4 h-4'));
+  return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>`;
+}
+window.getTrophyIcon = getTrophyIcon;
+
 function getSportIcon(type, size = 'sm') {
   const t = (type || '').toLowerCase();
   const dim = size === 'lg' ? 'w-6 h-6' : (size === 'md' ? 'w-5 h-5' : 'w-4 h-4');
 
   if (t === 'swimming') {
-    return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 17c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.2 0 1.9.5 2.5 1"></path><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.2 0 1.9.5 2.5 1"></path><circle cx="18" cy="7" r="2"></circle><path d="m9 10 3-2.5 3 2.5-2 3.5"></path></svg>`;
+    // Minimalist Swimmer (Nadador)
+    return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="16.5" cy="6.5" r="2"/><path d="M6 12.5 11 8.5l4 2.5-2 3.5"/><path d="M2 17c1.5 0 2.5-1.5 4-1.5s2.5 1.5 4 1.5 2.5-1.5 4-1.5 2.5 1.5 4 1.5 2.5-1.5 4-1.5"/><path d="M2 20.5c1.5 0 2.5-1.5 4-1.5s2.5 1.5 4 1.5 2.5-1.5 4-1.5 2.5 1.5 4 1.5 2.5-1.5 4-1.5"/></svg>`;
   }
   if (t === 'cycling') {
-    return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="3.5"></circle><circle cx="18.5" cy="17.5" r="3.5"></circle><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5L8.5 9.5l3.5-3.5 3 3.5h3.5"></path><path d="M12 17.5V14l-3-4"></path></svg>`;
+    // Minimalist Bicycle (Bicicleta)
+    return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M5.5 17.5 9.5 10h5.5l-3 7.5H5.5Z"/><path d="M12 17.5 9.5 10 8 7.5H6"/><path d="M18.5 17.5 15 10l1-2.5h2.5"/></svg>`;
   }
   if (t === 'running') {
-    return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 7-3 4-2-1.5 1-3.5L11 4"></path><path d="m14 11-4 4-4-1"></path><path d="m10 15 2 4.5 4-2"></path><circle cx="15" cy="4" r="1.5"></circle></svg>`;
+    // Minimalist Running Shoe (Zapatilla de correr)
+    return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17.5h18v1.5a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 19v-3.2c0-1.4.9-2.6 2.2-3L8 11.5l2.5-4.5 2.5 1 2 3.5c2.5.8 4.8 2 6 4v2Z"/><path d="m10.5 10.5 1.8 1.2"/><path d="m12.5 12.2 1.8 1.2"/><path d="M2.5 17.5h19"/></svg>`;
   }
   if (t === 'strength') {
-    return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6.5 6.5 11 11"></path><path d="m21 21-1-1a2 2 0 0 0-2.8 0l-.7.7a2 2 0 0 1-2.8 0L9.4 16.4a2 2 0 0 1 0-2.8l.7-.7a2 2 0 0 0 0-2.8L9 9"></path><path d="m3 3 1 1a2 2 0 0 0 2.8 0l.7-.7a2 2 0 0 1 2.8 0l4.3 4.3a2 2 0 0 1 0 2.8l-.7.7a2 2 0 0 0 0 2.8L15 15"></path></svg>`;
+    // Minimalist Dumbbell (Mancuerna)
+    return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m6.5 6.5 11 11"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/><path d="m2 6 4-4"/><path d="m18 22 4-4"/></svg>`;
   }
   if (t === 'other' || t === 'note') {
-    return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"></path></svg>`;
+    return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>`;
   }
-  return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"></path></svg>`;
+  return `<svg class="${dim} inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>`;
 }
 
 function getSportBadge(type, size = 'sm') {
   const t = (type || '').toLowerCase();
   const icon = getSportIcon(t, size);
-  let colorClass = 'bg-slate-100 text-slate-700 border-slate-200';
-  if (t === 'swimming') colorClass = 'bg-sky-50 text-[#00a8cc] border-sky-200';
-  else if (t === 'cycling') colorClass = 'bg-amber-50 text-[#d97706] border-amber-200';
-  else if (t === 'running') colorClass = 'bg-emerald-50 text-[#059669] border-emerald-200';
-  else if (t === 'strength') colorClass = 'bg-purple-50 text-[#7c3aed] border-purple-200';
+  let colorClass = 'text-slate-600';
+  if (t === 'swimming') colorClass = 'text-[#00a8cc]';
+  else if (t === 'cycling') colorClass = 'text-[#d97706]';
+  else if (t === 'running') colorClass = 'text-[#059669]';
+  else if (t === 'strength') colorClass = 'text-[#7c3aed]';
 
-  const pad = size === 'lg' ? 'p-2 rounded-xl' : (size === 'md' ? 'p-1.5 rounded-lg' : 'p-1 rounded-md');
-  return `<span class="inline-flex items-center justify-center ${pad} border ${colorClass} shadow-xs shrink-0">${icon}</span>`;
+  return `<span class="inline-flex items-center justify-center ${colorClass} shrink-0">${icon}</span>`;
 }
 
 function getSportBorderLeftClass(type) {

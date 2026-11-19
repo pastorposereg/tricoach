@@ -30,6 +30,9 @@ from .ai_coach import AICoachService
 
 logger = logging.getLogger(__name__)
 
+# Historical Garmin Connect personal normal HRV ranges: date -> [balancedLow, balancedUpper, lowUpper]
+GARMIN_HRV_BASELINES: Dict[str, List[int]] = {"2025-11-14": [95, 129, 88], "2025-11-15": [95, 129, 88], "2025-11-16": [96, 129, 89], "2025-11-17": [96, 129, 89], "2025-11-18": [96, 129, 90], "2025-11-19": [96, 128, 90], "2025-11-20": [96, 128, 89], "2025-11-21": [96, 128, 89], "2025-11-22": [96, 128, 89], "2025-11-23": [96, 127, 89], "2025-11-24": [95, 127, 89], "2025-11-25": [95, 127, 88], "2025-11-26": [95, 127, 88], "2025-11-27": [95, 127, 88], "2025-11-28": [95, 127, 88], "2025-11-29": [95, 127, 88], "2025-11-30": [95, 128, 88], "2025-12-01": [95, 128, 88], "2025-12-02": [95, 128, 89], "2025-12-03": [95, 128, 89], "2025-12-04": [95, 128, 89], "2025-12-05": [95, 128, 88], "2025-12-06": [95, 128, 88], "2025-12-07": [95, 128, 88], "2025-12-08": [95, 128, 88], "2025-12-09": [95, 128, 88], "2025-12-10": [95, 128, 88], "2025-12-11": [95, 127, 88], "2025-12-12": [95, 127, 88], "2025-12-13": [95, 128, 88], "2025-12-14": [95, 128, 88], "2025-12-15": [95, 128, 89], "2025-12-16": [96, 128, 89], "2025-12-17": [96, 128, 89], "2025-12-18": [96, 128, 89], "2025-12-19": [96, 128, 89], "2025-12-20": [96, 128, 89], "2025-12-21": [96, 127, 90], "2025-12-22": [97, 128, 90], "2025-12-23": [97, 128, 91], "2025-12-24": [96, 130, 89], "2025-12-25": [95, 129, 88], "2025-12-26": [95, 129, 88], "2025-12-27": [95, 129, 88], "2025-12-28": [96, 129, 89], "2025-12-29": [96, 129, 89], "2025-12-30": [97, 130, 90], "2025-12-31": [97, 130, 90], "2026-01-01": [96, 130, 89], "2026-01-02": [96, 130, 89], "2026-01-03": [95, 130, 88], "2026-01-04": [95, 130, 88], "2026-01-05": [95, 130, 88], "2026-01-06": [96, 131, 88], "2026-01-07": [96, 131, 88], "2026-01-08": [95, 131, 88], "2026-01-09": [95, 131, 88], "2026-01-10": [95, 131, 87], "2026-01-11": [95, 131, 88], "2026-01-12": [96, 131, 88], "2026-01-13": [95, 131, 87], "2026-01-14": [95, 131, 87], "2026-01-15": [95, 131, 87], "2026-01-16": [94, 131, 87], "2026-01-17": [94, 131, 87], "2026-01-18": [95, 130, 88], "2026-01-19": [95, 131, 88], "2026-01-20": [95, 131, 88], "2026-01-21": [95, 131, 88], "2026-01-22": [95, 131, 88], "2026-01-23": [95, 131, 88], "2026-01-24": [96, 132, 88], "2026-01-25": [96, 131, 88], "2026-01-26": [96, 131, 88], "2026-01-27": [95, 131, 88], "2026-01-28": [96, 131, 88], "2026-01-29": [96, 131, 88], "2026-01-30": [96, 132, 88], "2026-01-31": [96, 132, 89], "2026-02-01": [96, 132, 89], "2026-02-02": [96, 132, 89], "2026-02-03": [96, 132, 89], "2026-02-04": [96, 132, 89], "2026-02-05": [96, 132, 89], "2026-02-06": [97, 133, 89], "2026-02-07": [97, 133, 89], "2026-02-08": [96, 133, 89], "2026-02-09": [96, 132, 89], "2026-02-10": [96, 132, 89], "2026-02-11": [97, 132, 89], "2026-02-12": [97, 132, 89], "2026-02-13": [97, 133, 89], "2026-02-14": [97, 133, 90], "2026-02-15": [97, 133, 90], "2026-02-16": [97, 133, 90], "2026-02-17": [97, 133, 90], "2026-02-18": [97, 132, 90], "2026-02-19": [97, 132, 90], "2026-02-20": [97, 132, 90], "2026-02-21": [97, 132, 90], "2026-02-22": [98, 132, 91], "2026-02-23": [98, 132, 91], "2026-02-24": [98, 132, 91], "2026-02-25": [98, 131, 91], "2026-02-26": [98, 131, 92], "2026-02-27": [99, 132, 92], "2026-02-28": [99, 131, 92], "2026-03-01": [99, 132, 93], "2026-03-02": [99, 132, 93], "2026-03-03": [99, 131, 93], "2026-03-04": [100, 131, 93], "2026-03-05": [100, 131, 94], "2026-03-06": [100, 131, 94], "2026-03-07": [101, 130, 94], "2026-03-08": [101, 130, 94], "2026-03-09": [100, 130, 94], "2026-03-10": [100, 129, 94], "2026-03-11": [101, 129, 95], "2026-03-12": [101, 128, 95], "2026-03-13": [102, 128, 96], "2026-03-14": [102, 128, 96], "2026-03-15": [102, 128, 96], "2026-03-16": [102, 127, 96], "2026-03-17": [102, 127, 97], "2026-03-18": [102, 126, 96], "2026-03-19": [102, 126, 97], "2026-03-20": [102, 126, 97], "2026-03-21": [103, 126, 97], "2026-03-22": [103, 126, 98], "2026-03-23": [103, 125, 98], "2026-03-24": [103, 125, 98], "2026-03-25": [103, 125, 98], "2026-03-26": [103, 124, 98], "2026-03-27": [103, 124, 99], "2026-03-28": [104, 125, 99], "2026-03-29": [104, 124, 99], "2026-03-30": [104, 124, 99], "2026-03-31": [104, 124, 100], "2026-04-01": [104, 124, 100], "2026-04-02": [104, 124, 100], "2026-04-03": [104, 123, 100], "2026-04-04": [104, 124, 100], "2026-04-05": [105, 124, 100], "2026-04-06": [105, 124, 101], "2026-04-07": [105, 124, 101], "2026-04-08": [105, 124, 101], "2026-04-09": [105, 123, 101], "2026-04-10": [105, 123, 100], "2026-04-11": [105, 123, 101], "2026-04-12": [105, 123, 101], "2026-04-13": [105, 123, 100], "2026-04-14": [105, 123, 101], "2026-04-15": [105, 123, 101], "2026-04-16": [105, 123, 101], "2026-04-17": [105, 123, 101], "2026-04-18": [105, 123, 100], "2026-04-19": [103, 124, 99], "2026-04-20": [103, 124, 99], "2026-04-21": [104, 124, 99], "2026-04-23": [103, 124, 99], "2026-04-24": [103, 124, 99], "2026-04-25": [103, 124, 99], "2026-04-26": [103, 123, 99], "2026-04-27": [104, 123, 99], "2026-04-28": [104, 124, 99], "2026-04-29": [104, 124, 99], "2026-04-30": [104, 123, 99], "2026-05-01": [104, 124, 100], "2026-05-02": [104, 124, 100], "2026-05-03": [104, 123, 100], "2026-05-04": [104, 124, 100], "2026-05-05": [104, 124, 100], "2026-05-06": [104, 124, 100], "2026-05-07": [104, 124, 100], "2026-05-08": [104, 124, 100], "2026-05-09": [104, 124, 100], "2026-05-10": [105, 124, 100], "2026-05-11": [105, 125, 100], "2026-05-12": [105, 125, 100], "2026-05-13": [105, 126, 101], "2026-05-14": [105, 126, 101], "2026-05-15": [106, 126, 101], "2026-05-16": [106, 127, 101], "2026-05-17": [106, 127, 100], "2026-05-18": [104, 129, 99], "2026-05-19": [104, 129, 99], "2026-05-20": [104, 130, 99], "2026-05-21": [104, 129, 99], "2026-05-22": [104, 130, 99], "2026-05-23": [104, 129, 99], "2026-05-24": [104, 129, 99], "2026-05-25": [104, 130, 99], "2026-05-26": [105, 130, 99], "2026-05-27": [105, 131, 99], "2026-05-28": [105, 131, 99], "2026-05-29": [105, 131, 99], "2026-05-30": [105, 130, 99], "2026-05-31": [105, 131, 99], "2026-06-01": [105, 130, 99], "2026-06-02": [104, 130, 99], "2026-06-03": [105, 131, 99], "2026-06-04": [105, 130, 99], "2026-06-05": [105, 131, 99], "2026-06-06": [105, 130, 99], "2026-06-07": [105, 130, 100], "2026-06-08": [105, 130, 99], "2026-06-09": [105, 130, 99], "2026-06-10": [105, 130, 99], "2026-06-11": [105, 130, 100], "2026-06-12": [105, 131, 100], "2026-06-13": [105, 131, 100], "2026-06-14": [105, 131, 99], "2026-06-15": [105, 131, 99], "2026-06-16": [105, 131, 99], "2026-06-17": [105, 131, 100], "2026-06-18": [105, 131, 99], "2026-06-19": [105, 131, 99], "2026-06-20": [105, 132, 100], "2026-06-21": [106, 132, 100], "2026-06-22": [106, 132, 100], "2026-06-23": [106, 132, 100], "2026-06-24": [106, 132, 100], "2026-06-25": [106, 132, 100], "2026-06-26": [106, 132, 100], "2026-06-27": [106, 132, 100], "2026-06-28": [106, 132, 100], "2026-06-29": [105, 132, 99], "2026-06-30": [105, 132, 99], "2026-07-01": [105, 132, 99], "2026-07-02": [105, 131, 98], "2026-07-03": [104, 132, 98], "2026-07-04": [104, 132, 97], "2026-07-05": [103, 132, 97], "2026-07-06": [103, 131, 97], "2026-07-07": [104, 131, 97], "2026-07-08": [103, 131, 97], "2026-07-09": [104, 131, 97], "2026-07-10": [103, 130, 97], "2026-07-11": [102, 131, 96], "2026-07-12": [103, 131, 96], "2026-07-13": [102, 131, 96], "2026-07-14": [102, 131, 96], "2026-07-15": [102, 130, 96], "2026-07-16": [102, 130, 96], "2026-07-17": [103, 130, 96], "2026-07-18": [102, 131, 96], "2026-07-19": [99, 136, 92], "2026-07-20": [99, 135, 92], "2026-07-21": [99, 135, 92], "2026-07-22": [99, 135, 92], "2026-07-23": [99, 135, 92], "2026-07-24": [99, 135, 92], "2026-07-25": [99, 135, 92], "2026-07-26": [99, 134, 92], "2026-07-27": [99, 134, 92], "2026-07-28": [99, 135, 92], "2026-07-29": [99, 134, 92], "2026-07-30": [99, 134, 91], "2026-07-31": [98, 134, 91], "2026-08-01": [98, 134, 91], "2026-08-02": [96, 139, 87], "2026-08-03": [96, 139, 87], "2026-08-04": [96, 139, 87], "2026-08-05": [96, 138, 87], "2026-08-06": [96, 138, 87], "2026-08-07": [96, 138, 87], "2026-08-08": [96, 138, 87], "2026-08-09": [96, 138, 87], "2026-08-10": [96, 138, 87], "2026-08-11": [96, 138, 87], "2026-08-12": [96, 138, 87], "2026-08-13": [96, 139, 88], "2026-08-14": [96, 139, 88], "2026-08-15": [96, 138, 88], "2026-08-16": [96, 139, 88], "2026-08-17": [96, 139, 88], "2026-08-18": [96, 138, 88], "2026-08-19": [96, 139, 88], "2026-08-20": [96, 139, 88], "2026-08-21": [96, 139, 88], "2026-08-22": [96, 139, 88], "2026-08-23": [96, 138, 88], "2026-08-24": [97, 139, 88], "2026-08-25": [96, 139, 88], "2026-08-26": [96, 139, 88], "2026-08-27": [96, 139, 88], "2026-08-28": [96, 138, 88], "2026-08-29": [97, 139, 89], "2026-08-30": [97, 139, 89], "2026-08-31": [97, 139, 89], "2026-09-01": [97, 138, 89], "2026-09-02": [97, 138, 88], "2026-09-03": [97, 138, 88], "2026-09-04": [97, 138, 88], "2026-09-11": [97, 137, 90], "2026-09-12": [98, 137, 90], "2026-09-13": [98, 136, 90], "2026-09-14": [98, 137, 90], "2026-09-15": [98, 137, 90], "2026-09-16": [98, 137, 90], "2026-09-17": [98, 137, 90], "2026-09-18": [98, 137, 90], "2026-09-19": [98, 137, 90], "2026-09-20": [98, 135, 91], "2026-09-21": [98, 135, 90], "2026-09-22": [97, 135, 90], "2026-09-23": [97, 135, 90], "2026-09-24": [98, 135, 90], "2026-09-25": [98, 135, 90], "2026-09-26": [98, 135, 90], "2026-09-27": [99, 133, 92], "2026-09-28": [99, 133, 92], "2026-09-29": [99, 132, 92], "2026-09-30": [99, 132, 92], "2026-10-01": [99, 132, 92], "2026-10-02": [99, 132, 92], "2026-10-03": [99, 131, 92], "2026-10-04": [99, 129, 93], "2026-10-05": [99, 129, 92], "2026-10-06": [98, 129, 92], "2026-10-07": [98, 128, 92], "2026-10-08": [98, 128, 92], "2026-10-09": [98, 127, 92], "2026-10-10": [98, 128, 92], "2026-10-11": [98, 126, 92], "2026-10-12": [98, 126, 91], "2026-10-13": [97, 126, 91], "2026-10-14": [97, 125, 90], "2026-10-15": [96, 125, 90], "2026-10-16": [96, 125, 90], "2026-10-17": [95, 125, 88], "2026-10-18": [95, 124, 88], "2026-10-19": [94, 124, 88], "2026-10-20": [94, 124, 87], "2026-10-21": [93, 123, 87], "2026-10-22": [93, 123, 87], "2026-10-23": [93, 122, 87], "2026-10-24": [93, 122, 86], "2026-10-25": [92, 121, 86], "2026-10-26": [92, 121, 86], "2026-10-27": [92, 122, 86], "2026-10-28": [92, 121, 86], "2026-10-29": [92, 121, 86], "2026-10-30": [92, 120, 86], "2026-10-31": [92, 120, 86], "2026-11-01": [92, 120, 86], "2026-11-02": [92, 120, 86], "2026-11-03": [92, 120, 86], "2026-11-04": [92, 120, 86], "2026-11-05": [92, 120, 86], "2026-11-06": [92, 119, 86], "2026-11-07": [92, 119, 86], "2026-11-08": [92, 119, 87], "2026-11-09": [92, 119, 87], "2026-11-10": [92, 119, 87], "2026-11-11": [92, 119, 87], "2026-11-12": [92, 119, 87], "2026-11-13": [92, 119, 87], "2026-11-14": [93, 118, 87], "2026-11-15": [92, 118, 87], "2026-11-16": [92, 118, 87], "2026-11-17": [92, 118, 87], "2026-11-18": [92, 117, 87]}
+
 
 class DataManager:
     def __init__(self, config: Optional[AppConfig] = None):
@@ -40,11 +43,13 @@ class DataManager:
         self._activity_cache: Dict[str, Dict[str, Any]] = {}
         self._week_cache: Dict[int, Tuple[float, Dict[str, Any]]] = {}
         self._pmc_cache: Dict[int, Tuple[float, Dict[str, Any]]] = {}
+        self._health_load_cache: Dict[int, Tuple[float, Dict[str, Any]]] = {}
         self._cache_ttl: float = 300.0  # 5 minutes in-memory cache
 
     def clear_cache(self):
         self._week_cache.clear()
         self._pmc_cache.clear()
+        self._health_load_cache.clear()
         self._activity_cache.clear()
 
     def get_week_range(self, offset_weeks: int = 0, anchor_date: Optional[str] = None) -> Tuple[date, date, str]:
@@ -296,6 +301,302 @@ class DataManager:
         # 2. Build PMC from historico_semanal.json and daily simulations
         res = self._generate_pmc_from_history(start_d, end_d)
         self._pmc_cache[range_days] = (time.time(), res)
+        return res
+
+    def get_health_load_history(self, range_days: int = 90, force_refresh: bool = False) -> Dict[str, Any]:
+        """Provides combined daily TSS (by training zone Z1-Z7 + strength in black),
+        HRV (VFC) with Garmin Connect personal normal range (balancedLow..balancedUpper),
+        Resting HR (FC Reposo), Sleep hours, and evaluates the Traffic Light status (Semáforo).
+        """
+        now = time.time()
+        if not force_refresh and range_days in self._health_load_cache:
+            c_time, c_data = self._health_load_cache[range_days]
+            if (now - c_time) < self._cache_ttl:
+                return c_data
+
+        import requests
+
+        end_d = date.today()
+        start_d = end_d - timedelta(days=range_days)
+        lookback_d = start_d - timedelta(days=28)
+        start_str = start_d.strftime("%Y-%m-%d")
+        lookback_str = lookback_d.strftime("%Y-%m-%d")
+        end_str = end_d.strftime("%Y-%m-%d")
+
+        athlete_id = self.intervals._get_athlete_id()
+        headers = self.intervals._get_auth_header()
+        ftp = float(self.config.ftp or 348.0)
+
+        # 1. Fetch daily wellness from Intervals.icu (contains Garmin HRV, RHR, Sleep, CTL, ATL)
+        wellness_map: Dict[str, Dict[str, Any]] = {}
+        try:
+            w_url = f"https://intervals.icu/api/v1/athlete/{athlete_id}/wellness?oldest={lookback_str}&newest={end_str}"
+            r_w = requests.get(w_url, headers=headers, timeout=15)
+            if r_w.status_code == 200:
+                for item in r_w.json():
+                    if isinstance(item, dict) and item.get("id"):
+                        wellness_map[item["id"]] = item
+        except Exception as e:
+            logger.warning(f"Error fetching Intervals wellness for health-load chart: {e}")
+
+        # 2. Try to fetch live Garmin HRV baseline for recent 28 days if Garmin is connected
+        garmin_baselines = dict(GARMIN_HRV_BASELINES)
+        try:
+            g_start = (end_d - timedelta(days=27)).strftime("%Y-%m-%d")
+            g_client = self.garmin.get_client()
+            g_hrv = g_client.connectapi(f"/hrv-service/hrv/daily/{g_start}/{end_str}")
+            if isinstance(g_hrv, dict):
+                for s in g_hrv.get("hrvSummaries", []):
+                    c_date = s.get("calendarDate")
+                    b = s.get("baseline") or {}
+                    if c_date and b.get("balancedLow") and b.get("balancedUpper"):
+                        garmin_baselines[c_date] = [
+                            int(b["balancedLow"]),
+                            int(b["balancedUpper"]),
+                            int(b.get("lowUpper") or b["balancedLow"] - 5),
+                        ]
+                    if c_date and c_date in wellness_map:
+                        if not wellness_map[c_date].get("hrv") and s.get("lastNightAvg"):
+                            wellness_map[c_date]["hrv"] = float(s["lastNightAvg"])
+        except Exception:
+            pass
+
+        # 3. Fetch completed activities from Intervals.icu for zone-proportional daily TSS
+        acts_by_date: Dict[str, List[Dict[str, Any]]] = {}
+        try:
+            a_url = f"https://intervals.icu/api/v1/athlete/{athlete_id}/activities?oldest={start_str}&newest={end_str}"
+            r_a = requests.get(a_url, headers=headers, timeout=20)
+            if r_a.status_code == 200:
+                for act in r_a.json():
+                    if not isinstance(act, dict):
+                        continue
+                    d_key = str(act.get("start_date_local") or "")[:10]
+                    if d_key:
+                        acts_by_date.setdefault(d_key, []).append(act)
+        except Exception as e:
+            logger.warning(f"Error fetching Intervals activities for health-load chart: {e}")
+
+        # 4. Build daily series from start_d to end_d
+        series: List[Dict[str, Any]] = []
+        cur = start_d
+        last_known_base = [92, 117, 87]
+
+        while cur <= end_d:
+            d_str = cur.strftime("%Y-%m-%d")
+            w = wellness_map.get(d_str, {})
+            day_acts = acts_by_date.get(d_str, [])
+
+            if d_str in garmin_baselines:
+                last_known_base = garmin_baselines[d_str]
+
+            tss_zones = {
+                "Z1": 0.0,
+                "Z2": 0.0,
+                "Z3": 0.0,
+                "Z4": 0.0,
+                "Z5": 0.0,
+                "Z6": 0.0,
+                "Z7": 0.0,
+                "strength": 0.0,
+            }
+
+            for act in day_acts:
+                load = float(act.get("icu_training_load") or 0.0)
+                if load <= 0:
+                    continue
+                atype = str(act.get("type") or "").lower()
+
+                if any(k in atype for k in ["weight", "strength", "workout", "crossfit", "gym"]):
+                    tss_zones["strength"] += load
+                elif "swim" in atype or "run" in atype:
+                    pace_z = act.get("pace_zone_times")
+                    if isinstance(pace_z, list) and len(pace_z) >= 7 and sum((x or 0) for x in pace_z[:7]) > 0:
+                        tot_s = float(sum((x or 0) for x in pace_z[:7]))
+                        for i in range(7):
+                            tss_zones[f"Z{i+1}"] += load * (float(pace_z[i] or 0) / tot_s)
+                    else:
+                        # Fallback to average speed zone classification
+                        spd = float(act.get("average_speed") or 0.0)
+                        z_num = 2
+                        if spd > 0:
+                            if "swim" in atype:
+                                s100 = 100.0 / spd
+                                z_num = 1 if s100 > 114 else (2 if s100 >= 102 else (3 if s100 >= 94 else (4 if s100 >= 89 else (5 if s100 >= 86 else (6 if s100 >= 80 else 7)))))
+                            else:
+                                skm = 1000.0 / spd
+                                z_num = 1 if skm > 285 else (2 if skm >= 251 else (3 if skm >= 233 else (4 if skm >= 220 else (5 if skm >= 198 else (6 if skm >= 180 else 7)))))
+                        tss_zones[f"Z{z_num}"] += load
+                elif "ride" in atype or "cycling" in atype or "bike" in atype:
+                    pz = act.get("icu_zone_times")
+                    z_map_secs = {f"Z{i}": 0.0 for i in range(1, 8)}
+                    if isinstance(pz, list):
+                        for z_obj in pz:
+                            zid = str(z_obj.get("id") or "")
+                            if zid in z_map_secs:
+                                z_map_secs[zid] = float(z_obj.get("secs") or 0.0)
+                    tot_s = sum(z_map_secs.values())
+                    if tot_s > 0:
+                        for i in range(1, 8):
+                            tss_zones[f"Z{i}"] += load * (z_map_secs[f"Z{i}"] / tot_s)
+                    else:
+                        pwr = float(act.get("icu_average_watts") or act.get("icu_weighted_avg_watts") or 0.0)
+                        pct = (pwr / ftp) * 100.0 if ftp > 0 else 65.0
+                        z_num = 1 if pct < 56 else (2 if pct < 76 else (3 if pct < 91 else (4 if pct < 106 else (5 if pct < 121 else (6 if pct < 151 else 7)))))
+                        tss_zones[f"Z{z_num}"] += load
+                else:
+                    tss_zones["Z2"] += load
+
+            total_tss = round(sum(tss_zones.values()), 1)
+            if total_tss == 0 and w.get("ctlLoad"):
+                c_load = float(w.get("ctlLoad") or 0.0)
+                if c_load > 0:
+                    tss_zones["Z2"] = c_load
+                    total_tss = round(c_load, 1)
+
+            for k in tss_zones:
+                tss_zones[k] = round(tss_zones[k], 1)
+
+            hrv_val = float(w["hrv"]) if w.get("hrv") is not None else None
+            rhr_val = int(w["restingHR"]) if w.get("restingHR") is not None else None
+            sleep_secs = float(w["sleepSecs"]) if w.get("sleepSecs") is not None else None
+            sleep_hours = round(sleep_secs / 3600.0, 2) if sleep_secs and sleep_secs > 0 else None
+            sleep_score = int(w["sleepScore"]) if w.get("sleepScore") is not None else None
+
+            ctl_val = round(float(w.get("ctl") or 0.0), 1)
+            atl_val = round(float(w.get("atl") or 0.0), 1)
+            tsb_val = round(ctl_val - atl_val, 1)
+
+            series.append({
+                "date": d_str,
+                "label": cur.strftime("%d/%m"),
+                "total_tss": total_tss,
+                "tss_zones": tss_zones,
+                "hrv": hrv_val,
+                "hrv_baseline_low": last_known_base[0],
+                "hrv_baseline_high": last_known_base[1],
+                "hrv_low_upper": last_known_base[2],
+                "rhr": rhr_val,
+                "sleep_hours": sleep_hours,
+                "sleep_score": sleep_score,
+                "ctl": ctl_val,
+                "atl": atl_val,
+                "tsb": tsb_val,
+            })
+            cur += timedelta(days=1)
+
+        # 5. Evaluate Traffic Light Status (Semáforo de Estado Actual)
+        valid_rhr_days = [d for d in series[-35:] if d.get("rhr") is not None]
+        if valid_rhr_days:
+            sorted_rhrs = sorted(d["rhr"] for d in valid_rhr_days)
+            # Baseline is the median of the lower 75% resting HR values in the last 30-35 days
+            cutoff = max(1, int(len(sorted_rhrs) * 0.75))
+            rhr_baseline = round(sum(sorted_rhrs[:cutoff]) / cutoff, 1)
+        else:
+            rhr_baseline = float(self.config.rest_hr_baseline or 37.0)
+
+        latest_rhr_day = valid_rhr_days[-1] if valid_rhr_days else {}
+        rhr_current = latest_rhr_day.get("rhr") or int(rhr_baseline)
+        rhr_delta = round(rhr_current - rhr_baseline, 1)
+
+        # Check persistent RHR elevation (last 2+ days >= +5)
+        recent_rhrs = [d["rhr"] for d in valid_rhr_days[-3:]]
+        rhr_persistent_plus5 = (rhr_delta >= 5.0) or (
+            len(recent_rhrs) >= 2 and all((x - rhr_baseline) >= 4.5 for x in recent_rhrs[-2:])
+        )
+        rhr_plus2_to_4 = (2.0 <= rhr_delta < 5.0)
+
+        valid_hrv_days = [d for d in series[-14:] if d.get("hrv") is not None]
+        latest_hrv_day = valid_hrv_days[-1] if valid_hrv_days else {}
+        hrv_current = latest_hrv_day.get("hrv") or 104.0
+        hrv_base_low = latest_hrv_day.get("hrv_baseline_low") or 92
+        hrv_base_high = latest_hrv_day.get("hrv_baseline_high") or 117
+
+        # Count consecutive recent days below personal normal range (hrv < hrv_baseline_low)
+        consecutive_low_hrv = 0
+        for d in reversed(valid_hrv_days):
+            if d["hrv"] < d["hrv_baseline_low"]:
+                consecutive_low_hrv += 1
+            else:
+                break
+
+        hrv_abnormally_high = hrv_current > (hrv_base_high + 10)
+        hrv_yellow_trigger = (consecutive_low_hrv == 2) or hrv_abnormally_high
+        hrv_red_trigger = (consecutive_low_hrv >= 3)
+
+        # TSS 48h & Accumulated TSS
+        # Use up to yesterday + today (or last 2 completed days with TSS if today is early morning)
+        recent_for_tss = series[-3:]
+        if len(recent_for_tss) >= 2:
+            if recent_for_tss[-1]["total_tss"] < 20 and len(recent_for_tss) >= 3:
+                tss_48h = round(recent_for_tss[-2]["total_tss"] + recent_for_tss[-3]["total_tss"], 1)
+            else:
+                tss_48h = round(recent_for_tss[-1]["total_tss"] + recent_for_tss[-2]["total_tss"], 1)
+        else:
+            tss_48h = round(sum(d["total_tss"] for d in recent_for_tss), 1)
+
+        tss_7d = round(sum(d["total_tss"] for d in series[-7:]), 1)
+        latest_pmc_day = series[-1] if series else {}
+        ctl_curr = latest_pmc_day.get("ctl") or 95.0
+        atl_curr = latest_pmc_day.get("atl") or 90.0
+        tsb_curr = latest_pmc_day.get("tsb") or 5.0
+
+        tss_high_48h = tss_48h >= max(210.0, round(ctl_curr * 2.25, 1))
+        tss_high_accumulated = (tsb_curr < -30.0) or (atl_curr > ctl_curr * 1.32) or (tss_7d >= max(850.0, round(ctl_curr * 7 * 1.3, 1)))
+
+        if hrv_red_trigger or rhr_persistent_plus5 or tss_high_accumulated:
+            status_color = "red"
+            status_label = "ROJO • Riesgo de Sobreentrenamiento / Alerta SNA"
+            recommendation = "Riesgo de sobreentrenamiento o incubación de enfermedad. Descanso o movilidad 24-48h."
+        elif hrv_yellow_trigger or rhr_plus2_to_4 or tss_high_48h or consecutive_low_hrv == 1:
+            status_color = "yellow"
+            status_label = "AMARILLO • Fatiga Aguda / Precaución"
+            recommendation = "Fatiga aguda, modular carga y sustituir intensidad por rodajes."
+        else:
+            status_color = "green"
+            status_label = "VERDE • Asimilación Óptima & Equilibrio Parasimpático"
+            recommendation = "Asimilación óptima de la carga y sistema nervioso autónomo equilibrado. Continuar según planificación."
+
+        valid_sleep_days = [d for d in series[-7:] if d.get("sleep_hours") is not None]
+        latest_sleep = valid_sleep_days[-1]["sleep_hours"] if valid_sleep_days else 7.5
+        avg_sleep_7d = round(sum(d["sleep_hours"] for d in valid_sleep_days) / len(valid_sleep_days), 1) if valid_sleep_days else 7.5
+
+        semaphore = {
+            "color": status_color,
+            "label": status_label,
+            "recommendation": recommendation,
+            "metrics": {
+                "tss_48h": tss_48h,
+                "tss_7d": tss_7d,
+                "ctl": ctl_curr,
+                "atl": atl_curr,
+                "tsb": tsb_curr,
+                "hrv_current": round(hrv_current),
+                "hrv_baseline_low": hrv_base_low,
+                "hrv_baseline_high": hrv_base_high,
+                "consecutive_low_hrv_days": consecutive_low_hrv,
+                "rhr_current": rhr_current,
+                "rhr_baseline": rhr_baseline,
+                "rhr_delta": rhr_delta,
+                "latest_sleep_hours": latest_sleep,
+                "avg_sleep_7d": avg_sleep_7d,
+            },
+            "triggers": {
+                "yellow_tss_48h": tss_high_48h,
+                "yellow_hrv": hrv_yellow_trigger or (consecutive_low_hrv == 1),
+                "yellow_rhr": rhr_plus2_to_4,
+                "red_tss_accum": tss_high_accumulated,
+                "red_hrv": hrv_red_trigger,
+                "red_rhr": rhr_persistent_plus5,
+            }
+        }
+
+        res = {
+            "status": "success",
+            "range_days": range_days,
+            "series": series,
+            "semaphore": semaphore,
+        }
+        self._health_load_cache[range_days] = (time.time(), res)
         return res
 
     def _get_day_wellness(self, day_str: str) -> Dict[str, Any]:

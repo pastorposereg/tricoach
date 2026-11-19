@@ -6,6 +6,7 @@
 let pmcChartInstance = null;
 let workoutSplitsChartInstance = null;
 let weeklyVolumeChartInstance = null;
+let healthLoadChartInstance = null;
 
 /**
  * Helper to determine TSB zone classification, name and color.
@@ -561,3 +562,262 @@ function renderWeeklyVolumeChart(canvasId, volumeData) {
   });
 }
 window.renderWeeklyVolumeChart = renderWeeklyVolumeChart;
+
+function renderHealthLoadChart(canvasId, seriesData) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx || !Array.isArray(seriesData) || seriesData.length === 0) return;
+
+  if (healthLoadChartInstance) {
+    healthLoadChartInstance.destroy();
+  }
+
+  const labels = seriesData.map(d => d.label || d.date.slice(5));
+  const showPoints = seriesData.length <= 65;
+
+  const zoneDefs = [
+    { key: 'Z1', label: 'TSS Z1', color: '#009e80' },
+    { key: 'Z2', label: 'TSS Z2', color: '#009e00' },
+    { key: 'Z3', label: 'TSS Z3', color: '#ffcb0e' },
+    { key: 'Z4', label: 'TSS Z4', color: '#ff7f0e' },
+    { key: 'Z5', label: 'TSS Z5', color: '#dd0447' },
+    { key: 'Z6', label: 'TSS Z6', color: '#6633cc' },
+    { key: 'Z7', label: 'TSS Z7', color: '#504861' },
+    { key: 'strength', label: 'TSS Fuerza', color: '#111827' }
+  ];
+
+  // Stacked TSS Bar Datasets (Left Y-Axis)
+  const barDatasets = zoneDefs.map(z => ({
+    type: 'bar',
+    label: z.label,
+    data: seriesData.map(d => (d.tss_zones && d.tss_zones[z.key]) ? d.tss_zones[z.key] : 0),
+    backgroundColor: z.color,
+    borderColor: z.color,
+    borderWidth: 0,
+    stack: 'daily_tss',
+    yAxisID: 'y',
+    order: 3,
+    barPercentage: 0.78,
+    categoryPercentage: 0.85
+  }));
+
+  // Right Y-Axis Datasets:
+  // 1. Garmin Personal Normal Range Upper & Lower (shaded very light green between them)
+  const hrvUpperDataset = {
+    type: 'line',
+    label: 'Rango Normal VFC (Máx)',
+    data: seriesData.map(d => d.hrv_baseline_high),
+    borderColor: 'rgba(16, 185, 129, 0.28)',
+    backgroundColor: 'rgba(16, 185, 129, 0.14)',
+    borderWidth: 1,
+    borderDash: [3, 3],
+    pointRadius: 0,
+    pointHoverRadius: 0,
+    fill: '+1', // Fills area down to hrvLowerDataset
+    tension: 0.25,
+    yAxisID: 'y1',
+    order: 2
+  };
+
+  const hrvLowerDataset = {
+    type: 'line',
+    label: 'Rango Normal VFC (Mín)',
+    data: seriesData.map(d => d.hrv_baseline_low),
+    borderColor: 'rgba(16, 185, 129, 0.28)',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderDash: [3, 3],
+    pointRadius: 0,
+    pointHoverRadius: 0,
+    fill: false,
+    tension: 0.25,
+    yAxisID: 'y1',
+    order: 2
+  };
+
+  // 2. VFC (HRV) Line in Blue
+  const hrvLineDataset = {
+    type: 'line',
+    label: 'VFC Nocturna (ms)',
+    data: seriesData.map(d => d.hrv),
+    borderColor: '#0284c7',
+    backgroundColor: '#0284c7',
+    borderWidth: 2.4,
+    pointRadius: showPoints ? 2.5 : 0,
+    pointHoverRadius: 5,
+    pointBackgroundColor: function(context) {
+      const idx = context.dataIndex;
+      const d = seriesData[idx];
+      if (!d || d.hrv === null) return '#0284c7';
+      if (d.hrv < d.hrv_baseline_low) return '#f59e0b';
+      return '#0284c7';
+    },
+    spanGaps: true,
+    tension: 0.25,
+    yAxisID: 'y1',
+    order: 1
+  };
+
+  // 3. FC Reposo (RHR) Line in Red
+  const rhrLineDataset = {
+    type: 'line',
+    label: 'FC Reposo (ppm)',
+    data: seriesData.map(d => d.rhr),
+    borderColor: '#ef4444',
+    backgroundColor: '#ef4444',
+    borderWidth: 2.2,
+    pointRadius: showPoints ? 2.2 : 0,
+    pointHoverRadius: 5,
+    spanGaps: true,
+    tension: 0.25,
+    yAxisID: 'y1',
+    order: 1
+  };
+
+  healthLoadChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        ...barDatasets,
+        hrvUpperDataset,
+        hrvLowerDataset,
+        hrvLineDataset,
+        rhrLineDataset
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          display: false // Shown in custom compact header legend
+        },
+        tooltip: {
+          backgroundColor: '#0f172a',
+          titleColor: '#ffffff',
+          bodyColor: '#e2e8f0',
+          borderColor: '#334155',
+          borderWidth: 1,
+          padding: 11,
+          titleFont: { family: 'Inter, sans-serif', weight: 700, size: 12 },
+          bodyFont: { family: 'JetBrains Mono, monospace', size: 11 },
+          filter: function(item) {
+            // Only show non-zero TSS zones and main HRV/RHR lines (hide helper baseline lines)
+            if (item.dataset.label.startsWith('Rango Normal VFC')) return false;
+            if (item.dataset.stack === 'daily_tss' && (!item.parsed.y || item.parsed.y <= 0.1)) return false;
+            return true;
+          },
+          callbacks: {
+            title: function(items) {
+              if (!items || !items.length) return '';
+              const d = seriesData[items[0].dataIndex];
+              if (!d) return items[0].label;
+              const sleepTxt = d.sleep_hours !== null && d.sleep_hours !== undefined ? `${d.sleep_hours.toFixed(1)} h` : '--';
+              return `${d.date}  •  TSS Total: ${d.total_tss}  •  Sueño: ${sleepTxt}`;
+            },
+            label: function(context) {
+              const idx = context.dataIndex;
+              const d = seriesData[idx];
+              const lbl = context.dataset.label || '';
+              const val = context.parsed.y;
+              if (lbl === 'VFC Nocturna (ms)') {
+                const rangeStr = d ? ` (Rango Garmin: ${d.hrv_baseline_low}-${d.hrv_baseline_high} ms)` : '';
+                return `💙 VFC: ${val !== null ? Math.round(val) + ' ms' : '--'}${rangeStr}`;
+              }
+              if (lbl === 'FC Reposo (ppm)') {
+                return `❤️ FC Reposo: ${val !== null ? val + ' ppm' : '--'}`;
+              }
+              const pct = (d && d.total_tss > 0) ? Math.round((val / d.total_tss) * 100) : 0;
+              return `▪ ${lbl}: ${val.toFixed(1)} TSS (${pct}%)`;
+            },
+            afterBody: function(items) {
+              if (!items || !items.length) return [];
+              const d = seriesData[items[0].dataIndex];
+              if (!d) return [];
+              const sleepStr = d.sleep_hours !== null && d.sleep_hours !== undefined
+                ? `☾ Horas de Sueño: ${d.sleep_hours.toFixed(1)} h${d.sleep_score ? ` (Score: ${d.sleep_score})` : ''}`
+                : '☾ Horas de Sueño: --';
+              return [sleepStr];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          stacked: true,
+          grid: { color: 'rgba(0, 0, 0, 0.04)' },
+          ticks: {
+            color: '#475569',
+            maxTicksLimit: seriesData.length <= 35 ? 35 : (seriesData.length <= 65 ? 20 : 14),
+            font: { family: 'Inter, sans-serif', size: 10, weight: 600 }
+          }
+        },
+        xSleep: {
+          position: 'bottom',
+          offset: true,
+          grid: { display: false, drawTicks: false },
+          border: { display: false },
+          ticks: {
+            color: function(ctx) {
+              const d = seriesData[ctx.index];
+              if (!d || !d.sleep_hours) return '#94a3b8';
+              if (d.sleep_hours < 6.5) return '#d97706';
+              return '#4f46e5';
+            },
+            maxTicksLimit: seriesData.length <= 35 ? 35 : (seriesData.length <= 65 ? 20 : 14),
+            font: { family: 'JetBrains Mono, monospace', size: 9.5, weight: 600 },
+            callback: function(val, index) {
+              const d = seriesData[index];
+              if (!d || d.sleep_hours === null || d.sleep_hours === undefined) return '-';
+              return `${d.sleep_hours.toFixed(1)}h`;
+            }
+          },
+          title: {
+            display: true,
+            text: '☾ Horas de Sueño Diarias',
+            color: '#6366f1',
+            font: { family: 'Inter, sans-serif', size: 10, weight: 600 },
+            padding: { top: 2 }
+          }
+        },
+        y: {
+          stacked: true,
+          position: 'left',
+          beginAtZero: true,
+          grid: { color: 'rgba(0, 0, 0, 0.05)' },
+          title: {
+            display: true,
+            text: 'Carga Diaria (TSS por Zonas)',
+            color: '#334155',
+            font: { family: 'Inter, sans-serif', size: 11, weight: 600 }
+          },
+          ticks: {
+            color: '#475569',
+            font: { family: 'JetBrains Mono, monospace', size: 10 }
+          }
+        },
+        y1: {
+          position: 'right',
+          min: 25,
+          suggestedMax: 145,
+          grid: { drawOnChartArea: false },
+          title: {
+            display: true,
+            text: 'VFC (ms) / FC Reposo (ppm)',
+            color: '#0284c7',
+            font: { family: 'Inter, sans-serif', size: 11, weight: 600 }
+          },
+          ticks: {
+            color: '#0284c7',
+            font: { family: 'JetBrains Mono, monospace', size: 10 }
+          }
+        }
+      }
+    }
+  });
+}
+window.renderHealthLoadChart = renderHealthLoadChart;
