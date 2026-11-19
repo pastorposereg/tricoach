@@ -117,6 +117,9 @@ function setupEventListeners() {
 }
 
 function switchTab(tabId) {
+  if (window.closeProgressionTooltip) {
+    window.closeProgressionTooltip();
+  }
   state.currentTab = tabId;
   const page1 = document.getElementById('page-calendar');
   const page2 = document.getElementById('page-form');

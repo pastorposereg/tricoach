@@ -8,6 +8,215 @@ let workoutSplitsChartInstance = null;
 let weeklyVolumeChartInstance = null;
 let healthLoadChartInstance = null;
 
+// ==========================================
+// Shared Interactive Floating HTML Tooltip (with top-right ✕ button)
+// for all charts in the Progresión tab (PMC, Health/Load, Weekly Volume)
+// ==========================================
+let _progTooltipEl = null;
+let _progTooltipChart = null;
+let _progTooltipPinned = false;
+let _progTooltipAllowUpdate = false;
+let _progTooltipDismissedUntilLeave = false;
+
+function getOrCreateProgressionTooltip() {
+  if (!_progTooltipEl) {
+    const el = document.createElement('div');
+    el.id = 'progression-chart-tooltip';
+    el.style.position = 'absolute';
+    el.style.zIndex = '9999';
+    el.style.display = 'none';
+    el.style.opacity = '0';
+    el.style.transition = 'opacity 120ms ease';
+    el.style.maxWidth = '320px';
+    el.style.minWidth = '210px';
+    el.className = 'bg-slate-900/95 text-slate-100 border border-slate-700 rounded-xl shadow-2xl backdrop-blur-md p-3 text-xs';
+    document.body.appendChild(el);
+
+    // Close when clicking outside the tooltip and outside any progression chart canvas
+    document.addEventListener('click', (evt) => {
+      if (!_progTooltipEl || _progTooltipEl.style.display === 'none') return;
+      if (evt.target.closest('#progression-chart-tooltip')) return;
+      if (evt.target.closest('#pmcChart, #healthLoadChart, #weeklyVolumeChart')) return;
+      closeProgressionTooltip();
+    });
+
+    _progTooltipEl = el;
+  }
+  return _progTooltipEl;
+}
+
+function closeProgressionTooltip(evt) {
+  if (evt) {
+    evt.stopPropagation();
+    evt.preventDefault();
+  }
+  _progTooltipPinned = false;
+  _progTooltipAllowUpdate = false;
+  _progTooltipDismissedUntilLeave = true;
+
+  if (_progTooltipEl) {
+    _progTooltipEl.style.opacity = '0';
+    _progTooltipEl.style.display = 'none';
+    _progTooltipEl.style.pointerEvents = 'none';
+  }
+
+  if (_progTooltipChart) {
+    try {
+      _progTooltipChart.setActiveElements([]);
+      if (_progTooltipChart.tooltip && _progTooltipChart.tooltip.setActiveElements) {
+        _progTooltipChart.tooltip.setActiveElements([], { x: 0, y: 0 });
+      }
+      _progTooltipChart.update('none');
+    } catch (e) {
+      // ignore if chart already destroyed
+    }
+    _progTooltipChart = null;
+  }
+}
+window.closeProgressionTooltip = closeProgressionTooltip;
+
+function handleProgressionChartClick(event, elements, chart) {
+  if (!chart) return;
+  _progTooltipDismissedUntilLeave = false;
+  _progTooltipAllowUpdate = true;
+  _progTooltipPinned = true;
+  _progTooltipChart = chart;
+
+  if (elements && elements.length > 0) {
+    const targetIdx = elements[0].index;
+    const activeEls = [];
+    (chart.data.datasets || []).forEach((ds, dsIdx) => {
+      if (chart.isDatasetVisible(dsIdx)) {
+        activeEls.push({ datasetIndex: dsIdx, index: targetIdx });
+      }
+    });
+    chart.setActiveElements(activeEls);
+    if (chart.tooltip && chart.tooltip.setActiveElements) {
+      chart.tooltip.setActiveElements(activeEls, { x: event.x, y: event.y });
+    }
+    chart.update('none');
+  } else if (chart.tooltip) {
+    progressionChartExternalTooltip({ chart, tooltip: chart.tooltip });
+  }
+  _progTooltipAllowUpdate = false;
+}
+
+function progressionChartExternalTooltip(context) {
+  const { chart, tooltip } = context;
+  const tooltipEl = getOrCreateProgressionTooltip();
+
+  // If user just clicked ✕, ignore lingering hover events until pointer leaves or user clicks a new day
+  if (_progTooltipDismissedUntilLeave && !_progTooltipAllowUpdate) {
+    if (tooltip.opacity === 0) {
+      _progTooltipDismissedUntilLeave = false;
+    }
+    return;
+  }
+
+  // If pinned on a clicked day, keep the card locked on that day so user can click ✕ cleanly
+  if (_progTooltipPinned && !_progTooltipAllowUpdate) {
+    return;
+  }
+
+  // Hide if no tooltip
+  if (!tooltip || tooltip.opacity === 0) {
+    if (!_progTooltipPinned) {
+      tooltipEl.style.opacity = '0';
+      tooltipEl.style.display = 'none';
+      tooltipEl.style.pointerEvents = 'none';
+    }
+    return;
+  }
+
+  _progTooltipChart = chart;
+
+  // Build HTML content preserving Chart.js callbacks (title, body, labelColors, afterBody)
+  const titleLines = tooltip.title || [];
+  const bodyLines = (tooltip.body || []).map(b => b.lines);
+  const afterBodyLines = tooltip.afterBody || [];
+  const labelColors = tooltip.labelColors || [];
+
+  const titleHtml = titleLines.map(t => `<div class="font-bold text-white text-[12px] leading-snug pr-1">${t}</div>`).join('');
+
+  const bodyHtml = bodyLines.map((lines, i) => {
+    const colors = labelColors[i] || {};
+    const swatchColor = colors.backgroundColor || colors.borderColor || '#38bdf8';
+    const borderColor = colors.borderColor || swatchColor;
+    const isSolidColor = typeof swatchColor === 'string' && !swatchColor.startsWith('Canvas');
+    const swatchHtml = isSolidColor
+      ? `<span class="w-2.5 h-2.5 rounded-xs shrink-0 mt-0.5 inline-block" style="background-color:${swatchColor}; border: 1px solid ${typeof borderColor === 'string' ? borderColor : swatchColor};"></span>`
+      : '';
+    return lines.map(line => `
+      <div class="flex items-start gap-2 text-[11px] font-mono text-slate-200 leading-snug">
+        ${swatchHtml}
+        <span>${line}</span>
+      </div>
+    `).join('');
+  }).join('');
+
+  const afterBodyHtml = afterBodyLines.length > 0
+    ? `<div class="mt-2 pt-1.5 border-t border-slate-700/80 space-y-0.5">
+        ${afterBodyLines.map(line => `<div class="text-[11px] font-mono text-indigo-300 font-semibold">${line}</div>`).join('')}
+       </div>`
+    : '';
+
+  tooltipEl.innerHTML = `
+    <div class="flex items-start justify-between gap-2 pb-2 mb-2 border-b border-slate-700/80">
+      <div class="min-w-0 flex-1">${titleHtml}</div>
+      <button type="button"
+              id="btn-close-progression-tooltip"
+              aria-label="Cerrar ventana"
+              title="Cerrar"
+              class="w-6 h-6 -mt-1 -mr-1 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/90 active:bg-slate-600 transition-colors cursor-pointer shrink-0">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <div class="space-y-1">
+      ${bodyHtml}
+    </div>
+    ${afterBodyHtml}
+  `;
+
+  const closeBtn = tooltipEl.querySelector('#btn-close-progression-tooltip');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeProgressionTooltip);
+    closeBtn.addEventListener('touchend', closeProgressionTooltip, { passive: false });
+  }
+
+  tooltipEl.style.display = 'block';
+  tooltipEl.style.pointerEvents = 'auto';
+  tooltipEl.style.opacity = '1';
+
+  // Position cleanly near the tapped/hovered point, clamped within viewport width
+  const rect = chart.canvas.getBoundingClientRect();
+  const caretX = tooltip.caretX || (rect.width / 2);
+  const caretY = tooltip.caretY || (rect.height / 2);
+
+  const tipW = tooltipEl.offsetWidth || 250;
+  const tipH = tooltipEl.offsetHeight || 120;
+
+  let left = rect.left + window.scrollX + caretX + 12;
+  let top = rect.top + window.scrollY + caretY - tipH - 12;
+
+  // Keep horizontally inside visible screen
+  const maxLeft = window.scrollX + window.innerWidth - tipW - 10;
+  const minLeft = window.scrollX + 10;
+  if (left > maxLeft) {
+    left = rect.left + window.scrollX + caretX - tipW - 12;
+  }
+  if (left < minLeft) left = minLeft;
+  if (left > maxLeft) left = maxLeft;
+
+  // If too high above top of viewport, place below the caret instead
+  const minTop = window.scrollY + 10;
+  if (top < minTop) {
+    top = rect.top + window.scrollY + caretY + 14;
+  }
+
+  tooltipEl.style.left = `${Math.round(left)}px`;
+  tooltipEl.style.top = `${Math.round(top)}px`;
+}
+
 /**
  * Helper to determine TSB zone classification, name and color.
  * Follows Joe Friel / TrainingPeaks / Intervals.icu standards:
@@ -42,6 +251,7 @@ function renderPMCChart(canvasId, seriesData) {
   if (!ctx) return;
 
   if (pmcChartInstance) {
+    closeProgressionTooltip();
     pmcChartInstance.destroy();
   }
 
@@ -116,6 +326,7 @@ function renderPMCChart(canvasId, seriesData) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      onClick: handleProgressionChartClick,
       interaction: {
         mode: 'index',
         intersect: false
@@ -131,14 +342,8 @@ function renderPMCChart(canvasId, seriesData) {
           }
         },
         tooltip: {
-          backgroundColor: '#1e293b',
-          titleColor: '#ffffff',
-          bodyColor: '#e2e8f0',
-          borderColor: '#475569',
-          borderWidth: 1,
-          padding: 12,
-          bodyFont: { family: 'Inter, sans-serif' },
-          titleFont: { family: 'Inter, sans-serif', weight: 600 },
+          enabled: false,
+          external: progressionChartExternalTooltip,
           callbacks: {
             label: function(context) {
               const label = context.dataset.label || '';
@@ -458,6 +663,7 @@ function renderWeeklyVolumeChart(canvasId, volumeData) {
   if (!ctx || !volumeData || !volumeData.labels) return;
 
   if (weeklyVolumeChartInstance) {
+    closeProgressionTooltip();
     weeklyVolumeChartInstance.destroy();
   }
 
@@ -493,6 +699,7 @@ function renderWeeklyVolumeChart(canvasId, volumeData) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      onClick: handleProgressionChartClick,
       interaction: {
         mode: 'index',
         intersect: false,
@@ -502,14 +709,8 @@ function renderWeeklyVolumeChart(canvasId, volumeData) {
           display: false // Shown in custom header badges
         },
         tooltip: {
-          backgroundColor: '#1e293b',
-          titleColor: '#ffffff',
-          bodyColor: '#e2e8f0',
-          borderColor: '#475569',
-          borderWidth: 1,
-          padding: 10,
-          titleFont: { family: 'Inter, sans-serif', weight: 600, size: 12 },
-          bodyFont: { family: 'Inter, sans-serif', size: 12 },
+          enabled: false,
+          external: progressionChartExternalTooltip,
           callbacks: {
             title: function(items) {
               if (!items || !items.length) return '';
@@ -568,6 +769,7 @@ function renderHealthLoadChart(canvasId, seriesData) {
   if (!ctx || !Array.isArray(seriesData) || seriesData.length === 0) return;
 
   if (healthLoadChartInstance) {
+    closeProgressionTooltip();
     healthLoadChartInstance.destroy();
   }
 
@@ -688,6 +890,7 @@ function renderHealthLoadChart(canvasId, seriesData) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      onClick: handleProgressionChartClick,
       interaction: {
         mode: 'index',
         intersect: false
@@ -697,14 +900,8 @@ function renderHealthLoadChart(canvasId, seriesData) {
           display: false // Shown in custom compact header legend
         },
         tooltip: {
-          backgroundColor: '#0f172a',
-          titleColor: '#ffffff',
-          bodyColor: '#e2e8f0',
-          borderColor: '#334155',
-          borderWidth: 1,
-          padding: 11,
-          titleFont: { family: 'Inter, sans-serif', weight: 700, size: 12 },
-          bodyFont: { family: 'JetBrains Mono, monospace', size: 11 },
+          enabled: false,
+          external: progressionChartExternalTooltip,
           filter: function(item) {
             // Only show non-zero TSS zones and main HRV/RHR lines (hide helper baseline lines)
             if (item.dataset.label.startsWith('Rango Normal VFC')) return false;
