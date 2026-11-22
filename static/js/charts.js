@@ -416,44 +416,88 @@ const INTERVALS_ZONE_COLORS = {
 };
 
 function getLapZoneInfo(sportType, s, ftp = 348) {
+  const th = (window.state && window.state.athleteStatus && window.state.athleteStatus.thresholds) || {};
+  const disc = th.disciplines || {};
+
   if (sportType === 'cycling') {
+    const bikeCfg = disc.cycling || {};
+    const liveFtp = bikeCfg.ftp || th.ftp || ftp || 348;
+    const pcts = Array.isArray(bikeCfg.power_zone_pcts) && bikeCfg.power_zone_pcts.length >= 7
+      ? bikeCfg.power_zone_pcts
+      : [55, 75, 90, 105, 120, 150, 999];
     const pwr = s.avg_power || s.normalised_power || 0;
-    const pct = (pwr / ftp) * 100;
-    let z = 1, name = 'Z1 Recuperación Activa';
-    if (pct < 56) { z = 1; name = 'Z1 Recuperación Activa'; }
-    else if (pct < 76) { z = 2; name = 'Z2 Fondo Aeróbico'; }
-    else if (pct < 91) { z = 3; name = 'Z3 Tempo'; }
-    else if (pct < 106) { z = 4; name = 'Z4 Umbral'; }
-    else if (pct < 121) { z = 5; name = 'Z5 VO2 Máx'; }
-    else if (pct < 151) { z = 6; name = 'Z6 Capacidad Anaeróbica'; }
-    else { z = 7; name = 'Z7 Neuromuscular / Sprint'; }
-    return { zone: z, name, color: INTERVALS_ZONE_COLORS[z] };
+    const pct = liveFtp > 0 ? (pwr / liveFtp) * 100 : 0;
+    const names = [
+      'Z1 Recuperación Activa',
+      'Z2 Fondo Aeróbico',
+      'Z3 Tempo',
+      'Z4 Umbral',
+      'Z5 VO2 Máx',
+      'Z6 Capacidad Anaeróbica',
+      'Z7 Neuromuscular / Sprint'
+    ];
+    let z = 7;
+    for (let i = 0; i < 7; i++) {
+      if (pct <= pcts[i]) {
+        z = i + 1;
+        break;
+      }
+    }
+    return { zone: z, name: names[z - 1], color: INTERVALS_ZONE_COLORS[z] };
   }
 
   if (sportType === 'running') {
-    const secKm = (s.avg_speed_mps && s.avg_speed_mps > 0) ? (1000 / s.avg_speed_mps) : 0;
-    let z = 1, name = 'Z1 Recuperación Activa';
-    if (secKm > 285) { z = 1; name = 'Z1 Recuperación Activa'; }
-    else if (secKm >= 251) { z = 2; name = 'Z2 Fondo Aeróbico'; }
-    else if (secKm >= 233) { z = 3; name = 'Z3 Tempo'; }
-    else if (secKm >= 220) { z = 4; name = 'Z4 Umbral'; }
-    else if (secKm >= 198) { z = 5; name = 'Z5 VO2 Máx'; }
-    else if (secKm >= 180) { z = 6; name = 'Z6 Capacidad Anaeróbica'; }
-    else { z = 7; name = 'Z7 Neuromuscular / Sprint'; }
-    return { zone: z, name, color: INTERVALS_ZONE_COLORS[z] };
+    const runCfg = disc.running || {};
+    const runTp = runCfg.threshold_speed_mps || 4.5455;
+    const pcts = Array.isArray(runCfg.pace_zone_pcts) && runCfg.pace_zone_pcts.length >= 7
+      ? runCfg.pace_zone_pcts
+      : [77.5, 87.7, 94.3, 100.0, 103.4, 111.5, 999.0];
+    const spd = s.avg_speed_mps || 0;
+    const pct = (spd > 0 && runTp > 0) ? (spd / runTp) * 100 : 0;
+    const names = [
+      'Z1 Recuperación Activa',
+      'Z2 Fondo Aeróbico',
+      'Z3 Tempo',
+      'Z4 Umbral',
+      'Z5 VO2 Máx',
+      'Z6 Capacidad Anaeróbica',
+      'Z7 Neuromuscular / Sprint'
+    ];
+    let z = 7;
+    for (let i = 0; i < 7; i++) {
+      if (pct <= pcts[i]) {
+        z = i + 1;
+        break;
+      }
+    }
+    return { zone: z, name: names[z - 1], color: INTERVALS_ZONE_COLORS[z] };
   }
 
   if (sportType === 'swimming') {
-    const sec100 = (s.avg_speed_mps && s.avg_speed_mps > 0) ? (100 / s.avg_speed_mps) : 0;
-    let z = 1, name = 'Z1 Suave / Técnica';
-    if (sec100 > 114) { z = 1; name = 'Z1 Suave / Técnica'; }
-    else if (sec100 >= 102) { z = 2; name = 'Z2 Fondo Aeróbico'; }
-    else if (sec100 >= 94) { z = 3; name = 'Z3 Tempo'; }
-    else if (sec100 >= 89) { z = 4; name = 'Z4 CSS Umbral'; }
-    else if (sec100 >= 86) { z = 5; name = 'Z5 VO2 Máx'; }
-    else if (sec100 >= 80) { z = 6; name = 'Z6 Capacidad Anaeróbica'; }
-    else { z = 7; name = 'Z7 Sprint / All-Out'; }
-    return { zone: z, name, color: INTERVALS_ZONE_COLORS[z] };
+    const swimCfg = disc.swimming || {};
+    const swimTp = swimCfg.threshold_speed_mps || 1.1236;
+    const pcts = Array.isArray(swimCfg.pace_zone_pcts) && swimCfg.pace_zone_pcts.length >= 7
+      ? swimCfg.pace_zone_pcts
+      : [77.5, 87.7, 94.3, 100.0, 103.4, 111.5, 999.0];
+    const spd = s.avg_speed_mps || 0;
+    const pct = (spd > 0 && swimTp > 0) ? (spd / swimTp) * 100 : 0;
+    const names = [
+      'Z1 Suave / Técnica',
+      'Z2 Fondo Aeróbico',
+      'Z3 Tempo',
+      'Z4 CSS Umbral',
+      'Z5 VO2 Máx',
+      'Z6 Capacidad Anaeróbica',
+      'Z7 Sprint / All-Out'
+    ];
+    let z = 7;
+    for (let i = 0; i < 7; i++) {
+      if (pct <= pcts[i]) {
+        z = i + 1;
+        break;
+      }
+    }
+    return { zone: z, name: names[z - 1], color: INTERVALS_ZONE_COLORS[z] };
   }
 
   return { zone: 2, name: 'Z2', color: '#0284c7' };

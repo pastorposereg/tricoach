@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import time
 from datetime import datetime, date, timedelta
 from typing import Any, Dict, List, Optional
 import requests
@@ -17,10 +18,70 @@ logger = logging.getLogger(__name__)
 
 INTERVALS_BASE_URL = "https://intervals.icu/api/v1"
 
+DEFAULT_BIKE_POWER_ZONE_PCTS = [55.0, 75.0, 90.0, 105.0, 120.0, 150.0, 999.0]
+DEFAULT_PACE_ZONE_PCTS = [77.5, 87.7, 94.3, 100.0, 103.4, 111.5, 999.0]
+
+
+def _format_pace_secs(sec: Optional[float]) -> Optional[str]:
+    if sec is None or sec <= 0:
+        return None
+    m = int(sec // 60)
+    s = int(round(sec % 60))
+    if s >= 60:
+        m += 1
+        s = 0
+    return f"{m}:{s:02d}"
+
+
+def _build_pace_zone_table(
+    threshold_speed_mps: Optional[float],
+    raw_pcts: Optional[List[float]],
+    raw_names: Optional[List[str]],
+    dist_unit: float,
+) -> List[Dict[str, Any]]:
+    """Builds Intervals.icu 7-zone pace table dynamically from threshold speed (m/s) and % boundaries."""
+    pcts = [float(p) for p in raw_pcts] if raw_pcts else list(DEFAULT_PACE_ZONE_PCTS)
+    names = raw_names or [f"Z{i + 1}" for i in range(len(pcts))]
+    tp = float(threshold_speed_mps) if (threshold_speed_mps and threshold_speed_mps > 0) else 0.0
+
+    zones: List[Dict[str, Any]] = []
+    for idx, pct_max in enumerate(pcts):
+        pct_min = 0.0 if idx == 0 else float(pcts[idx - 1])
+        name = names[idx] if idx < len(names) else f"Z{idx + 1}"
+        min_spd = (tp * (pct_min / 100.0)) if (tp > 0 and pct_min > 0) else 0.0
+        max_spd = (tp * (pct_max / 100.0)) if (tp > 0 and pct_max < 900.0) else None
+
+        slow_str = _format_pace_secs(dist_unit / min_spd) if min_spd > 0 else None
+        fast_str = _format_pace_secs(dist_unit / max_spd) if (max_spd and max_spd > 0) else None
+
+        if idx == 0 and fast_str:
+            range_label = f"> {fast_str}"
+        elif fast_str is None and slow_str:
+            range_label = f"< {slow_str}"
+        elif fast_str and slow_str:
+            range_label = f"{fast_str}-{slow_str}"
+        else:
+            range_label = f"Z{idx + 1}"
+
+        zones.append({
+            "zone": idx + 1,
+            "id": f"Z{idx + 1}",
+            "name": name,
+            "percent_min": pct_min,
+            "percent_max": pct_max,
+            "min_speed_mps": round(min_spd, 4),
+            "max_speed_mps": round(max_spd, 4) if max_spd else None,
+            "fast_pace": fast_str,
+            "slow_pace": slow_str,
+            "range_label": range_label,
+        })
+    return zones
+
 
 class IntervalsService:
     def __init__(self, config: Optional[AppConfig] = None):
         self.config = config or load_config()
+        self._last_threshold_sync_ts: float = 0.0
 
     def _get_auth_header(self) -> Dict[str, str]:
         if not self.config.intervals_api_key:
@@ -104,22 +165,34 @@ class IntervalsService:
                 if ss.get("lthr"):
                     self.config.lthr = int(ss["lthr"])
 
-                # Build bike power zones in Watts if percentage is given
-                raw_pz = ss.get("power_zones", [])
-                pz_names = ss.get("power_zone_names", ["Z1", "Z2", "Z3", "Z4", "Z5", "Z6", "Z7"])
+                # Build bike power zones in Watts dynamically from Intervals.icu FTP & power_zones %
+                raw_pz = [float(p) for p in (ss.get("power_zones") or DEFAULT_BIKE_POWER_ZONE_PCTS)]
+                pz_names = ss.get("power_zone_names") or ["Z1", "Z2", "Z3", "Z4", "Z5", "Z6", "Z7"]
                 watt_zones = []
                 prev_w = 0
+                prev_pct = 0.0
                 for idx, pct in enumerate(raw_pz):
                     name = pz_names[idx] if idx < len(pz_names) else f"Z{idx+1}"
-                    max_w = int(round(self.config.ftp * (pct / 100.0))) if pct < 900 else 999
+                    is_open_top = pct >= 900
+                    max_w = int(round(self.config.ftp * (pct / 100.0))) if not is_open_top else 9999
+                    if idx == 0:
+                        r_lbl = f"<{max_w}W"
+                    elif is_open_top:
+                        r_lbl = f">{prev_w - 1}W"
+                    else:
+                        r_lbl = f"{prev_w}-{max_w}W"
                     watt_zones.append({
                         "zone": idx + 1,
+                        "id": f"Z{idx + 1}",
                         "name": name,
+                        "percent_min": prev_pct,
                         "percent_max": pct,
                         "min_watts": prev_w,
                         "max_watts": max_w,
+                        "range_label": r_lbl,
                     })
                     prev_w = max_w + 1
+                    prev_pct = pct
 
                 disciplines["cycling"] = {
                     "ftp": self.config.ftp,
@@ -127,6 +200,8 @@ class IntervalsService:
                     "max_hr": ss.get("max_hr", self.config.max_hr),
                     "hr_zones": ss.get("hr_zones", []),
                     "hr_zone_names": ss.get("hr_zone_names", []),
+                    "power_zone_pcts": raw_pz,
+                    "power_zone_names": pz_names,
                     "power_zones": watt_zones,
                 }
 
@@ -144,13 +219,20 @@ class IntervalsService:
                 if ss.get("max_hr"):
                     self.config.max_hr = max(self.config.max_hr, int(ss["max_hr"]))
 
+                run_pz_pcts = [float(p) for p in (ss.get("pace_zones") or DEFAULT_PACE_ZONE_PCTS)]
+                run_pz_names = ss.get("pace_zone_names") or [f"Z{i+1}" for i in range(len(run_pz_pcts))]
+                run_pace_zones = _build_pace_zone_table(tp, run_pz_pcts, run_pz_names, 1000.0)
+
                 disciplines["running"] = {
                     "threshold_pace": self.config.run_threshold_pace,
-                    "threshold_speed_mps": round(tp, 3) if tp else None,
+                    "threshold_speed_mps": round(float(tp), 4) if tp else None,
                     "lthr": ss.get("lthr", self.config.lthr),
                     "max_hr": ss.get("max_hr", self.config.max_hr),
                     "hr_zones": ss.get("hr_zones", []),
                     "hr_zone_names": ss.get("hr_zone_names", []),
+                    "pace_zone_pcts": run_pz_pcts,
+                    "pace_zone_names": run_pz_names,
+                    "pace_zones": run_pace_zones,
                 }
 
             elif is_swim:
@@ -164,13 +246,20 @@ class IntervalsService:
                         s = 0.0
                     self.config.css_pace = f"{m}:{s:04.1f}" if (s % 1 != 0) else f"{m}:{int(s):02d}.0"
 
+                swim_pz_pcts = [float(p) for p in (ss.get("pace_zones") or DEFAULT_PACE_ZONE_PCTS)]
+                swim_pz_names = ss.get("pace_zone_names") or [f"Z{i+1}" for i in range(len(swim_pz_pcts))]
+                swim_pace_zones = _build_pace_zone_table(tp, swim_pz_pcts, swim_pz_names, 100.0)
+
                 disciplines["swimming"] = {
                     "css_pace": self.config.css_pace,
-                    "threshold_speed_mps": round(tp, 3) if tp else None,
+                    "threshold_speed_mps": round(float(tp), 4) if tp else None,
                     "lthr": ss.get("lthr", self.config.lthr),
                     "max_hr": ss.get("max_hr", self.config.max_hr),
                     "hr_zones": ss.get("hr_zones", []),
                     "hr_zone_names": ss.get("hr_zone_names", []),
+                    "pace_zone_pcts": swim_pz_pcts,
+                    "pace_zone_names": swim_pz_names,
+                    "pace_zones": swim_pace_zones,
                 }
 
         self.config.thresholds_source = "intervals.icu"
@@ -179,6 +268,7 @@ class IntervalsService:
 
         if save:
             save_config(self.config)
+        self._last_threshold_sync_ts = time.time()
 
         return {
             "ftp": self.config.ftp,
@@ -192,6 +282,22 @@ class IntervalsService:
             "source": "intervals.icu",
             "last_sync": self.config.thresholds_last_sync,
         }
+
+    def ensure_fresh_thresholds(self, max_age_seconds: int = 300) -> Dict[str, Any]:
+        """Ensures disciplines_thresholds contains live power/pace zone definitions from Intervals.icu,
+        refreshing automatically when stale or missing so threshold changes take effect immediately.
+        """
+        disc = self.config.disciplines_thresholds or {}
+        has_full = (
+            isinstance(disc.get("cycling"), dict) and bool(disc["cycling"].get("power_zone_pcts"))
+            and isinstance(disc.get("running"), dict) and bool(disc["running"].get("pace_zone_pcts"))
+            and isinstance(disc.get("swimming"), dict) and bool(disc["swimming"].get("pace_zone_pcts"))
+        )
+        now = time.time()
+        if not has_full or (now - self._last_threshold_sync_ts) >= max_age_seconds:
+            if self.config.intervals_api_key:
+                self.sync_athlete_thresholds(save=True)
+        return self.config.disciplines_thresholds or {}
 
     def sync_athlete_thresholds(self, save: bool = True) -> Dict[str, Any]:
         """Fetches live athlete profile and sport settings from Intervals.icu
@@ -537,10 +643,16 @@ class IntervalsService:
         }
 
     def _extract_swim_target_zones_meters(self, ev: Dict[str, Any]) -> Dict[str, int]:
-        """Extracts planned swimming distance (in meters) per pace zone Z1-Z7 from workout_doc.steps."""
+        """Extracts planned swimming distance (in meters) per pace zone Z1-Z7 from workout_doc.steps,
+        using the athlete's live Intervals.icu CSS threshold speed and pace zone boundaries.
+        """
         zones_m: Dict[str, float] = {f"Z{i}": 0.0 for i in range(1, 8)}
         wdoc = ev.get("workout_doc") or {}
         raw_steps = wdoc.get("steps") if isinstance(wdoc, dict) else None
+
+        swim_cfg = (self.config.disciplines_thresholds or {}).get("swimming") or {}
+        swim_tp = float(swim_cfg.get("threshold_speed_mps") or 1.1236)
+        swim_pcts = [float(p) for p in (swim_cfg.get("pace_zone_pcts") or DEFAULT_PACE_ZONE_PCTS)]
 
         def classify_step_zone(step: Dict[str, Any]) -> int:
             if step.get("maxeffort"):
@@ -553,22 +665,12 @@ class IntervalsService:
                 return max(1, min(7, int(hr["value"])))
             dist = float(step.get("distance") or 0.0)
             dur = float(step.get("duration") or 0.0)
-            if dist > 0 and dur > 0:
-                sec100 = (dur / dist) * 100.0
-                if sec100 > 114:
-                    return 1
-                elif sec100 >= 102:
-                    return 2
-                elif sec100 >= 94:
-                    return 3
-                elif sec100 >= 89:
-                    return 4
-                elif sec100 >= 86:
-                    return 5
-                elif sec100 >= 80:
-                    return 6
-                else:
-                    return 7
+            if dist > 0 and dur > 0 and swim_tp > 0:
+                pct = ((dist / dur) / swim_tp) * 100.0
+                for idx, p_max in enumerate(swim_pcts[:7]):
+                    if pct <= p_max:
+                        return idx + 1
+                return 7
             return 2
 
         def walk_steps(steps_list: List[Dict[str, Any]], mult: int = 1):
@@ -598,19 +700,112 @@ class IntervalsService:
         return {k: int(round(v)) for k, v in zones_m.items()}
 
     def _extract_target_zones(self, ev: Dict[str, Any]) -> Dict[str, int]:
-        """Estimate planned zone distribution based on workout description or targets."""
-        moving_time = ev.get("moving_time") or ev.get("duration") or 3600
-        if moving_time is None:
-            moving_time = 3600
-        desc = (ev.get("description") or "").lower()
-        # Default distribution for Base Period
-        if "z2" in desc or "aerobic" in desc or "rodaje" in desc:
-            return {"Z1": int(moving_time * 0.15), "Z2": int(moving_time * 0.80), "Z3": int(moving_time * 0.05), "Z4": 0, "Z5": 0}
-        elif "series" in desc or "interval" in desc or "umbral" in desc:
-            return {"Z1": int(moving_time * 0.25), "Z2": int(moving_time * 0.35), "Z3": int(moving_time * 0.15), "Z4": int(moving_time * 0.25), "Z5": 0}
+        """Extracts exact planned zone durations (in seconds, Z1-Z7) from Intervals.icu
+        workout_doc.zoneTimes (canonical) or workout_doc.steps. Never invents fake
+        interval zones for strength or blank placeholder workouts.
+        """
+        zones: Dict[str, int] = {f"Z{i}": 0 for i in range(1, 8)}
+
+        if ev.get("category") == "NOTE":
+            return zones
+
+        wdoc = ev.get("workout_doc") or {}
+        if isinstance(wdoc, dict):
+            # 1. Canonical source: Intervals.icu pre-computed workout_doc.zoneTimes (Z1..Z7, excluding overlapping 'SS')
+            zone_times = wdoc.get("zoneTimes")
+            if isinstance(zone_times, list):
+                zt_total = 0
+                for z_item in zone_times:
+                    if not isinstance(z_item, dict):
+                        continue
+                    zid = str(z_item.get("id") or "")
+                    secs = int(round(float(z_item.get("secs") or 0)))
+                    if zid in zones and secs > 0:
+                        zones[zid] += secs
+                        zt_total += secs
+                if zt_total > 0:
+                    return zones
+
+            # 2. Secondary source: walk structured workout_doc.steps if zoneTimes wasn't populated
+            raw_steps = wdoc.get("steps")
+            if isinstance(raw_steps, list) and len(raw_steps) > 0:
+                bike_cfg = (self.config.disciplines_thresholds or {}).get("cycling") or {}
+                bike_pcts = [float(p) for p in (bike_cfg.get("power_zone_pcts") or DEFAULT_BIKE_POWER_ZONE_PCTS)]
+
+                def _step_zone(step: Dict[str, Any]) -> Optional[int]:
+                    pwr = step.get("power")
+                    if isinstance(pwr, dict):
+                        units = pwr.get("units") or ""
+                        if units == "power_zone" and pwr.get("value"):
+                            return max(1, min(7, int(pwr["value"])))
+                        if units == "%ftp":
+                            start_p = float(pwr.get("start") if pwr.get("start") is not None else (pwr.get("value") or 0))
+                            end_p = float(pwr.get("end") if pwr.get("end") is not None else start_p)
+                            avg_p = (start_p + end_p) / 2.0
+                            if avg_p > 0:
+                                for idx, p_max in enumerate(bike_pcts[:7]):
+                                    if avg_p <= p_max:
+                                        return idx + 1
+                                return 7
+                    pace = step.get("pace")
+                    if isinstance(pace, dict) and pace.get("units") == "pace_zone" and pace.get("value"):
+                        return max(1, min(7, int(pace["value"])))
+                    hr = step.get("hr")
+                    if isinstance(hr, dict) and hr.get("units") == "hr_zone" and hr.get("value"):
+                        return max(1, min(7, int(hr["value"])))
+                    return None
+
+                def _walk(steps_list: List[Dict[str, Any]], mult: int = 1):
+                    for st in steps_list:
+                        if not isinstance(st, dict):
+                            continue
+                        if st.get("reps") and isinstance(st.get("steps"), list):
+                            _walk(st["steps"], mult * int(st.get("reps") or 1))
+                        else:
+                            dur = float(st.get("duration") or 0.0)
+                            if dur > 0:
+                                zn = _step_zone(st)
+                                if zn is not None:
+                                    zones[f"Z{zn}"] += int(round(dur * mult))
+
+                _walk(raw_steps, 1)
+                if sum(zones.values()) > 0:
+                    return zones
+
+        # 3. Unstructured workouts (no workout_doc.zoneTimes and no zoned steps)
+        moving_time = int(round(float(ev.get("moving_time") or ev.get("duration") or 0)))
+        if moving_time <= 0:
+            return zones
+
+        sport = self._map_sport_type(ev.get("type") or "")
+        if sport == "strength":
+            # Gym/strength workouts are non-cardio (Z1 baseline); never invent Z3/Z4 intervals from words like "series"
+            zones["Z1"] = moving_time
+            return zones
+
+        desc = (ev.get("description") or "").strip().lower()
+        if not desc:
+            # Blank placeholder workout with no structure yet -> don't fabricate zone minutes
+            return zones
+
+        # Fallback only for unstructured cardio with text description (e.g. offline/fallback mode)
+        if "z2" in desc or "aerobic" in desc or "aeróbico" in desc or "rodaje" in desc:
+            zones["Z1"] = int(moving_time * 0.15)
+            zones["Z2"] = int(moving_time * 0.80)
+            zones["Z3"] = int(moving_time * 0.05)
         elif "recuperación" in desc or "suave" in desc:
-            return {"Z1": int(moving_time * 0.70), "Z2": int(moving_time * 0.30), "Z3": 0, "Z4": 0, "Z5": 0}
-        return {"Z1": int(moving_time * 0.20), "Z2": int(moving_time * 0.70), "Z3": int(moving_time * 0.10), "Z4": 0, "Z5": 0}
+            zones["Z1"] = int(moving_time * 0.70)
+            zones["Z2"] = int(moving_time * 0.30)
+        elif "umbral" in desc or "interval" in desc:
+            zones["Z1"] = int(moving_time * 0.25)
+            zones["Z2"] = int(moving_time * 0.35)
+            zones["Z3"] = int(moving_time * 0.15)
+            zones["Z4"] = int(moving_time * 0.25)
+        else:
+            zones["Z1"] = int(moving_time * 0.20)
+            zones["Z2"] = int(moving_time * 0.70)
+            zones["Z3"] = int(moving_time * 0.10)
+        return zones
 
     def _generate_fallback_planned_events(self, oldest: str, newest: str) -> List[Dict[str, Any]]:
         """Fallback triathlon periodized plan when Intervals.icu is not yet authenticated."""

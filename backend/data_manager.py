@@ -25,6 +25,8 @@ from .metrics import (
     calculate_swim_metrics,
     aggregate_weekly_zones,
     compute_pmc_series,
+    classify_power_zone,
+    classify_speed_zone,
 )
 from .ai_coach import AICoachService
 
@@ -84,6 +86,9 @@ class DataManager:
         monday, sunday, week_label = self.get_week_range(offset_weeks)
         start_str = monday.strftime("%Y-%m-%d")
         end_str = sunday.strftime("%Y-%m-%d")
+
+        # 0. Ensure live Intervals.icu thresholds & zone definitions (FTP, Run Pace, Swim CSS) are fresh
+        disciplines_thresholds = self.intervals.ensure_fresh_thresholds(max_age_seconds=0 if force_refresh else 300)
 
         # 1. Fetch planned workouts from Intervals.icu
         planned_events = self.intervals.get_planned_events(start_str, end_str)
@@ -193,8 +198,8 @@ class DataManager:
             })
             cur += timedelta(days=1)
 
-        # 4. Weekly summary box: Time in zones planned vs completed
-        zone_summary = aggregate_weekly_zones(planned_events, completed_activities)
+        # 4. Weekly summary box: Zones planned vs completed using live Intervals.icu thresholds
+        zone_summary = aggregate_weekly_zones(planned_events, completed_activities, disciplines_thresholds=disciplines_thresholds)
 
         # 5. Total loads, hours and distances
         total_planned_load = sum((e.get("planned_load") or 0) for e in planned_events)
@@ -212,6 +217,14 @@ class DataManager:
             "offset_weeks": offset_weeks,
             "days": days_data,
             "zone_summary": zone_summary,
+            "thresholds": {
+                "ftp": self.config.ftp,
+                "css_pace": self.config.css_pace,
+                "run_threshold_pace": self.config.run_threshold_pace,
+                "max_hr": self.config.max_hr,
+                "lthr": self.config.lthr,
+                "disciplines": disciplines_thresholds,
+            },
             "totals": {
                 "planned_hours": round(total_planned_hrs, 2),
                 "completed_hours": round(total_completed_hrs, 2),
@@ -485,7 +498,16 @@ class DataManager:
 
         athlete_id = self.intervals._get_athlete_id()
         headers = self.intervals._get_auth_header()
-        ftp = float(self.config.ftp or 348.0)
+        disc = self.intervals.ensure_fresh_thresholds(max_age_seconds=0 if force_refresh else 300)
+        bike_cfg = disc.get("cycling") or {}
+        run_cfg = disc.get("running") or {}
+        swim_cfg = disc.get("swimming") or {}
+        ftp = float(bike_cfg.get("ftp") or self.config.ftp or 348.0)
+        bike_pcts = bike_cfg.get("power_zone_pcts")
+        run_tp = float(run_cfg.get("threshold_speed_mps") or 4.5455)
+        run_pcts = run_cfg.get("pace_zone_pcts")
+        swim_tp = float(swim_cfg.get("threshold_speed_mps") or 1.1236)
+        swim_pcts = swim_cfg.get("pace_zone_pcts")
 
         # 1. Fetch daily wellness from Intervals.icu (contains Garmin HRV, RHR, Sleep, CTL, ATL)
         wellness_map: Dict[str, Dict[str, Any]] = {}
@@ -575,16 +597,14 @@ class DataManager:
                         for i in range(7):
                             tss_zones[f"Z{i+1}"] += load * (float(pace_z[i] or 0) / tot_s)
                     else:
-                        # Fallback to average speed zone classification
+                        # Fallback to average speed zone classification using live Intervals.icu thresholds
                         spd = float(act.get("average_speed") or 0.0)
                         z_num = 2
                         if spd > 0:
                             if "swim" in atype:
-                                s100 = 100.0 / spd
-                                z_num = 1 if s100 > 114 else (2 if s100 >= 102 else (3 if s100 >= 94 else (4 if s100 >= 89 else (5 if s100 >= 86 else (6 if s100 >= 80 else 7)))))
+                                z_num = classify_speed_zone(spd, swim_tp, swim_pcts)
                             else:
-                                skm = 1000.0 / spd
-                                z_num = 1 if skm > 285 else (2 if skm >= 251 else (3 if skm >= 233 else (4 if skm >= 220 else (5 if skm >= 198 else (6 if skm >= 180 else 7)))))
+                                z_num = classify_speed_zone(spd, run_tp, run_pcts)
                         tss_zones[f"Z{z_num}"] += load
                 elif "ride" in atype or "cycling" in atype or "bike" in atype:
                     pz = act.get("icu_zone_times")
@@ -600,8 +620,7 @@ class DataManager:
                             tss_zones[f"Z{i}"] += load * (z_map_secs[f"Z{i}"] / tot_s)
                     else:
                         pwr = float(act.get("icu_average_watts") or act.get("icu_weighted_avg_watts") or 0.0)
-                        pct = (pwr / ftp) * 100.0 if ftp > 0 else 65.0
-                        z_num = 1 if pct < 56 else (2 if pct < 76 else (3 if pct < 91 else (4 if pct < 106 else (5 if pct < 121 else (6 if pct < 151 else 7)))))
+                        z_num = classify_power_zone(pwr, ftp, bike_pcts) if pwr > 0 else 2
                         tss_zones[f"Z{z_num}"] += load
                 else:
                     tss_zones["Z2"] += load

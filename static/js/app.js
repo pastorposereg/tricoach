@@ -257,6 +257,13 @@ async function loadWeek(offset, forceRefresh = false) {
     const res = await fetch(url);
     const data = await res.json();
     state.weekData = data;
+    if (data.thresholds) {
+      if (!state.athleteStatus) state.athleteStatus = {};
+      state.athleteStatus.thresholds = {
+        ...(state.athleteStatus.thresholds || {}),
+        ...data.thresholds
+      };
+    }
 
     // Header updates
     const titleEl = document.getElementById('week-title-display');
@@ -588,12 +595,12 @@ function renderWeeklyZoneSummary(zoneSummary, totals) {
           <!-- Zone Breakdown Table -->
           <div class="space-y-1.5">
             <div class="grid grid-cols-6 text-[10px] font-semibold uppercase text-slate-400 px-1">
-              <span class="col-span-2">${sp.key === 'swimming' ? 'Zona (metros)' : 'Zona'}</span>
+              <span class="col-span-2">${sp.key === 'swimming' ? 'Zona (Ritmo • m)' : (sp.key === 'cycling' ? 'Zona (Potencia • min)' : (sp.key === 'running' ? 'Zona (Ritmo • min)' : 'Zona'))}</span>
               <span class="text-right">${sp.key === 'swimming' ? 'Plan (m)' : 'Plan'}</span>
               <span class="text-right">${sp.key === 'swimming' ? 'Real (m)' : 'Real'}</span>
               <span class="col-span-2 text-right">Comparativa</span>
             </div>
-            ${renderZoneRows(data.zones, sp.key, data.zone_unit)}
+            ${renderZoneRows(data.zones, sp.key, data.zone_unit, data.zone_ranges)}
           </div>
         </div>
       </div>
@@ -604,23 +611,23 @@ function renderWeeklyZoneSummary(zoneSummary, totals) {
   container.innerHTML = html;
 }
 
-function renderZoneRows(zones, sportKey = '', zoneUnit = 'minutes') {
+function renderZoneRows(zones, sportKey = '', zoneUnit = 'minutes', zoneRanges = null) {
   const isSwimMeters = sportKey === 'swimming' || zoneUnit === 'meters';
+  const hasSevenZones = sportKey === 'swimming' || sportKey === 'cycling' || sportKey === 'running' || (zones && ('Z6' in zones || 'Z7' in zones));
+  const zoneKeys = hasSevenZones ? ['Z1', 'Z2', 'Z3', 'Z4', 'Z5', 'Z6', 'Z7'] : ['Z1', 'Z2', 'Z3', 'Z4', 'Z5'];
+  const zoneHex = {
+    'Z1': '#009e80',
+    'Z2': '#009e00',
+    'Z3': '#ffcb0e',
+    'Z4': '#ff7f0e',
+    'Z5': '#dd0447',
+    'Z6': '#6633cc',
+    'Z7': '#504861'
+  };
 
   if (isSwimMeters) {
-    const swimKeys = ['Z1', 'Z2', 'Z3', 'Z4', 'Z5', 'Z6', 'Z7'];
-    const swimHex = {
-      'Z1': '#009e80',
-      'Z2': '#009e00',
-      'Z3': '#ffcb0e',
-      'Z4': '#ff7f0e',
-      'Z5': '#dd0447',
-      'Z6': '#6633cc',
-      'Z7': '#504861'
-    };
-
     let maxMeters = 500;
-    swimKeys.forEach(zKey => {
+    zoneKeys.forEach(zKey => {
       const zd = (zones && zones[zKey]) || {};
       const pm = zd.planned_meters || 0;
       const cm = zd.completed_meters || 0;
@@ -629,19 +636,21 @@ function renderZoneRows(zones, sportKey = '', zoneUnit = 'minutes') {
     });
 
     let rows = '';
-    for (const zKey of swimKeys) {
+    for (const zKey of zoneKeys) {
       const zData = (zones && zones[zKey]) || { planned_meters: 0, completed_meters: 0 };
       const pMeters = Math.round(zData.planned_meters || 0);
       const cMeters = Math.round(zData.completed_meters || 0);
       const pWidth = Math.min((pMeters / maxMeters) * 100, 100);
       const cWidth = Math.min((cMeters / maxMeters) * 100, 100);
-      const hex = swimHex[zKey] || '#009e00';
+      const hex = zoneHex[zKey] || '#009e00';
+      const rLbl = (zoneRanges && zoneRanges[zKey]) ? zoneRanges[zKey] : '';
 
       rows += `
-        <div class="grid grid-cols-6 items-center text-xs py-1 px-1 rounded hover:bg-slate-50 font-mono">
-          <div class="col-span-2 flex items-center gap-1.5 text-slate-700">
+        <div class="grid grid-cols-6 items-center text-xs py-1 px-1 rounded hover:bg-slate-50 font-mono" title="${zKey}${rLbl ? ` (${rLbl} /100m)` : ''}">
+          <div class="col-span-2 flex items-center gap-1.5 text-slate-700 min-w-0">
             <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${hex};"></span>
-            <span class="truncate">${zKey}</span>
+            <span class="font-semibold shrink-0">${zKey}</span>
+            ${rLbl ? `<span class="text-[10px] text-slate-400 truncate">${rLbl}</span>` : ''}
           </div>
           <div class="text-right text-slate-500 whitespace-nowrap">${pMeters} m</div>
           <div class="text-right whitespace-nowrap ${cMeters >= pMeters && pMeters > 0 ? 'text-emerald-600 font-bold' : 'text-slate-800'}">${cMeters} m</div>
@@ -661,39 +670,35 @@ function renderZoneRows(zones, sportKey = '', zoneUnit = 'minutes') {
     return rows;
   }
 
-  const zoneLabels = {
-    'Z1': 'Z1 Recuperación',
-    'Z2': 'Z2 Base Aeróbica',
-    'Z3': 'Z3 Tempo',
-    'Z4': 'Z4 Umbral',
-    'Z5': 'Z5 VO2 Máx'
-  };
-
-  const zoneColors = {
-    'Z1': 'bg-slate-400',
-    'Z2': 'bg-sky-500',
-    'Z3': 'bg-emerald-500',
-    'Z4': 'bg-amber-500',
-    'Z5': 'bg-rose-500'
-  };
+  let maxMin = 30;
+  zoneKeys.forEach(zKey => {
+    const zd = (zones && zones[zKey]) || {};
+    const pm = zd.planned_mins || 0;
+    const cm = zd.completed_mins || 0;
+    if (pm > maxMin) maxMin = pm;
+    if (cm > maxMin) maxMin = cm;
+  });
 
   let rows = '';
-  for (const [zKey, label] of Object.entries(zoneLabels)) {
+  for (const zKey of zoneKeys) {
     const zData = (zones && zones[zKey]) || { planned_mins: 0, completed_mins: 0 };
     const pMin = zData.planned_mins || 0;
     const cMin = zData.completed_mins || 0;
-    const maxMin = Math.max(pMin, cMin, 60);
     const pWidth = Math.min((pMin / maxMin) * 100, 100);
     const cWidth = Math.min((cMin / maxMin) * 100, 100);
+    const hex = zoneHex[zKey] || '#009e00';
+    const rLbl = (zoneRanges && zoneRanges[zKey]) ? zoneRanges[zKey] : '';
+    const unitHint = sportKey === 'cycling' ? '' : (sportKey === 'running' ? ' /km' : '');
 
     rows += `
-      <div class="grid grid-cols-6 items-center text-xs py-1 px-1 rounded hover:bg-slate-50 font-mono">
-        <div class="col-span-2 flex items-center gap-1.5 text-slate-700">
-          <span class="w-2 h-2 rounded-full ${zoneColors[zKey]}"></span>
-          <span class="truncate">${zKey}</span>
+      <div class="grid grid-cols-6 items-center text-xs py-1 px-1 rounded hover:bg-slate-50 font-mono" title="${zKey}${rLbl ? ` (${rLbl}${unitHint})` : ''}">
+        <div class="col-span-2 flex items-center gap-1.5 text-slate-700 min-w-0">
+          <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${hex};"></span>
+          <span class="font-semibold shrink-0">${zKey}</span>
+          ${rLbl ? `<span class="text-[10px] text-slate-400 truncate">${rLbl}</span>` : ''}
         </div>
-        <div class="text-right text-slate-500">${pMin}m</div>
-        <div class="text-right ${cMin >= pMin && pMin > 0 ? 'text-emerald-600 font-bold' : 'text-slate-800'}">${cMin}m</div>
+        <div class="text-right text-slate-500 whitespace-nowrap">${pMin}m</div>
+        <div class="text-right whitespace-nowrap ${cMin >= pMin && pMin > 0 ? 'text-emerald-600 font-bold' : 'text-slate-800'}">${cMin}m</div>
         <div class="col-span-2 pl-3 flex flex-col gap-0.5">
           <!-- Planned Bar (gray) -->
           <div class="w-full bg-slate-100 rounded h-1">
@@ -701,7 +706,7 @@ function renderZoneRows(zones, sportKey = '', zoneUnit = 'minutes') {
           </div>
           <!-- Completed Bar (colored) -->
           <div class="w-full bg-slate-100 rounded h-1">
-            <div class="${zoneColors[zKey]} h-1 rounded" style="width: ${cWidth}%"></div>
+            <div class="h-1 rounded" style="width: ${cWidth}%; background-color: ${hex};"></div>
           </div>
         </div>
       </div>
@@ -1085,7 +1090,8 @@ function renderProportionalLapsSection(act) {
       repInfo: null,
       avgHr: avgHr,
       maxHr: maxHr,
-      recordedPrimary: primaryVal
+      recordedPrimary: primaryVal,
+      _explicitZone: true
     };
 
     // Enrich with zone target ranges, then prepend the recorded value so the floating card shows both!
@@ -1988,6 +1994,8 @@ function enrichBlockTargetDetails(b, sportType) {
     return;
   }
 
+  const disc = athThresholds.disciplines || {};
+
   if (sportType === 'cycling') {
     if (b.isRamp) {
       b.targetMetricType = 'Potencia (Rampa Progresiva)';
@@ -1998,89 +2006,130 @@ function enrichBlockTargetDetails(b, sportType) {
       return;
     }
 
-    const pzRanges = {
-      1: { w: `0 - ${Math.round(ftp * 0.55)} W`, pct: '0% - 55% FTP', hr: '< 127 ppm', focus: 'Recuperación activa, capilarización y aclarado de lactato.' },
-      2: { w: `${Math.round(ftp * 0.55) + 1} - ${Math.round(ftp * 0.75)} W`, pct: '56% - 75% FTP', hr: '128 - 142 ppm', focus: 'Construcción mitocondrial, eficiencia aeróbica y metabolismo lipídico.' },
-      3: { w: `${Math.round(ftp * 0.75) + 1} - ${Math.round(ftp * 0.90)} W`, pct: '76% - 90% FTP', hr: '143 - 148 ppm', focus: 'Ritmo tempo crucero y resistencia a la fatiga muscular.' },
-      4: { w: `${Math.round(ftp * 0.90) + 1} - ${Math.round(ftp * 1.05)} W`, pct: '91% - 105% FTP', hr: '149 - 158 ppm', focus: 'Potencia umbral anaeróbico funcional (FTP) y estado estacionario.' },
-      5: { w: `${Math.round(ftp * 1.05) + 1} - ${Math.round(ftp * 1.20)} W`, pct: '106% - 120% FTP', hr: '159 - 162 ppm', focus: 'Consumo máximo de oxígeno (VO2 Máx) y gasto cardíaco pico.' },
-      6: { w: `${Math.round(ftp * 1.20) + 1} - ${Math.round(ftp * 1.50)} W`, pct: '121% - 150% FTP', hr: '163 - 167 ppm', focus: 'Capacidad glucolítica anaeróbica láctica y tolerancia a la acidosis.' },
-      7: { w: `> ${Math.round(ftp * 1.50)} W`, pct: '> 150% FTP', hr: '> 168 ppm', focus: 'Potencia neuromuscular explosiva y sprint sin limitación aeróbica.' }
+    const bikeCfg = disc.cycling || {};
+    const liveFtp = bikeCfg.ftp || ftp;
+    const livePz = Array.isArray(bikeCfg.power_zones) ? bikeCfg.power_zones : [];
+    const bikeHrZones = Array.isArray(bikeCfg.hr_zones) ? bikeCfg.hr_zones : [];
+    const focusMap = {
+      1: 'Recuperación activa, capilarización y aclarado de lactato.',
+      2: 'Construcción mitocondrial, eficiencia aeróbica y metabolismo lipídico.',
+      3: 'Ritmo tempo crucero y resistencia a la fatiga muscular.',
+      4: 'Potencia umbral anaeróbico funcional (FTP) y estado estacionario.',
+      5: 'Consumo máximo de oxígeno (VO2 Máx) y gasto cardíaco pico.',
+      6: 'Capacidad glucolítica anaeróbica láctica y tolerancia a la acidosis.',
+      7: 'Potencia neuromuscular explosiva y sprint sin limitación aeróbica.'
     };
-    const zNum = typeof zone === 'number' ? zone : 2;
-    const rInfo = pzRanges[zNum] || pzRanges[2];
-    b.targetRange = b.targetRange || `${rInfo.w} (${rInfo.pct})`;
+    const zNum = typeof zone === 'number' ? Math.min(7, Math.max(1, zone)) : 2;
+    const zObj = livePz.find(z => z.zone === zNum);
+    let wStr, pctStr;
+    if (zObj) {
+      wStr = zObj.percent_max >= 900 ? `> ${zObj.min_watts - 1} W` : `${zObj.min_watts} - ${zObj.max_watts} W`;
+      pctStr = zObj.percent_max >= 900 ? `> ${zObj.percent_min}% FTP` : `${zObj.percent_min}% - ${zObj.percent_max}% FTP`;
+    } else {
+      const defPcts = [0, 55, 75, 90, 105, 120, 150, 999];
+      const pMin = defPcts[zNum - 1];
+      const pMax = defPcts[zNum];
+      wStr = pMax >= 900 ? `> ${Math.round(liveFtp * pMin / 100)} W` : `${pMin === 0 ? 0 : Math.round(liveFtp * pMin / 100) + 1} - ${Math.round(liveFtp * pMax / 100)} W`;
+      pctStr = pMax >= 900 ? `> ${pMin}% FTP` : `${pMin}% - ${pMax}% FTP`;
+    }
+    let hrStr = '';
+    if (bikeHrZones.length >= zNum) {
+      hrStr = zNum === 1 ? `< ${bikeHrZones[0]} ppm` : (zNum === 7 ? `> ${bikeHrZones[5]} ppm` : `${bikeHrZones[zNum - 2] + 1} - ${bikeHrZones[zNum - 1]} ppm`);
+    }
+    b.targetRange = b.targetRange || `${wStr} (${pctStr})`;
     b.targetMetricType = b.targetMetricType || `Potencia Zona ${zNum}`;
-    b.targetSubtext = b.targetSubtext || `FTP de referencia: ${ftp} W`;
+    b.targetSubtext = b.targetSubtext || `FTP Intervals.icu: ${liveFtp} W`;
     b.secondaryLabel = b.secondaryLabel || 'FC Esperada';
-    b.secondaryTarget = b.secondaryTarget || rInfo.hr;
+    b.secondaryTarget = b.secondaryTarget || hrStr || `LTHR ${lthr} ppm`;
     b.secondaryIcon = b.secondaryIcon || '❤️';
-    b.physioFocus = b.physioFocus || rInfo.focus;
+    b.physioFocus = b.physioFocus || focusMap[zNum] || focusMap[2];
     return;
   }
 
   if (sportType === 'running') {
-    const runRanges = {
-      1: { pace: '> 4:45 min/km (4:45 - 5:30)', hr: '< 134 ppm', focus: 'Regeneración y carrera suave de asimilación.' },
-      2: { pace: '4:11 - 4:44 min/km', hr: '135 - 142 ppm', focus: 'Fondo aeróbico, densidad capilar y economía de zancada.' },
-      3: { pace: '3:53 - 4:10 min/km', hr: '143 - 150 ppm', focus: 'Ritmo tempo continuo sin elevación brusca de lactato.' },
-      4: { pace: '3:40 - 3:52 min/km', hr: '151 - 158 ppm', focus: 'Ritmo umbral anaeróbico funcional de carrera.' },
-      5: { pace: '3:18 - 3:37 min/km', hr: '159 - 162 ppm', focus: 'Series de potencia aeróbica y VO2 Máx.' },
-      6: { pace: '< 3:17 min/km', hr: '163 - 167 ppm', focus: 'Velocidad anaeróbica láctica y cambios de ritmo.' },
-      7: { pace: 'Sprint Máximo (< 3:00)', hr: '> 168 ppm', focus: 'Capacidad neuromuscular y sprint final.' }
+    const runCfg = disc.running || {};
+    const liveRunPace = runCfg.threshold_pace || runThreshPace;
+    const liveRz = Array.isArray(runCfg.pace_zones) ? runCfg.pace_zones : [];
+    const runHrZones = Array.isArray(runCfg.hr_zones) ? runCfg.hr_zones : [];
+    const focusMap = {
+      1: 'Regeneración y carrera suave de asimilación.',
+      2: 'Fondo aeróbico, densidad capilar y economía de zancada.',
+      3: 'Ritmo tempo continuo sin elevación brusca de lactato.',
+      4: 'Ritmo umbral anaeróbico funcional de carrera.',
+      5: 'Series de potencia aeróbica y VO2 Máx.',
+      6: 'Velocidad anaeróbica láctica y cambios de ritmo.',
+      7: 'Capacidad neuromuscular y sprint final.'
     };
-    const zNum = typeof zone === 'number' ? zone : 2;
-    const rr = runRanges[zNum] || runRanges[2];
-    b.targetRange = b.targetRange || rr.pace;
-    b.targetMetricType = b.targetMetricType || `Ritmo Zona ${zNum} (Pace)`;
-    b.targetSubtext = b.targetSubtext || `Umbral de referencia: ${runThreshPace}/km`;
+    const fallbackPaces = {
+      1: '> 4:44 min/km',
+      2: '4:11 - 4:44 min/km',
+      3: '3:53 - 4:11 min/km',
+      4: '3:40 - 3:53 min/km',
+      5: '3:33 - 3:40 min/km',
+      6: '3:17 - 3:33 min/km',
+      7: '< 3:17 min/km'
+    };
+    const zNum = typeof zone === 'number' ? Math.min(7, Math.max(1, zone)) : 2;
+    const zObj = liveRz.find(z => z.zone === zNum);
+    const paceStr = zObj && zObj.range_label ? `${zObj.range_label} min/km` : (fallbackPaces[zNum] || fallbackPaces[2]);
+    let hrStr = '';
+    if (runHrZones.length >= zNum) {
+      hrStr = zNum === 1 ? `< ${runHrZones[0]} ppm` : (zNum === 7 ? `> ${runHrZones[5]} ppm` : `${runHrZones[zNum - 2] + 1} - ${runHrZones[zNum - 1]} ppm`);
+    }
+    b.targetRange = b.targetRange || paceStr;
+    b.targetMetricType = b.targetMetricType || `Ritmo Zona ${zNum} (Intervals.icu)`;
+    b.targetSubtext = b.targetSubtext || `Umbral Intervals.icu: ${liveRunPace}/km`;
     b.secondaryLabel = b.secondaryLabel || 'FC Esperada';
-    b.secondaryTarget = b.secondaryTarget || rr.hr;
+    b.secondaryTarget = b.secondaryTarget || hrStr || `LTHR ${lthr} ppm`;
     b.secondaryIcon = b.secondaryIcon || '❤️';
-    b.physioFocus = b.physioFocus || rr.focus;
+    b.physioFocus = b.physioFocus || focusMap[zNum] || focusMap[2];
     return;
   }
 
   if (sportType === 'swimming') {
-    const swimZoneRanges = {
-      1: { low: '1:55', high: '2:05', name: 'Z1 Suave / Técnica', focus: 'Sensación de agarre, rolido y nado regenerativo suave.' },
-      2: { low: '1:42', high: '1:54', name: 'Z2 Fondo Aeróbico', focus: 'Capacidad aeróbica mitocondrial y eficiencia de brazada (SWOLF).' },
-      3: { low: '1:34', high: '1:41', name: 'Z3 Tempo', focus: 'Resistencia aeróbica media y ritmo crucero continuo.' },
-      4: { low: '1:29', high: '1:33', name: 'Z4 CSS Umbral', focus: 'Velocidad crítica de nado (CSS), estado estable de lactato.' },
-      5: { low: '1:26', high: '1:28', name: 'Z5 VO2 Máx', focus: 'Potencia aeróbica máxima y frecuencia de ciclo alta.' },
-      6: { low: '1:20', high: '1:25', name: 'Z6 Capacidad Anaeróbica', focus: 'Tolerancia a la acidosis y ritmos de prueba corta.' },
-      7: { low: '1:12', high: '1:19', name: 'Z7 Sprint / All-Out', focus: 'Potencia neuromuscular pura y velocidad máxima all-out.' }
+    const swimCfg = disc.swimming || {};
+    const liveCss = swimCfg.css_pace || swimCssPace;
+    const swimTp = swimCfg.threshold_speed_mps || 1.1236;
+    const swimPcts = Array.isArray(swimCfg.pace_zone_pcts) && swimCfg.pace_zone_pcts.length >= 7
+      ? swimCfg.pace_zone_pcts
+      : [77.5, 87.7, 94.3, 100.0, 103.4, 111.5, 999.0];
+    const liveSz = Array.isArray(swimCfg.pace_zones) ? swimCfg.pace_zones : [];
+    const swimMeta = {
+      1: { name: 'Z1 Suave / Técnica', focus: 'Sensación de agarre, rolido y nado regenerativo suave.' },
+      2: { name: 'Z2 Fondo Aeróbico', focus: 'Capacidad aeróbica mitocondrial y eficiencia de brazada (SWOLF).' },
+      3: { name: 'Z3 Tempo', focus: 'Resistencia aeróbica media y ritmo crucero continuo.' },
+      4: { name: 'Z4 CSS Umbral', focus: 'Velocidad crítica de nado (CSS), estado estable de lactato.' },
+      5: { name: 'Z5 VO2 Máx', focus: 'Potencia aeróbica máxima y frecuencia de ciclo alta.' },
+      6: { name: 'Z6 Capacidad Anaeróbica', focus: 'Tolerancia a la acidosis y ritmos de prueba corta.' },
+      7: { name: 'Z7 Sprint / All-Out', focus: 'Potencia neuromuscular pura y velocidad máxima all-out.' }
     };
 
-    let zNum = typeof zone === 'number' ? zone : 2;
-    if (dist > 0 && dur > 0) {
-      const avgSec100 = (dur / dist) * 100;
-      if (avgSec100 > 114) zNum = 1;
-      else if (avgSec100 >= 102) zNum = 2;
-      else if (avgSec100 >= 94) zNum = 3;
-      else if (avgSec100 >= 89) zNum = 4;
-      else if (avgSec100 >= 86) zNum = 5;
-      else if (avgSec100 >= 80) zNum = 6;
-      else zNum = 7;
+    let zNum = typeof zone === 'number' ? Math.min(7, Math.max(1, zone)) : 2;
+    if (dist > 0 && dur > 0 && swimTp > 0 && !b._explicitZone) {
+      const pct = ((dist / dur) / swimTp) * 100;
+      zNum = 7;
+      for (let i = 0; i < 7; i++) {
+        if (pct <= swimPcts[i]) {
+          zNum = i + 1;
+          break;
+        }
+      }
     }
 
-    const zr = swimZoneRanges[zNum] || swimZoneRanges[2];
-    b.targetRange = `${zr.low} - ${zr.high} min/100m`;
-    b.targetMetricType = `Ritmo Planificado (${zr.name})`;
-    b.targetSubtext = `Límite inferior: ${zr.low}/100m  •  Límite superior: ${zr.high}/100m  •  CSS: ${swimCssPace}/100m`;
+    const zObj = liveSz.find(z => z.zone === zNum);
+    const meta = swimMeta[zNum] || swimMeta[2];
+    const rangeTxt = zObj && zObj.range_label ? `${zObj.range_label} min/100m` : `Zona ${zNum} (CSS ${liveCss}/100m)`;
+    const limSub = (zObj && zObj.fast_pace && zObj.slow_pace)
+      ? `Límite inferior: ${zObj.fast_pace}/100m  •  Límite superior: ${zObj.slow_pace}/100m  •  CSS: ${liveCss}/100m`
+      : `Rango: ${rangeTxt}  •  CSS Intervals.icu: ${liveCss}/100m`;
+
+    b.targetRange = rangeTxt;
+    b.targetMetricType = `Ritmo Planificado (${meta.name})`;
+    b.targetSubtext = limSub;
     b.secondaryLabel = 'Distancia / Bloque';
     b.secondaryTarget = dist > 0 ? `${dist}m (${formatSecsToMinSec(dur)})` : formatSecsToMinSec(dur);
     b.secondaryIcon = '🏊';
-    b.physioFocus = zr.focus;
-    return;
-
-
-    b.targetMetricType = b.targetMetricType || `Ritmo Natación Z${zNum}`;
-    b.targetSubtext = b.targetSubtext || `CSS de referencia: ${swimCssPace}/100m`;
-    b.secondaryLabel = b.secondaryLabel || 'CSS Umbral';
-    b.secondaryTarget = b.secondaryTarget || `${swimCssPace}/100m`;
-    b.secondaryIcon = b.secondaryIcon || '🏊';
-    b.physioFocus = b.physioFocus || sp.focus;
+    b.physioFocus = meta.focus;
     return;
   }
 
@@ -2168,7 +2217,14 @@ function flattenWorkoutSteps(rawSteps, sportType, athleteFtp) {
         heightEnd = Math.min(142, Math.max(14, Math.round((endP / 100) * 92)));
 
         const avgP = (startP + endP) / 2;
-        zone = avgP < 56 ? 1 : (avgP < 76 ? 2 : (avgP < 91 ? 3 : (avgP < 106 ? 4 : (avgP < 121 ? 5 : (avgP < 151 ? 6 : 7)))));
+        const bikePcts = state.athleteStatus?.thresholds?.disciplines?.cycling?.power_zone_pcts || [55, 75, 90, 105, 120, 150, 999];
+        zone = 7;
+        for (let i = 0; i < 7; i++) {
+          if (avgP <= bikePcts[i]) {
+            zone = i + 1;
+            break;
+          }
+        }
         color = INTERVALS_COLORS[zone] || INTERVALS_COLORS[2];
         zoneName = INTERVALS_ZONE_NAMES[zone];
 
@@ -2236,7 +2292,8 @@ function flattenWorkoutSteps(rawSteps, sportType, athleteFtp) {
       heightEnd,
       isRest,
       isMax,
-      repInfo
+      repInfo,
+      _explicitZone: Boolean(pwr || pace || hr)
     };
 
     enrichBlockTargetDetails(blockObj, sportType);
@@ -2885,9 +2942,10 @@ function renderPlannedModalContent(ev) {
         </div>
       `;
     }
-  } else if (ev.target_zones && Object.keys(ev.target_zones).length > 0) {
+  } else if (ev.sport_type !== 'strength' && ev.target_zones && Object.keys(ev.target_zones).length > 0) {
     const tz = ev.target_zones;
-    const zList = ['Z1', 'Z2', 'Z3', 'Z4', 'Z5'];
+    const allKeys = ['Z1', 'Z2', 'Z3', 'Z4', 'Z5', 'Z6', 'Z7'];
+    const zList = allKeys.filter((z, idx) => idx < 5 || (tz[z] || 0) > 0);
     const hasZones = zList.some(z => (tz[z] || 0) > 0);
     if (hasZones) {
       const zPills = zList.map(z => {
@@ -2903,8 +2961,8 @@ function renderPlannedModalContent(ev) {
 
       zonesHtml = `
         <div class="mt-4 pt-4 border-t border-slate-200">
-          <span class="text-xs font-semibold uppercase tracking-wider text-slate-600 block mb-2">Distribución Estimada por Zonas</span>
-          <div class="grid grid-cols-5 gap-2">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-600 block mb-2">Distribución Planificada por Zonas</span>
+          <div class="grid grid-cols-5 sm:grid-cols-7 gap-2">
             ${zPills}
           </div>
         </div>
