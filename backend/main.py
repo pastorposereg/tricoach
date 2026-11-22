@@ -86,6 +86,10 @@ class CalendarNoteRequest(BaseModel):
     description: Optional[str] = ""
 
 
+class UpdatePlannedDateRequest(BaseModel):
+    date: str
+
+
 # --- API Routes ---
 @app.get("/api/status")
 def get_status() -> Dict[str, Any]:
@@ -276,6 +280,28 @@ def get_planned_event_detail(event_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.put("/api/planned/{event_id}/date")
+def update_planned_event_date(event_id: str, payload: UpdatePlannedDateRequest):
+    """Updates the scheduled date of a planned workout in Intervals.icu and refreshes cache."""
+    new_date = (payload.date or "").strip()
+    if len(new_date) != 10 or new_date[4] != "-" or new_date[7] != "-":
+        raise HTTPException(status_code=400, detail="Formato de fecha inválido. Debe ser YYYY-MM-DD.")
+    try:
+        updated = dm.update_planned_event_date(event_id, new_date)
+        if not updated:
+            raise HTTPException(status_code=500, detail="No se pudo actualizar la fecha del entrenamiento en Intervals.icu.")
+        return {
+            "status": "success",
+            "event": updated,
+            "message": f"Fecha actualizada al {updated.get('date', new_date)} y sincronizada con Intervals.icu"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating planned event {event_id} date: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/calendar/note")
 def add_calendar_note(payload: CalendarNoteRequest):
     """Creates a calendar note in Intervals.icu."""
@@ -285,6 +311,7 @@ def add_calendar_note(payload: CalendarNoteRequest):
         res = svc.create_calendar_note(payload.date, payload.name, payload.description or "")
         if not res:
             raise HTTPException(status_code=500, detail="No se pudo crear la nota en Intervals.icu. Comprueba tu conexión.")
+        dm._week_cache.clear()
         return {"status": "success", "event": res, "message": "Nota añadida y sincronizada en Intervals.icu"}
     except Exception as e:
         logger.error(f"Error creating calendar note: {e}")
@@ -300,6 +327,7 @@ def delete_calendar_event(event_id: str):
         ok = svc.delete_calendar_event(event_id)
         if not ok:
             raise HTTPException(status_code=500, detail="No se pudo eliminar el evento en Intervals.icu")
+        dm._week_cache.clear()
         return {"status": "success", "message": "Evento eliminado de Intervals.icu"}
     except Exception as e:
         logger.error(f"Error deleting event {event_id}: {e}")

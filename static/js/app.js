@@ -427,6 +427,9 @@ function renderCompletedItems(items) {
     const dist = act.distance_meters > 0 
       ? (act.distance_meters / (act.sport_type === 'swimming' ? 1 : 1000)).toFixed(act.sport_type === 'swimming' ? 0 : 1) + (act.sport_type === 'swimming' ? 'm' : 'km')
       : '';
+    const tssVal = (act.tss !== undefined && act.tss !== null)
+      ? Math.round(act.tss)
+      : (act.training_load !== undefined && act.training_load !== null ? Math.round(act.training_load) : null);
     const hr = act.avg_heart_rate ? `${Math.round(act.avg_heart_rate)} bpm` : '';
 
     // Efficiency badge
@@ -452,8 +455,8 @@ function renderCompletedItems(items) {
           </div>
           <span class="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-100 shrink-0" title="Completado"></span>
         </div>
-        <div class="flex items-center justify-between text-[11px] text-slate-600 font-mono mb-1.5">
-          <span>${durMins} min ${dist ? `• ${dist}` : ''}</span>
+        <div class="flex items-center justify-between flex-wrap gap-x-1.5 gap-y-0.5 text-[11px] text-slate-600 font-mono mb-1.5">
+          <span>${durMins} min${dist ? ` • ${dist}` : ''}${tssVal !== null ? ` • <span class="text-[#d97706] font-bold">${tssVal} TSS</span>` : ''}</span>
           ${hr ? `<span class="text-rose-600 font-medium">${hr}</span>` : ''}
         </div>
         <div class="flex items-center justify-between text-[10px] pt-1.5 border-t border-slate-100 gap-1">
@@ -585,12 +588,12 @@ function renderWeeklyZoneSummary(zoneSummary, totals) {
           <!-- Zone Breakdown Table -->
           <div class="space-y-1.5">
             <div class="grid grid-cols-6 text-[10px] font-semibold uppercase text-slate-400 px-1">
-              <span class="col-span-2">Zona</span>
-              <span class="text-right">Plan</span>
-              <span class="text-right">Real</span>
+              <span class="col-span-2">${sp.key === 'swimming' ? 'Zona (metros)' : 'Zona'}</span>
+              <span class="text-right">${sp.key === 'swimming' ? 'Plan (m)' : 'Plan'}</span>
+              <span class="text-right">${sp.key === 'swimming' ? 'Real (m)' : 'Real'}</span>
               <span class="col-span-2 text-right">Comparativa</span>
             </div>
-            ${renderZoneRows(data.zones)}
+            ${renderZoneRows(data.zones, sp.key, data.zone_unit)}
           </div>
         </div>
       </div>
@@ -601,7 +604,63 @@ function renderWeeklyZoneSummary(zoneSummary, totals) {
   container.innerHTML = html;
 }
 
-function renderZoneRows(zones) {
+function renderZoneRows(zones, sportKey = '', zoneUnit = 'minutes') {
+  const isSwimMeters = sportKey === 'swimming' || zoneUnit === 'meters';
+
+  if (isSwimMeters) {
+    const swimKeys = ['Z1', 'Z2', 'Z3', 'Z4', 'Z5', 'Z6', 'Z7'];
+    const swimHex = {
+      'Z1': '#009e80',
+      'Z2': '#009e00',
+      'Z3': '#ffcb0e',
+      'Z4': '#ff7f0e',
+      'Z5': '#dd0447',
+      'Z6': '#6633cc',
+      'Z7': '#504861'
+    };
+
+    let maxMeters = 500;
+    swimKeys.forEach(zKey => {
+      const zd = (zones && zones[zKey]) || {};
+      const pm = zd.planned_meters || 0;
+      const cm = zd.completed_meters || 0;
+      if (pm > maxMeters) maxMeters = pm;
+      if (cm > maxMeters) maxMeters = cm;
+    });
+
+    let rows = '';
+    for (const zKey of swimKeys) {
+      const zData = (zones && zones[zKey]) || { planned_meters: 0, completed_meters: 0 };
+      const pMeters = Math.round(zData.planned_meters || 0);
+      const cMeters = Math.round(zData.completed_meters || 0);
+      const pWidth = Math.min((pMeters / maxMeters) * 100, 100);
+      const cWidth = Math.min((cMeters / maxMeters) * 100, 100);
+      const hex = swimHex[zKey] || '#009e00';
+
+      rows += `
+        <div class="grid grid-cols-6 items-center text-xs py-1 px-1 rounded hover:bg-slate-50 font-mono">
+          <div class="col-span-2 flex items-center gap-1.5 text-slate-700">
+            <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${hex};"></span>
+            <span class="truncate">${zKey}</span>
+          </div>
+          <div class="text-right text-slate-500 whitespace-nowrap">${pMeters} m</div>
+          <div class="text-right whitespace-nowrap ${cMeters >= pMeters && pMeters > 0 ? 'text-emerald-600 font-bold' : 'text-slate-800'}">${cMeters} m</div>
+          <div class="col-span-2 pl-3 flex flex-col gap-0.5">
+            <!-- Planned Bar (gray) -->
+            <div class="w-full bg-slate-100 rounded h-1">
+              <div class="bg-slate-300 h-1 rounded" style="width: ${pWidth}%"></div>
+            </div>
+            <!-- Completed Bar (colored) -->
+            <div class="w-full bg-slate-100 rounded h-1">
+              <div class="h-1 rounded" style="width: ${cWidth}%; background-color: ${hex};"></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    return rows;
+  }
+
   const zoneLabels = {
     'Z1': 'Z1 Recuperación',
     'Z2': 'Z2 Base Aeróbica',
@@ -817,12 +876,11 @@ async function openActivityModal(activityId) {
   let foundAct = null;
   if (state.weekData && Array.isArray(state.weekData.days)) {
     for (const day of state.weekData.days) {
-      if (Array.isArray(day.completed_activities)) {
-        const match = day.completed_activities.find(a => String(a.activity_id) === String(activityId));
-        if (match) {
-          foundAct = match;
-          break;
-        }
+      const compList = day.completed || day.completed_activities || [];
+      const match = compList.find(a => String(a.activity_id) === String(activityId));
+      if (match) {
+        foundAct = match;
+        break;
       }
     }
   }
@@ -948,6 +1006,7 @@ function toggleLapsTable() {
 window.toggleLapsTable = toggleLapsTable;
 
 function renderProportionalLapsSection(act) {
+  if (!act || act.sport_type === 'strength') return '';
   if (!act.splits || act.splits.length === 0) return '';
   const splits = act.splits;
   const sportType = act.sport_type || 'running';
@@ -1141,27 +1200,49 @@ function renderProportionalLapsSection(act) {
   }
 
   // Zone Distribution Ribbon & Legend Pills across active laps
+  // For SWIMMING: aggregate by DISTANCE (meters); for all other sports: aggregate by TIME (minutes)
   const zAgg = {};
-  let activeTotal = 0;
+  let activeTotalSecs = 0;
+  let activeTotalMeters = 0;
   lapBlocks.forEach(b => {
     if (b.isRest) return;
+    if (isSwim && (!b.distance || b.distance <= 0)) return;
     const key = `Z${b.zone || 2}`;
     if (!zAgg[key]) {
-      zAgg[key] = { zone: b.zone || 2, name: b.zoneName || key, color: b.color, secs: 0 };
+      zAgg[key] = { zone: b.zone || 2, name: b.zoneName || key, color: b.color, secs: 0, meters: 0 };
     }
     zAgg[key].secs += b.duration;
-    activeTotal += b.duration;
+    zAgg[key].meters += (b.distance || 0);
+    activeTotalSecs += b.duration;
+    activeTotalMeters += (b.distance || 0);
   });
 
+  const useSwimDistance = isSwim && activeTotalMeters > 0;
   const sortedZones = Object.values(zAgg).sort((a, b) => (a.zone || 0) - (b.zone || 0));
   const ribbonSegments = sortedZones.map(item => {
-    const pct = Math.round((item.secs / (activeTotal || 1)) * 100);
+    if (useSwimDistance) {
+      const pct = Math.round((item.meters / activeTotalMeters) * 100);
+      const mVal = Math.round(item.meters);
+      return `<div style="width: ${(item.meters / activeTotalMeters * 100).toFixed(1)}%; background-color: ${item.color};" class="h-3 relative group transition-transform hover:scale-y-125" title="${item.name}: ${mVal} m (${pct}%)"></div>`;
+    }
+    const pct = Math.round((item.secs / (activeTotalSecs || 1)) * 100);
     const mins = Math.round(item.secs / 60);
-    return `<div style="width: ${(item.secs / (activeTotal || 1) * 100).toFixed(1)}%; background-color: ${item.color};" class="h-3 relative group transition-transform hover:scale-y-125" title="${item.name}: ${mins}m (${pct}%)"></div>`;
+    return `<div style="width: ${(item.secs / (activeTotalSecs || 1) * 100).toFixed(1)}%; background-color: ${item.color};" class="h-3 relative group transition-transform hover:scale-y-125" title="${item.name}: ${mins}m (${pct}%)"></div>`;
   });
 
   const legendPills = sortedZones.map(item => {
-    const pct = Math.round((item.secs / (activeTotal || 1)) * 100);
+    if (useSwimDistance) {
+      const pct = Math.round((item.meters / activeTotalMeters) * 100);
+      const mVal = Math.round(item.meters);
+      return `
+        <div class="flex items-center gap-1.5 px-2 py-1 rounded bg-white border border-slate-200 text-[11px] font-mono shadow-2xs">
+          <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background-color: ${item.color};"></span>
+          <span class="font-bold text-slate-800">${item.name}</span>
+          <span class="text-slate-500">${mVal} m <span class="text-slate-400">(${pct}%)</span></span>
+        </div>
+      `;
+    }
+    const pct = Math.round((item.secs / (activeTotalSecs || 1)) * 100);
     const mins = Math.round(item.secs / 60);
     return `
       <div class="flex items-center gap-1.5 px-2 py-1 rounded bg-white border border-slate-200 text-[11px] font-mono shadow-2xs">
@@ -1275,8 +1356,8 @@ function renderProportionalLapsSection(act) {
       <!-- Zone Distribution Ribbon -->
       <div class="mt-3.5 pt-3 border-t border-slate-200">
         <div class="flex items-center justify-between mb-1.5">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Distribución de Tiempo en Zonas Realizadas</span>
-          <span class="text-[10px] font-mono text-slate-500">${formatSecsToMinSec(totalDuration)} total</span>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">${useSwimDistance ? 'Distribución de Distancia en Zonas Realizadas' : 'Distribución de Tiempo en Zonas Realizadas'}</span>
+          <span class="text-[10px] font-mono text-slate-500">${useSwimDistance ? `${Math.round(activeTotalMeters)} m total` : `${formatSecsToMinSec(totalDuration)} total`}</span>
         </div>
 
         <div class="w-full flex rounded-full overflow-hidden bg-slate-100 border border-slate-200 mb-2.5">
@@ -1458,6 +1539,12 @@ function renderActivityModalContent(data) {
   const coach = data.coach_analysis || { content: '' };
   const durMins = Math.round((act.duration_seconds || 0) / 60);
   const distKm = ((act.distance_meters || 0) / (act.sport_type === 'swimming' ? 1 : 1000)).toFixed(act.sport_type === 'swimming' ? 0 : 2);
+  const tssVal = (act.tss !== undefined && act.tss !== null)
+    ? Math.round(act.tss)
+    : (act.training_load !== undefined && act.training_load !== null ? Math.round(act.training_load) : null);
+  const distDisplay = (act.distance_meters || 0) > 0
+    ? `${distKm} ${act.sport_type === 'swimming' ? 'm' : 'km'}`
+    : '';
 
   let effMetricHtml = '';
   if (act.sport_type === 'cycling') {
@@ -1527,9 +1614,9 @@ function renderActivityModalContent(data) {
   }
 
   content.innerHTML = `
-    <!-- Header -->
-    <div class="flex items-start justify-between pb-4 mb-4 border-b border-slate-200">
-      <div>
+    <!-- Header (padded right so close X never overlaps duration/TSS) -->
+    <div class="flex items-start justify-between gap-3 pr-12 sm:pr-14 pb-4 mb-4 border-b border-slate-200">
+      <div class="min-w-0">
         <div class="flex items-center gap-2 mb-1 flex-wrap">
           ${getSportBadge(act.sport_type, 'md')}
           <h2 class="text-lg font-bold text-slate-900">${act.name}</h2>
@@ -1542,9 +1629,12 @@ function renderActivityModalContent(data) {
         </div>
         <span class="text-xs text-slate-500 font-mono">${act.start_time || ''}</span>
       </div>
-      <div class="text-right">
-        <span class="text-lg font-mono font-bold text-slate-900">${durMins} min</span>
-        <span class="text-xs text-slate-500 block font-mono">${distKm} ${act.sport_type === 'swimming' ? 'm' : 'km'}</span>
+      <div class="text-right shrink-0">
+        <div class="flex items-baseline justify-end gap-2">
+          <span class="text-lg font-mono font-bold text-slate-900 whitespace-nowrap">${durMins} min</span>
+          ${tssVal !== null ? `<span class="text-xs font-mono font-bold text-[#d97706] bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded whitespace-nowrap">${tssVal} TSS</span>` : ''}
+        </div>
+        ${distDisplay ? `<span class="text-xs text-slate-500 block font-mono mt-0.5">${distDisplay}</span>` : ''}
       </div>
     </div>
 
@@ -1657,8 +1747,8 @@ function renderActivityModalContent(data) {
   // Initialize and render activity chat messages
   renderActivityChatMessages(act.activity_id, act);
 
-  // Render splits chart if splits exist
-  if (act.splits && act.splits.length > 1) {
+  // Render splits chart if splits exist (excluded for strength workouts)
+  if (act.sport_type !== 'strength' && act.splits && act.splits.length > 1) {
     setTimeout(() => {
       renderWorkoutSplitsChart('splitsChart', act.splits, act.sport_type);
     }, 50);
@@ -2356,12 +2446,69 @@ function renderPlannedWorkoutChart(ev) {
     }
   });
 
+  const isSwim = sport === 'swimming';
   const zoneTimesRaw = wdoc.zoneTimes || [];
-  const hasRawZT = zoneTimesRaw.some(zt => (zt.secs || 0) > 0);
+  const hasRawZT = !isSwim && zoneTimesRaw.some(zt => (zt.secs || 0) > 0);
   let ribbonSegments = [];
   let legendPills = [];
+  let useSwimDistance = false;
+  let activeTotalMeters = 0;
 
-  if (hasRawZT) {
+  if (isSwim) {
+    // Swimming: ALWAYS show zones by DISTANCE (meters), not by time
+    const zAgg = {};
+    blocks.forEach(b => {
+      if (b.isRest || !b.distance || b.distance <= 0) return;
+      const key = b.isMax ? 'MAX' : `Z${b.zone || 2}`;
+      if (!zAgg[key]) {
+        zAgg[key] = {
+          order: b.isMax ? 7.5 : (typeof b.zone === 'number' ? b.zone : 2),
+          name: b.zoneName || key,
+          color: b.color,
+          meters: 0
+        };
+      }
+      zAgg[key].meters += b.distance;
+      activeTotalMeters += b.distance;
+    });
+
+    if (activeTotalMeters === 0 && ev.target_zones_meters && typeof ev.target_zones_meters === 'object') {
+      const zOrder = ['Z1', 'Z2', 'Z3', 'Z4', 'Z5', 'Z6', 'Z7'];
+      zOrder.forEach((zKey, idx) => {
+        const mVal = Number(ev.target_zones_meters[zKey] || 0);
+        if (mVal > 0) {
+          const zNum = idx + 1;
+          zAgg[zKey] = {
+            order: zNum,
+            name: INTERVALS_ZONE_NAMES[zNum] || zKey,
+            color: INTERVALS_COLORS[zNum] || '#009e00',
+            meters: mVal
+          };
+          activeTotalMeters += mVal;
+        }
+      });
+    }
+
+    if (activeTotalMeters > 0) {
+      useSwimDistance = true;
+      Object.values(zAgg).sort((a, b) => a.order - b.order).forEach(item => {
+        const pct = Math.round((item.meters / activeTotalMeters) * 100);
+        const mVal = Math.round(item.meters);
+        ribbonSegments.push(`
+          <div style="width: ${(item.meters / activeTotalMeters * 100).toFixed(1)}%; background-color: ${item.color};" class="h-3 relative group transition-transform hover:scale-y-125" title="${item.name}: ${mVal} m (${pct}%)"></div>
+        `);
+        legendPills.push(`
+          <div class="flex items-center gap-1.5 px-2 py-1 rounded bg-white border border-slate-200 text-[11px] font-mono shadow-2xs">
+            <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background-color: ${item.color};"></span>
+            <span class="font-bold text-slate-800">${item.name}</span>
+            <span class="text-slate-500">${mVal} m <span class="text-slate-400">(${pct}%)</span></span>
+          </div>
+        `);
+      });
+    }
+  }
+
+  if (!useSwimDistance && hasRawZT) {
     const activeTotal = zoneTimesRaw.reduce((acc, zt) => acc + (zt.secs || 0), 0) || totalDuration;
     zoneTimesRaw.filter(zt => (zt.secs || 0) > 0).forEach(zt => {
       const pct = Math.round((zt.secs / activeTotal) * 100);
@@ -2383,7 +2530,7 @@ function renderPlannedWorkoutChart(ev) {
         </div>
       `);
     });
-  } else {
+  } else if (!useSwimDistance) {
     const zAgg = {};
     let activeTotal = 0;
     blocks.forEach(b => {
@@ -2442,7 +2589,7 @@ function renderPlannedWorkoutChart(ev) {
         <svg viewBox="0 0 ${svgWidth} ${svgHeight}" class="w-full h-40 sm:h-48 overflow-visible select-none" preserveAspectRatio="none">
           <!-- Grid lines -->
           <line x1="0" y1="${threshY}" x2="${svgWidth}" y2="${threshY}" stroke="#d97706" stroke-dasharray="3,3" stroke-width="1.2" opacity="0.75" />
-          <text x="${svgWidth - 6}" y="${threshY - 4}" text-anchor="end" fill="#d97706" font-size="9" font-family="monospace" font-weight="bold" opacity="0.95">100% Umbral / FTP</text>
+          <text x="${svgWidth - 6}" y="${threshY - 4}" text-anchor="end" fill="#d97706" font-size="9" font-family="monospace" font-weight="bold" opacity="0.95">100% Umbral / ${isSwim ? 'CSS' : (sport === 'cycling' ? 'FTP' : 'Ritmo')}</text>
 
           <line x1="0" y1="${baselineY - 46}" x2="${svgWidth}" y2="${baselineY - 46}" stroke="#cbd5e1" stroke-dasharray="2,4" stroke-width="0.8" opacity="0.7" />
           <text x="${svgWidth - 6}" y="${baselineY - 50}" text-anchor="end" fill="#64748b" font-size="8.5" font-family="monospace" opacity="0.8">50%</text>
@@ -2463,8 +2610,8 @@ function renderPlannedWorkoutChart(ev) {
       <!-- Zone Distribution Ribbon -->
       <div class="mt-3.5 pt-3 border-t border-slate-200">
         <div class="flex items-center justify-between mb-1.5">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Distribución de Tiempo en Zonas (Intervals.icu)</span>
-          <span class="text-[10px] font-mono text-slate-500">${formatSecsToMinSec(totalDuration)} total</span>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">${useSwimDistance ? 'Distribución de Distancia en Zonas (Intervals.icu)' : 'Distribución de Tiempo en Zonas (Intervals.icu)'}</span>
+          <span class="text-[10px] font-mono text-slate-500">${useSwimDistance ? `${Math.round(activeTotalMeters)} m total` : `${formatSecsToMinSec(totalDuration)} total`}</span>
         </div>
 
         <!-- Ribbon Bar -->
@@ -2666,7 +2813,22 @@ function renderPlannedModalContent(ev) {
   const content = document.getElementById('planned-modal-content');
   if (!content) return;
 
-  const existingChatHtml = document.getElementById('planned-chat-messages')?.innerHTML;
+  const existingDateEditorEl = document.getElementById('planned-date-editor');
+  const wasDateEditorOpen = Boolean(
+    existingDateEditorEl &&
+    !existingDateEditorEl.classList.contains('hidden') &&
+    state.currentPlannedEvent &&
+    String(state.currentPlannedEvent.id) === String(ev.id)
+  );
+  const previousDraftDate = wasDateEditorOpen ? document.getElementById('input-planned-new-date')?.value : null;
+
+  state.currentPlannedEvent = ev;
+
+  // Reset edit wrench button highlight when switching to a different event
+  const wrenchBtn = document.getElementById('btn-edit-planned-date');
+  if (wrenchBtn && !wasDateEditorOpen) {
+    wrenchBtn.classList.remove('bg-amber-100', 'text-amber-700', 'border-amber-300');
+  }
 
   const sportIcon = getSportIcon(ev.sport_type);
   const durMins = Math.round((ev.planned_duration_seconds || 0) / 60);
@@ -2679,7 +2841,7 @@ function renderPlannedModalContent(ev) {
   const badgeText = isNote ? 'Nota del Entrenador' : 'Intervals.icu • Planificado';
   const badgeColor = isNote ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20';
 
-  // Format description text cleanly
+  // Format description text cleanly and make URLs (e.g. YouTube video links) directly clickable
   let rawDesc = (ev.description || '').trim();
   let descHtml = '';
   if (rawDesc) {
@@ -2687,15 +2849,43 @@ function renderPlannedModalContent(ev) {
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
+      .replace(/(https?:\/\/[^\s<>"')\]}]+)/gi, (url) => {
+        const cleanUrl = url.replace(/[.,;:!?]+$/, '');
+        const trailing = url.slice(cleanUrl.length);
+        return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="text-[#0284c7] hover:text-[#0369a1] underline decoration-[#0284c7]/60 hover:decoration-[#0369a1] font-semibold break-all">${cleanUrl}</a>${trailing}`;
+      })
       .replace(/\n\n/g, '<div class="my-2 border-t border-slate-200"></div>')
       .replace(/\n/g, '<br/>');
   } else {
     descHtml = '<span class="text-slate-500 italic">No hay descripción adicional de texto en Intervals.icu para esta sesión.</span>';
   }
 
-  // Target Zones preview if present
+  // Target Zones preview if present (Swimming -> distance in meters; others -> time in minutes)
   let zonesHtml = '';
-  if (ev.target_zones && Object.keys(ev.target_zones).length > 0) {
+  if (ev.sport_type === 'swimming' && ev.target_zones_meters && Object.keys(ev.target_zones_meters).length > 0) {
+    const tzm = ev.target_zones_meters;
+    const zList = ['Z1', 'Z2', 'Z3', 'Z4', 'Z5', 'Z6', 'Z7'].filter(z => (tzm[z] || 0) > 0);
+    if (zList.length > 0) {
+      const zPills = zList.map(z => {
+        const meters = Math.round(tzm[z] || 0);
+        return `
+          <div class="p-2 rounded-lg bg-white border border-slate-200 text-center font-mono shadow-2xs">
+            <span class="text-[10px] text-slate-500 block">${z}</span>
+            <span class="text-xs font-bold text-slate-900">${meters} m</span>
+          </div>
+        `;
+      }).join('');
+
+      zonesHtml = `
+        <div class="mt-4 pt-4 border-t border-slate-200">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-600 block mb-2">Distribución Estimada por Zonas (metros)</span>
+          <div class="grid grid-cols-3 sm:grid-cols-5 gap-2">
+            ${zPills}
+          </div>
+        </div>
+      `;
+    }
+  } else if (ev.target_zones && Object.keys(ev.target_zones).length > 0) {
     const tz = ev.target_zones;
     const zList = ['Z1', 'Z2', 'Z3', 'Z4', 'Z5'];
     const hasZones = zList.some(z => (tz[z] || 0) > 0);
@@ -2725,8 +2915,8 @@ function renderPlannedModalContent(ev) {
   const chartHtml = renderPlannedWorkoutChart(ev);
 
   content.innerHTML = `
-    <!-- Header -->
-    <div class="flex items-start justify-between pb-4 mb-4 border-b border-slate-200">
+    <!-- Header (padded right for wrench & close X icons) -->
+    <div class="flex items-start justify-between pr-20 pb-4 mb-4 border-b border-slate-200">
       <div>
         <div class="flex items-center gap-2 mb-1.5 flex-wrap">
           ${getSportBadge(ev.sport_type, 'md')}
@@ -2736,10 +2926,35 @@ function renderPlannedModalContent(ev) {
           </span>
         </div>
         <div class="flex items-center gap-2 text-xs text-slate-500 font-mono">
-          <span>📅 ${ev.date || 'Esta semana'}</span>
+          <span id="planned-modal-date-label">📅 ${ev.date || 'Esta semana'}</span>
           ${ev.start_time ? `<span>• ${ev.start_time.substring(11, 16) || ''}</span>` : ''}
         </div>
       </div>
+    </div>
+
+    <!-- Collapsible Date Editor Panel (toggled via top-right wrench icon) -->
+    <div id="planned-date-editor" class="${wasDateEditorOpen ? '' : 'hidden'} mb-4 p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 shadow-2xs">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div>
+          <span class="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+            <span>📅</span> Modificar fecha del entrenamiento
+          </span>
+          <span class="text-[11px] text-amber-700 block">Se actualizará automáticamente en Intervals.icu y en tu calendario.</span>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <input type="date" id="input-planned-new-date" value="${previousDraftDate || ev.date || ''}"
+                 class="bg-white border border-amber-300 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-900 focus:outline-none focus:border-[#0284c7] focus:ring-1 focus:ring-[#0284c7]">
+          <button type="button" id="btn-save-planned-date" onclick="savePlannedEventDate('${ev.id}')"
+                  class="px-3 py-1.5 rounded-lg bg-[#0284c7] hover:bg-[#0369a1] text-white font-semibold text-xs transition-colors shadow-2xs">
+            Guardar
+          </button>
+          <button type="button" onclick="togglePlannedDateEditor(false)"
+                  class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 font-medium text-xs transition-colors">
+            Cancelar
+          </button>
+        </div>
+      </div>
+      <div id="planned-date-status" class="hidden mt-2 text-[11px] font-medium"></div>
     </div>
 
     <!-- Quick Metrics Grid -->
@@ -2861,6 +3076,112 @@ ${descHtml}
   // Initialize and render planned chat messages
   renderPlannedChatMessages(ev.id, ev);
 }
+
+function togglePlannedDateEditor(forceState) {
+  const panel = document.getElementById('planned-date-editor');
+  const wrenchBtn = document.getElementById('btn-edit-planned-date');
+  if (!panel) return;
+
+  const willShow = typeof forceState === 'boolean' ? forceState : panel.classList.contains('hidden');
+  if (willShow) {
+    panel.classList.remove('hidden');
+    if (wrenchBtn) wrenchBtn.classList.add('bg-amber-100', 'text-amber-700', 'border-amber-300');
+    const dateInput = document.getElementById('input-planned-new-date');
+    if (dateInput) {
+      if (!dateInput.value && state.currentPlannedEvent?.date) {
+        dateInput.value = state.currentPlannedEvent.date;
+      }
+      dateInput.focus();
+    }
+  } else {
+    panel.classList.add('hidden');
+    if (wrenchBtn) wrenchBtn.classList.remove('bg-amber-100', 'text-amber-700', 'border-amber-300');
+  }
+}
+window.togglePlannedDateEditor = togglePlannedDateEditor;
+
+async function savePlannedEventDate(eventId) {
+  const input = document.getElementById('input-planned-new-date');
+  const btn = document.getElementById('btn-save-planned-date');
+  const statusEl = document.getElementById('planned-date-status');
+  if (!input) return;
+
+  const newDate = (input.value || '').trim();
+  if (!newDate) {
+    if (statusEl) {
+      statusEl.textContent = '⚠️ Selecciona una fecha válida.';
+      statusEl.className = 'mt-2 text-[11px] font-medium text-rose-600';
+      statusEl.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (state.currentPlannedEvent && state.currentPlannedEvent.date === newDate) {
+    if (statusEl) {
+      statusEl.textContent = 'La fecha seleccionada es la misma que la actual.';
+      statusEl.className = 'mt-2 text-[11px] font-medium text-amber-800';
+      statusEl.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+  }
+  if (statusEl) {
+    statusEl.textContent = 'Sincronizando nueva fecha con Intervals.icu...';
+    statusEl.className = 'mt-2 text-[11px] font-medium text-slate-600';
+    statusEl.classList.remove('hidden');
+  }
+
+  try {
+    const res = await fetch(`/api/planned/${eventId}/date`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: newDate })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || 'No se pudo actualizar la fecha en Intervals.icu');
+    }
+
+    const confirmedDate = data.event?.date || newDate;
+    if (state.currentPlannedEvent) {
+      state.currentPlannedEvent.date = confirmedDate;
+    }
+    const dateLabel = document.getElementById('planned-modal-date-label');
+    if (dateLabel) {
+      dateLabel.textContent = `📅 ${confirmedDate}`;
+    }
+
+    if (statusEl) {
+      statusEl.textContent = `✅ Fecha actualizada al ${confirmedDate} y sincronizada en Intervals.icu.`;
+      statusEl.className = 'mt-2 text-[11px] font-semibold text-emerald-700';
+      statusEl.classList.remove('hidden');
+    }
+
+    // Reload current week calendar so the moved workout updates immediately
+    await loadWeek(state.weekOffset, true);
+
+    setTimeout(() => {
+      togglePlannedDateEditor(false);
+    }, 1500);
+  } catch (err) {
+    console.error('Error updating planned workout date:', err);
+    if (statusEl) {
+      statusEl.textContent = `❌ ${err.message || 'Error al actualizar la fecha en Intervals.icu.'}`;
+      statusEl.className = 'mt-2 text-[11px] font-medium text-rose-600';
+      statusEl.classList.remove('hidden');
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Guardar';
+    }
+  }
+}
+window.savePlannedEventDate = savePlannedEventDate;
 
 function renderPlannedChatMessages(eventId, ev) {
   if (!state.plannedChatHistory) state.plannedChatHistory = {};

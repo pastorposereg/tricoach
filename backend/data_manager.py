@@ -88,7 +88,7 @@ class DataManager:
         # 1. Fetch planned workouts from Intervals.icu
         planned_events = self.intervals.get_planned_events(start_str, end_str)
 
-        # 2. Fetch completed activities from Garmin
+        # 2. Fetch completed activities from Garmin + enrich with Intervals.icu (exact TSS & zone times)
         completed_activities = []
         try:
             recent_acts = self.garmin.get_activities(limit=40)
@@ -99,7 +99,57 @@ class DataManager:
         except Exception as e:
             logger.warning(f"Error fetching Garmin activities: {e}")
 
-        # If no Garmin live activities found for past weeks, check historical file
+        # Fetch Intervals.icu activities for exact TSS, pace/power zone times, and fallback when Garmin lacks older/remote activities
+        icu_acts: List[Dict[str, Any]] = []
+        try:
+            icu_acts = self.intervals.get_activities_by_range(start_str, end_str)
+        except Exception as e:
+            logger.warning(f"Error fetching Intervals.icu activities: {e}")
+
+        if icu_acts:
+            icu_by_ext = {str(a["external_id"]): a for a in icu_acts if a.get("external_id")}
+            matched_icu_ids = set()
+
+            for act in completed_activities:
+                act_id_str = str(act.get("activity_id") or "")
+                match = icu_by_ext.get(act_id_str)
+                if not match:
+                    act_day = (act.get("start_time") or "")[:10]
+                    act_sport = act.get("sport_type")
+                    act_dur = float(act.get("duration_seconds") or 0)
+                    best_diff = 900.0
+                    for cand in icu_acts:
+                        if cand["icu_activity_id"] in matched_icu_ids:
+                            continue
+                        if (cand.get("start_time") or "")[:10] == act_day and cand.get("sport_type") == act_sport:
+                            diff = abs(float(cand.get("duration_seconds") or 0) - act_dur)
+                            if diff <= best_diff:
+                                best_diff = diff
+                                match = cand
+
+                if match:
+                    matched_icu_ids.add(match["icu_activity_id"])
+                    act["icu_activity_id"] = match["icu_activity_id"]
+                    if match.get("tss") is not None:
+                        act["tss"] = match["tss"]
+                        act["training_load"] = match.get("training_load")
+                    if match.get("pace_zone_times") is not None:
+                        act["pace_zone_times"] = match["pace_zone_times"]
+                    if match.get("icu_zone_times") is not None:
+                        act["icu_zone_times"] = match["icu_zone_times"]
+                    if match.get("icu_hr_zone_times") is not None:
+                        act["icu_hr_zone_times"] = match["icu_hr_zone_times"]
+                elif act.get("tss") is None and act.get("training_load") is not None:
+                    act["tss"] = round(float(act["training_load"]))
+
+            # Add any Intervals.icu activities not returned by Garmin (e.g. Render remote deploy or weeks older than Garmin limit=40)
+            for cand in icu_acts:
+                if cand["icu_activity_id"] not in matched_icu_ids:
+                    completed_activities.append(cand)
+
+            completed_activities.sort(key=lambda x: x.get("start_time") or "")
+
+        # If no live activities found for past weeks, check historical file
         if not completed_activities and HISTORICO_FILE.exists():
             completed_activities = self._load_completed_from_history(start_str, end_str)
 
@@ -177,6 +227,75 @@ class DataManager:
         self._week_cache[offset_weeks] = (time.time(), result)
         return result
 
+    def _enrich_activity_with_intervals(self, activity_data: Dict[str, Any]) -> bool:
+        """Ensures a completed activity dict has exact authoritative TSS / zone metadata from Intervals.icu."""
+        if not isinstance(activity_data, dict):
+            return False
+        if activity_data.get("icu_activity_id") and activity_data.get("tss") is not None:
+            return False
+
+        act_id_str = str(activity_data.get("activity_id") or "")
+        # 1. Fast lookup inside already-cached week views
+        for _, wdata in self._week_cache.values():
+            for day in wdata.get("days", []):
+                for item in day.get("completed", []):
+                    if str(item.get("activity_id")) == act_id_str and item.get("tss") is not None:
+                        activity_data["tss"] = item["tss"]
+                        activity_data["training_load"] = item.get("training_load", item["tss"])
+                        if item.get("icu_activity_id"):
+                            activity_data["icu_activity_id"] = item["icu_activity_id"]
+                        if item.get("pace_zone_times") is not None:
+                            activity_data["pace_zone_times"] = item["pace_zone_times"]
+                        if item.get("icu_zone_times") is not None:
+                            activity_data["icu_zone_times"] = item["icu_zone_times"]
+                        return True
+
+        # 2. Direct lookup by activity date in Intervals.icu
+        day_str = (activity_data.get("start_time") or "")[:10]
+        if len(day_str) == 10:
+            try:
+                icu_acts = self.intervals.get_activities_by_range(day_str, day_str)
+                match = None
+                for cand in icu_acts:
+                    if cand.get("external_id") and str(cand["external_id"]) == act_id_str:
+                        match = cand
+                        break
+                if not match:
+                    act_sport = activity_data.get("sport_type")
+                    act_dur = float(activity_data.get("duration_seconds") or 0)
+                    best_diff = 900.0
+                    for cand in icu_acts:
+                        if cand.get("sport_type") == act_sport:
+                            diff = abs(float(cand.get("duration_seconds") or 0) - act_dur)
+                            if diff <= best_diff:
+                                best_diff = diff
+                                match = cand
+                if match and match.get("tss") is not None:
+                    activity_data["tss"] = match["tss"]
+                    activity_data["training_load"] = match.get("training_load", match["tss"])
+                    activity_data["icu_activity_id"] = match.get("icu_activity_id")
+                    if match.get("pace_zone_times") is not None:
+                        activity_data["pace_zone_times"] = match["pace_zone_times"]
+                    if match.get("icu_zone_times") is not None:
+                        activity_data["icu_zone_times"] = match["icu_zone_times"]
+                    return True
+            except Exception as e:
+                logger.warning(f"Error enriching activity {act_id_str} with Intervals TSS: {e}")
+
+        # 3. Fallback to Garmin training_load if present
+        if activity_data.get("training_load") is not None:
+            activity_data["tss"] = round(float(activity_data["training_load"]))
+            return True
+        return False
+
+    def update_planned_event_date(self, event_id: str, new_date: str) -> Optional[Dict[str, Any]]:
+        """Updates a planned workout's scheduled date in Intervals.icu and invalidates week cache."""
+        updated = self.intervals.update_event_date(event_id, new_date)
+        if updated:
+            self._week_cache.clear()
+            return updated
+        return None
+
     def get_activity_detail(self, activity_id: str) -> Dict[str, Any]:
         """Fetches full activity breakdown, calculates decoupling and triggers AI Coach review.
         Includes fast in-memory & disk caching for instant sub-second loading.
@@ -185,7 +304,9 @@ class DataManager:
 
         # 0. Check in-memory cache
         if act_id_str in self._activity_cache:
-            return self._activity_cache[act_id_str]
+            cached = self._activity_cache[act_id_str]
+            self._enrich_activity_with_intervals(cached.get("activity", {}))
+            return cached
 
         # Check disk cache
         cache_file = ACTIVITY_CACHE_DIR / f"{act_id_str}.json"
@@ -193,21 +314,60 @@ class DataManager:
             try:
                 with open(cache_file, "r", encoding="utf-8") as f:
                     cached = json.load(f)
+                    updated_tss = self._enrich_activity_with_intervals(cached.get("activity", {}))
                     self._activity_cache[act_id_str] = cached
+                    if updated_tss:
+                        try:
+                            with open(cache_file, "w", encoding="utf-8") as wf:
+                                json.dump(cached, wf, ensure_ascii=False)
+                        except Exception:
+                            pass
                     return cached
             except Exception:
                 pass
 
-        # 1. Try to get details from Garmin
+        # 1. Try to get details from Garmin (unless it's explicitly an Intervals.icu ID)
         activity_data = None
-        try:
-            activity_data = self.garmin.get_activity_details(activity_id)
-        except Exception as e:
-            logger.warning(f"Could not fetch activity {activity_id} from Garmin: {e}")
+        if not act_id_str.startswith("i"):
+            try:
+                activity_data = self.garmin.get_activity_details(activity_id)
+            except Exception as e:
+                logger.warning(f"Could not fetch activity {activity_id} from Garmin: {e}")
 
-        # Fallback if activity not found directly in Garmin
+        # 1b. If Garmin failed or unavailable (e.g. Render deploy), try Intervals.icu activity details
+        if not activity_data:
+            icu_id = act_id_str if act_id_str.startswith("i") else None
+            if not icu_id:
+                for _, wdata in self._week_cache.values():
+                    for day in wdata.get("days", []):
+                        for item in day.get("completed", []):
+                            if str(item.get("activity_id")) == act_id_str and item.get("icu_activity_id"):
+                                icu_id = item["icu_activity_id"]
+                                break
+                        if icu_id:
+                            break
+                    if icu_id:
+                        break
+            if not icu_id:
+                try:
+                    recent_icu = self.intervals.get_activities_by_range(
+                        (date.today() - timedelta(days=90)).strftime("%Y-%m-%d"),
+                        date.today().strftime("%Y-%m-%d")
+                    )
+                    for cand in recent_icu:
+                        if cand.get("external_id") and str(cand["external_id"]) == act_id_str:
+                            icu_id = cand["icu_activity_id"]
+                            break
+                except Exception:
+                    pass
+            if icu_id:
+                activity_data = self.intervals.get_activity_detail_by_id(icu_id)
+
+        # Fallback if activity not found directly in Garmin or Intervals.icu
         if not activity_data:
             activity_data = self._build_fallback_activity_details(activity_id)
+
+        self._enrich_activity_with_intervals(activity_data)
 
         sport = activity_data.get("sport_type", "running")
 

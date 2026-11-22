@@ -248,10 +248,159 @@ class IntervalsService:
                     "planned_load": ev.get("icu_training_load") or 0,
                     "description": ev.get("description", ""),
                     "target_zones": self._extract_target_zones(ev),
+                    "target_zones_meters": self._extract_swim_target_zones_meters(ev) if sport == "swimming" else None,
                     "workout_doc": ev.get("workout_doc"),
                 }
         except Exception as e:
             logger.warning(f"Error fetching event {event_id}: {e}")
+        return None
+
+    def update_event_date(self, event_id: str, new_date: str) -> Optional[Dict[str, Any]]:
+        """Updates the scheduled date of an event/workout directly in Intervals.icu."""
+        if not self.config.intervals_api_key:
+            return None
+        athlete_id = self._get_athlete_id()
+        url = f"{INTERVALS_BASE_URL}/athlete/{athlete_id}/events/{event_id}"
+        headers = self._get_auth_header()
+
+        # Preserve existing time suffix if present (default T00:00:00)
+        time_suffix = "T00:00:00"
+        try:
+            cur_resp = requests.get(url, headers=headers, timeout=8)
+            if cur_resp.status_code == 200:
+                cur_ev = cur_resp.json()
+                cur_start = str(cur_ev.get("start_date_local") or "")
+                if len(cur_start) >= 19 and "T" in cur_start:
+                    time_suffix = cur_start[10:19]
+        except Exception as e:
+            logger.warning(f"Could not read existing event {event_id} before date update: {e}")
+
+        payload = {
+            "start_date_local": f"{new_date[:10]}{time_suffix}"
+        }
+        try:
+            resp = requests.put(url, headers=headers, json=payload, timeout=10)
+            if resp.status_code in (200, 201):
+                ev = resp.json()
+                return {
+                    "id": str(ev.get("id", event_id)),
+                    "date": str(ev.get("start_date_local") or new_date)[:10],
+                    "start_time": ev.get("start_date_local", payload["start_date_local"]),
+                    "name": ev.get("name", ""),
+                }
+            else:
+                logger.error(f"Failed to update event {event_id} date in Intervals: {resp.status_code} - {resp.text}")
+        except Exception as e:
+            logger.error(f"Error updating event {event_id} date in Intervals: {e}")
+        return None
+
+    def get_activities_by_range(self, oldest: str, newest: str) -> List[Dict[str, Any]]:
+        """Fetches completed activities from Intervals.icu for a date range, including TSS and zone times."""
+        if not self.config.intervals_api_key:
+            return []
+        athlete_id = self._get_athlete_id()
+        url = f"{INTERVALS_BASE_URL}/athlete/{athlete_id}/activities?oldest={oldest}&newest={newest}"
+        try:
+            resp = requests.get(url, headers=self._get_auth_header(), timeout=12)
+            if resp.status_code == 200:
+                raw_acts = resp.json()
+                results = []
+                for a in raw_acts:
+                    if not isinstance(a, dict):
+                        continue
+                    atype = a.get("type") or ""
+                    sport = self._map_sport_type(atype)
+                    load = a.get("icu_training_load")
+                    results.append({
+                        "icu_activity_id": str(a.get("id")),
+                        "activity_id": str(a.get("external_id") or a.get("id")),
+                        "external_id": str(a.get("external_id")) if a.get("external_id") else None,
+                        "name": a.get("name") or "Actividad",
+                        "activity_type": atype,
+                        "sport_type": sport,
+                        "start_time": a.get("start_date_local") or "",
+                        "duration_seconds": float(a.get("moving_time") or a.get("elapsed_time") or 0.0),
+                        "distance_meters": float(a.get("distance") or 0.0),
+                        "avg_heart_rate": a.get("average_heartrate"),
+                        "max_heart_rate": a.get("max_heartrate"),
+                        "avg_power": a.get("icu_average_watts"),
+                        "normalised_power": a.get("icu_weighted_avg_watts"),
+                        "avg_speed_mps": a.get("average_speed"),
+                        "elevation_gain": a.get("total_elevation_gain"),
+                        "calories": a.get("calories"),
+                        "training_load": float(load) if load is not None else None,
+                        "tss": round(float(load)) if load is not None else None,
+                        "pace_zone_times": a.get("pace_zone_times"),
+                        "icu_zone_times": a.get("icu_zone_times"),
+                        "icu_hr_zone_times": a.get("icu_hr_zone_times"),
+                    })
+                return results
+        except Exception as e:
+            logger.warning(f"Error fetching Intervals.icu activities ({oldest}..{newest}): {e}")
+        return []
+
+    def get_activity_detail_by_id(self, icu_id: str) -> Optional[Dict[str, Any]]:
+        """Fetches single activity details & lap intervals from Intervals.icu (used as fallback or enrichment)."""
+        if not self.config.intervals_api_key:
+            return None
+        headers = self._get_auth_header()
+        try:
+            r = requests.get(f"{INTERVALS_BASE_URL}/activity/{icu_id}", headers=headers, timeout=10)
+            if r.status_code != 200:
+                return None
+            a = r.json()
+            atype = a.get("type") or ""
+            sport = self._map_sport_type(atype)
+            load = a.get("icu_training_load")
+
+            splits = []
+            try:
+                ri = requests.get(f"{INTERVALS_BASE_URL}/activity/{icu_id}/intervals", headers=headers, timeout=10)
+                if ri.status_code == 200:
+                    iv_data = ri.json()
+                    raw_ivs = iv_data.get("icu_intervals", []) if isinstance(iv_data, dict) else (iv_data if isinstance(iv_data, list) else [])
+                    for idx, iv in enumerate(raw_ivs):
+                        dur = float(iv.get("moving_time") or iv.get("elapsed_time") or 0.0)
+                        dist = float(iv.get("distance") or 0.0)
+                        spd = float(iv.get("average_speed") or (dist / dur if dur > 0 else 0.0))
+                        splits.append({
+                            "lap_index": idx + 1,
+                            "distance_meters": dist,
+                            "duration_seconds": dur,
+                            "avg_heart_rate": iv.get("average_heartrate"),
+                            "max_heart_rate": iv.get("max_heartrate"),
+                            "avg_speed_mps": spd,
+                            "avg_power": iv.get("average_watts"),
+                            "elevation_gain_meters": iv.get("total_elevation_gain") or 0.0,
+                        })
+            except Exception:
+                pass
+
+            return {
+                "activity_id": str(a.get("external_id") or a.get("id")),
+                "icu_activity_id": str(a.get("id")),
+                "name": a.get("name") or "Actividad",
+                "activity_type": atype,
+                "sport_type": sport,
+                "start_time": a.get("start_date_local") or "",
+                "duration_seconds": float(a.get("moving_time") or a.get("elapsed_time") or 0.0),
+                "distance_meters": float(a.get("distance") or 0.0),
+                "avg_heart_rate": a.get("average_heartrate"),
+                "max_heart_rate": a.get("max_heartrate"),
+                "avg_power": a.get("icu_average_watts"),
+                "normalised_power": a.get("icu_weighted_avg_watts"),
+                "avg_speed_mps": a.get("average_speed"),
+                "calories": a.get("calories"),
+                "elevation_gain_meters": a.get("total_elevation_gain"),
+                "training_load": float(load) if load is not None else None,
+                "tss": round(float(load)) if load is not None else None,
+                "pace_zone_times": a.get("pace_zone_times"),
+                "icu_zone_times": a.get("icu_zone_times"),
+                "splits": splits,
+                "hr_zones": [],
+            }
+        except Exception as e:
+            logger.warning(f"Error fetching Intervals activity detail {icu_id}: {e}")
         return None
 
     def create_calendar_note(self, date_str: str, name: str, description: str = "") -> Optional[Dict[str, Any]]:
@@ -323,6 +472,7 @@ class IntervalsService:
                         "planned_load": ev.get("icu_training_load") or 0,
                         "description": ev.get("description", ""),
                         "target_zones": self._extract_target_zones(ev),
+                        "target_zones_meters": self._extract_swim_target_zones_meters(ev) if sport == "swimming" else None,
                         "workout_doc": ev.get("workout_doc"),
                     })
                 return planned
@@ -385,6 +535,67 @@ class IntervalsService:
                 {"name": "Z5 Anaeróbico", "min": 167, "max": 182},
             ]
         }
+
+    def _extract_swim_target_zones_meters(self, ev: Dict[str, Any]) -> Dict[str, int]:
+        """Extracts planned swimming distance (in meters) per pace zone Z1-Z7 from workout_doc.steps."""
+        zones_m: Dict[str, float] = {f"Z{i}": 0.0 for i in range(1, 8)}
+        wdoc = ev.get("workout_doc") or {}
+        raw_steps = wdoc.get("steps") if isinstance(wdoc, dict) else None
+
+        def classify_step_zone(step: Dict[str, Any]) -> int:
+            if step.get("maxeffort"):
+                return 7
+            pace = step.get("pace")
+            if isinstance(pace, dict) and pace.get("units") == "pace_zone" and pace.get("value"):
+                return max(1, min(7, int(pace["value"])))
+            hr = step.get("hr")
+            if isinstance(hr, dict) and hr.get("units") == "hr_zone" and hr.get("value"):
+                return max(1, min(7, int(hr["value"])))
+            dist = float(step.get("distance") or 0.0)
+            dur = float(step.get("duration") or 0.0)
+            if dist > 0 and dur > 0:
+                sec100 = (dur / dist) * 100.0
+                if sec100 > 114:
+                    return 1
+                elif sec100 >= 102:
+                    return 2
+                elif sec100 >= 94:
+                    return 3
+                elif sec100 >= 89:
+                    return 4
+                elif sec100 >= 86:
+                    return 5
+                elif sec100 >= 80:
+                    return 6
+                else:
+                    return 7
+            return 2
+
+        def walk_steps(steps_list: List[Dict[str, Any]], mult: int = 1):
+            for st in steps_list:
+                if not isinstance(st, dict):
+                    continue
+                if st.get("reps") and isinstance(st.get("steps"), list):
+                    walk_steps(st["steps"], mult * int(st.get("reps") or 1))
+                else:
+                    dist = float(st.get("distance") or 0.0)
+                    if dist > 0:
+                        z_num = classify_step_zone(st)
+                        zones_m[f"Z{z_num}"] += dist * mult
+
+        if isinstance(raw_steps, list) and len(raw_steps) > 0:
+            walk_steps(raw_steps, 1)
+
+        total_from_steps = sum(zones_m.values())
+        planned_dist = float(ev.get("distance") or wdoc.get("distance") or 0.0)
+        if total_from_steps <= 0 and planned_dist > 0:
+            tz = self._extract_target_zones(ev)
+            tot_t = float(sum(tz.values()) or 1.0)
+            for z_key, secs in tz.items():
+                if z_key in zones_m:
+                    zones_m[z_key] = planned_dist * (secs / tot_t)
+
+        return {k: int(round(v)) for k, v in zones_m.items()}
 
     def _extract_target_zones(self, ev: Dict[str, Any]) -> Dict[str, int]:
         """Estimate planned zone distribution based on workout description or targets."""
@@ -484,10 +695,10 @@ class IntervalsService:
         s = (t or "").lower()
         if "swim" in s:
             return "swimming"
-        elif "ride" in s or "bike" in s or "cycling" in s or "virtual" in s:
-            return "cycling"
         elif "run" in s:
             return "running"
+        elif "ride" in s or "bike" in s or "cycling" in s or "virtual" in s:
+            return "cycling"
         elif "weight" in s or "strength" in s or "gym" in s or "yoga" in s or "pilates" in s:
             return "strength"
         return "other"

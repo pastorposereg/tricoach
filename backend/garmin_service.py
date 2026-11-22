@@ -133,6 +133,8 @@ class GarminService:
                     "avg_speed_mps": act.get("averageSpeed"),
                     "elevation_gain": act.get("elevationGain"),
                     "calories": act.get("calories"),
+                    "training_load": act.get("activityTrainingLoad"),
+                    "tss": round(act["activityTrainingLoad"]) if act.get("activityTrainingLoad") is not None else None,
                     "training_effect_aerobic": act.get("aerobicTrainingEffect"),
                     "training_effect_anaerobic": act.get("anaerobicTrainingEffect"),
                 })
@@ -227,6 +229,8 @@ class GarminService:
                 "calories": summary.get("calories"),
                 "elevation_gain_meters": summary.get("elevationGain"),
                 "elevation_loss_meters": summary.get("elevationLoss"),
+                "training_load": summary.get("activityTrainingLoad"),
+                "tss": round(summary["activityTrainingLoad"]) if summary.get("activityTrainingLoad") is not None else None,
                 "training_effect_aerobic": summary.get("aerobicTrainingEffect"),
                 "training_effect_anaerobic": summary.get("anaerobicTrainingEffect"),
                 "avg_run_cadence": summary.get("averageRunningCadenceInStepsPerMinute"),

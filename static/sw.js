@@ -1,5 +1,5 @@
 // Service Worker for Triathlon App PWA (Network-First Strategy)
-const CACHE_NAME = 'tricoach-v19';
+const CACHE_NAME = 'tricoach-v20';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
