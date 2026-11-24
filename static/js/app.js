@@ -1696,7 +1696,7 @@ function renderActivityModalContent(data) {
         </div>
         <div class="flex items-center gap-2">
           <span class="text-[10px] font-mono px-2 py-0.5 rounded ${state.athleteStatus?.ai?.has_key ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-white text-slate-600 border border-slate-200'}">
-            ${state.athleteStatus?.ai?.has_key ? '● Gemini 2.0 Flash' : '⚡ Motor Experto Fisiología'}
+            ${state.athleteStatus?.ai?.has_key ? '● Gemini 3 Flash' : '⚡ Motor Experto Fisiología'}
           </span>
           <span class="hidden sm:inline-block text-[10px] font-mono px-2 py-0.5 rounded bg-white text-sky-700 border border-slate-200">
             Sesión: ${act.name}
@@ -2878,6 +2878,8 @@ function renderPlannedModalContent(ev) {
     String(state.currentPlannedEvent.id) === String(ev.id)
   );
   const previousDraftDate = wasDateEditorOpen ? document.getElementById('input-planned-new-date')?.value : null;
+  const previousDraftName = wasDateEditorOpen ? document.getElementById('input-planned-new-name')?.value : null;
+  const previousDraftDesc = wasDateEditorOpen ? document.getElementById('input-planned-new-desc')?.value : null;
 
   state.currentPlannedEvent = ev;
 
@@ -2990,30 +2992,53 @@ function renderPlannedModalContent(ev) {
       </div>
     </div>
 
-    <!-- Collapsible Date Editor Panel (toggled via top-right wrench icon) -->
-    <div id="planned-date-editor" class="${wasDateEditorOpen ? '' : 'hidden'} mb-4 p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 shadow-2xs">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+    <!-- Collapsible Editor Panel: Date, Title & Description for both Workouts & Notes (toggled via top-right wrench icon) -->
+    <div id="planned-date-editor" class="${wasDateEditorOpen ? '' : 'hidden'} mb-4 p-4 rounded-xl bg-amber-50/90 border border-amber-200 shadow-2xs space-y-3">
+      <div class="flex items-start justify-between gap-2">
         <div>
           <span class="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-            <span>📅</span> Modificar fecha del entrenamiento
+            <span>✏️</span> ${isNote ? 'Editar Nota del Calendario' : 'Editar Entrenamiento Planificado'}
           </span>
-          <span class="text-[11px] text-amber-700 block">Se actualizará automáticamente en Intervals.icu y en tu calendario.</span>
-        </div>
-        <div class="flex items-center gap-2 flex-wrap">
-          <input type="date" id="input-planned-new-date" value="${previousDraftDate || ev.date || ''}"
-                 class="bg-white border border-amber-300 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-900 focus:outline-none focus:border-[#0284c7] focus:ring-1 focus:ring-[#0284c7]">
-          <button type="button" id="btn-save-planned-date" onclick="savePlannedEventDate('${ev.id}')"
-                  class="px-3 py-1.5 rounded-lg bg-[#0284c7] hover:bg-[#0369a1] text-white font-semibold text-xs transition-colors shadow-2xs">
-            Guardar
-          </button>
-          <button type="button" onclick="togglePlannedDateEditor(false)"
-                  class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 font-medium text-xs transition-colors">
-            Cancelar
-          </button>
+          <span class="text-[11px] text-amber-700 block">Modifica la fecha, el título o el texto. Se sincronizará directamente en Intervals.icu${isNote ? '' : ' recalculando la estructura y zonas'}.</span>
         </div>
       </div>
-      <div id="planned-date-status" class="hidden mt-2 text-[11px] font-medium"></div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <div>
+          <label for="input-planned-new-date" class="block text-[10px] font-bold uppercase tracking-wider text-amber-900/80 mb-1">Fecha</label>
+          <input type="date" id="input-planned-new-date" value="${previousDraftDate || ev.date || ''}"
+                 class="w-full bg-white border border-amber-300 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-900 focus:outline-none focus:border-[#0284c7] focus:ring-1 focus:ring-[#0284c7]">
+        </div>
+        <div class="sm:col-span-2">
+          <label for="input-planned-new-name" class="block text-[10px] font-bold uppercase tracking-wider text-amber-900/80 mb-1">Título</label>
+          <input type="text" id="input-planned-new-name" placeholder="${isNote ? 'Título de la nota' : 'Nombre del entrenamiento'}"
+                 class="w-full bg-white border border-amber-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#0284c7] focus:ring-1 focus:ring-[#0284c7]">
+        </div>
+      </div>
+
+      <div>
+        <label for="input-planned-new-desc" class="block text-[10px] font-bold uppercase tracking-wider text-amber-900/80 mb-1">
+          ${isNote ? 'Texto de la nota' : 'Texto / Descripción del entrenamiento (sintaxis Intervals.icu)'}
+        </label>
+        <textarea id="input-planned-new-desc" rows="${isNote ? 5 : 7}" placeholder="${isNote ? 'Escribe el contenido de la nota...' : 'Ej. - 15\' z1\n- 4x 6\' z3\n- 15\' z1'}"
+                  class="w-full bg-white border border-amber-300 rounded-lg px-3 py-2 text-xs font-mono leading-relaxed text-slate-900 focus:outline-none focus:border-[#0284c7] focus:ring-1 focus:ring-[#0284c7] resize-y"></textarea>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-1">
+        <button type="button" onclick="togglePlannedDateEditor(false)"
+                class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 font-medium text-xs transition-colors">
+          Cancelar
+        </button>
+        <button type="button" id="btn-save-planned-date" onclick="savePlannedEventChanges('${ev.id}')"
+                class="px-3.5 py-1.5 rounded-lg bg-[#0284c7] hover:bg-[#0369a1] text-white font-semibold text-xs transition-colors shadow-2xs">
+          Guardar en Intervals.icu
+        </button>
+      </div>
+      <div id="planned-date-status" class="hidden text-[11px] font-medium"></div>
     </div>
+
+    <!-- Flash confirmation banner after successful save -->
+    <div id="planned-save-toast" class="hidden mb-4 px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold"></div>
 
     <!-- Quick Metrics Grid -->
     ${!isNote ? `
@@ -3037,7 +3062,7 @@ function renderPlannedModalContent(ev) {
     <div class="p-4 sm:p-5 rounded-xl bg-slate-50 border border-slate-200 shadow-xs">
       <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-200">
         <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-          <span>📝</span> Descripción del Entrenamiento (Intervals.icu)
+          <span>📝</span> ${isNote ? 'Contenido de la Nota (Intervals.icu)' : 'Descripción del Entrenamiento (Intervals.icu)'}
         </h3>
         <span class="text-[10px] text-slate-500 font-mono">ID: ${ev.id}</span>
       </div>
@@ -3131,6 +3156,12 @@ ${descHtml}
     </div>
   `;
 
+  // Populate editor inputs via DOM .value (preserves quotes, newlines, special chars cleanly)
+  const nameInputEl = document.getElementById('input-planned-new-name');
+  if (nameInputEl) nameInputEl.value = previousDraftName !== null ? previousDraftName : (ev.name || '');
+  const descInputEl = document.getElementById('input-planned-new-desc');
+  if (descInputEl) descInputEl.value = previousDraftDesc !== null ? previousDraftDesc : (ev.description || '');
+
   // Initialize and render planned chat messages
   renderPlannedChatMessages(ev.id, ev);
 }
@@ -3145,11 +3176,16 @@ function togglePlannedDateEditor(forceState) {
     panel.classList.remove('hidden');
     if (wrenchBtn) wrenchBtn.classList.add('bg-amber-100', 'text-amber-700', 'border-amber-300');
     const dateInput = document.getElementById('input-planned-new-date');
-    if (dateInput) {
-      if (!dateInput.value && state.currentPlannedEvent?.date) {
-        dateInput.value = state.currentPlannedEvent.date;
-      }
-      dateInput.focus();
+    if (dateInput && !dateInput.value && state.currentPlannedEvent?.date) {
+      dateInput.value = state.currentPlannedEvent.date;
+    }
+    const nameInput = document.getElementById('input-planned-new-name');
+    if (nameInput && !nameInput.value && state.currentPlannedEvent?.name) {
+      nameInput.value = state.currentPlannedEvent.name;
+    }
+    const descInput = document.getElementById('input-planned-new-desc');
+    if (descInput) {
+      descInput.focus();
     }
   } else {
     panel.classList.add('hidden');
@@ -3158,26 +3194,37 @@ function togglePlannedDateEditor(forceState) {
 }
 window.togglePlannedDateEditor = togglePlannedDateEditor;
 
-async function savePlannedEventDate(eventId) {
-  const input = document.getElementById('input-planned-new-date');
+async function savePlannedEventChanges(eventId) {
+  const dateInput = document.getElementById('input-planned-new-date');
+  const nameInput = document.getElementById('input-planned-new-name');
+  const descInput = document.getElementById('input-planned-new-desc');
   const btn = document.getElementById('btn-save-planned-date');
   const statusEl = document.getElementById('planned-date-status');
-  if (!input) return;
+  if (!dateInput) return;
 
-  const newDate = (input.value || '').trim();
+  const newDate = (dateInput.value || '').trim();
+  const newName = (nameInput?.value || '').trim();
+  const newDesc = descInput ? descInput.value : '';
+
   if (!newDate) {
     if (statusEl) {
       statusEl.textContent = '⚠️ Selecciona una fecha válida.';
-      statusEl.className = 'mt-2 text-[11px] font-medium text-rose-600';
+      statusEl.className = 'text-[11px] font-medium text-rose-600';
       statusEl.classList.remove('hidden');
     }
     return;
   }
 
-  if (state.currentPlannedEvent && state.currentPlannedEvent.date === newDate) {
+  const cur = state.currentPlannedEvent || {};
+  const nothingChanged = (
+    cur.date === newDate &&
+    (cur.name || '') === newName &&
+    (cur.description || '') === newDesc
+  );
+  if (nothingChanged) {
     if (statusEl) {
-      statusEl.textContent = 'La fecha seleccionada es la misma que la actual.';
-      statusEl.className = 'mt-2 text-[11px] font-medium text-amber-800';
+      statusEl.textContent = 'No hay cambios pendientes por guardar.';
+      statusEl.className = 'text-[11px] font-medium text-amber-800';
       statusEl.classList.remove('hidden');
     }
     return;
@@ -3188,58 +3235,59 @@ async function savePlannedEventDate(eventId) {
     btn.textContent = 'Guardando...';
   }
   if (statusEl) {
-    statusEl.textContent = 'Sincronizando nueva fecha con Intervals.icu...';
-    statusEl.className = 'mt-2 text-[11px] font-medium text-slate-600';
+    statusEl.textContent = 'Sincronizando cambios con Intervals.icu...';
+    statusEl.className = 'text-[11px] font-medium text-slate-600';
     statusEl.classList.remove('hidden');
   }
 
   try {
-    const res = await fetch(`/api/planned/${eventId}/date`, {
+    const payload = {
+      date: newDate,
+      description: newDesc
+    };
+    if (newName) payload.name = newName;
+
+    const res = await fetch(`/api/planned/${eventId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: newDate })
+      body: JSON.stringify(payload)
     });
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data.detail || 'No se pudo actualizar la fecha en Intervals.icu');
+      throw new Error(data.detail || 'No se pudieron guardar los cambios en Intervals.icu');
     }
 
-    const confirmedDate = data.event?.date || newDate;
-    if (state.currentPlannedEvent) {
-      state.currentPlannedEvent.date = confirmedDate;
-    }
-    const dateLabel = document.getElementById('planned-modal-date-label');
-    if (dateLabel) {
-      dateLabel.textContent = `📅 ${confirmedDate}`;
+    const updatedEvent = data.event || { ...cur, date: newDate, name: newName || cur.name, description: newDesc };
+    // Close editor before re-rendering so modal displays the freshly updated event cleanly
+    togglePlannedDateEditor(false);
+    renderPlannedModalContent(updatedEvent);
+
+    const toastEl = document.getElementById('planned-save-toast');
+    if (toastEl) {
+      toastEl.textContent = `✅ Guardado y sincronizado en Intervals.icu (${updatedEvent.date || newDate}).`;
+      toastEl.classList.remove('hidden');
+      setTimeout(() => toastEl.classList.add('hidden'), 3500);
     }
 
-    if (statusEl) {
-      statusEl.textContent = `✅ Fecha actualizada al ${confirmedDate} y sincronizada en Intervals.icu.`;
-      statusEl.className = 'mt-2 text-[11px] font-semibold text-emerald-700';
-      statusEl.classList.remove('hidden');
-    }
-
-    // Reload current week calendar so the moved workout updates immediately
+    // Refresh weekly calendar & zone totals immediately
     await loadWeek(state.weekOffset, true);
-
-    setTimeout(() => {
-      togglePlannedDateEditor(false);
-    }, 1500);
   } catch (err) {
-    console.error('Error updating planned workout date:', err);
+    console.error('Error updating planned event:', err);
     if (statusEl) {
-      statusEl.textContent = `❌ ${err.message || 'Error al actualizar la fecha en Intervals.icu.'}`;
-      statusEl.className = 'mt-2 text-[11px] font-medium text-rose-600';
+      statusEl.textContent = `❌ ${err.message || 'Error al guardar los cambios en Intervals.icu.'}`;
+      statusEl.className = 'text-[11px] font-medium text-rose-600';
       statusEl.classList.remove('hidden');
     }
   } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = 'Guardar';
+    const btnNow = document.getElementById('btn-save-planned-date');
+    if (btnNow) {
+      btnNow.disabled = false;
+      btnNow.textContent = 'Guardar en Intervals.icu';
     }
   }
 }
-window.savePlannedEventDate = savePlannedEventDate;
+window.savePlannedEventChanges = savePlannedEventChanges;
+window.savePlannedEventDate = savePlannedEventChanges;
 
 function renderPlannedChatMessages(eventId, ev) {
   if (!state.plannedChatHistory) state.plannedChatHistory = {};

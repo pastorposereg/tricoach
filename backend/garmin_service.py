@@ -129,7 +129,7 @@ class GarminService:
                     "max_heart_rate": act.get("maxHR"),
                     "avg_power": act.get("avgPower"),
                     "max_power": act.get("maxPower"),
-                    "normalised_power": act.get("normPower"),
+                    "normalised_power": act.get("normPower") or act.get("normalizedPower"),
                     "avg_speed_mps": act.get("averageSpeed"),
                     "elevation_gain": act.get("elevationGain"),
                     "calories": act.get("calories"),
@@ -170,7 +170,7 @@ class GarminService:
             activity_name = details.get("activityName") or summary.get("activityName", "Actividad")
             sport_type = self._map_sport_type(activity_type)
 
-            # Process splits for decoupling
+            # Process splits for decoupling & per-lap telemetry
             splits = []
             if splits_data and "lapDTOs" in splits_data:
                 for lap in splits_data["lapDTOs"]:
@@ -182,6 +182,9 @@ class GarminService:
                         "max_heart_rate": lap.get("maxHR"),
                         "avg_speed_mps": lap.get("averageSpeed"),
                         "avg_power": lap.get("averagePower"),
+                        "normalised_power": lap.get("normalizedPower") or lap.get("normPower"),
+                        "max_power": lap.get("maxPower"),
+                        "avg_cadence": lap.get("averageRunCadence") or lap.get("averageBikeCadence"),
                         "elevation_gain_meters": lap.get("elevationGain", 0.0),
                     })
 
@@ -224,7 +227,7 @@ class GarminService:
                 "max_heart_rate": summary.get("maxHR"),
                 "avg_power": summary.get("averagePower"),
                 "max_power": summary.get("maxPower"),
-                "normalised_power": summary.get("normPower"),
+                "normalised_power": summary.get("normalizedPower") or summary.get("normPower"),
                 "avg_speed_mps": summary.get("averageSpeed"),
                 "calories": summary.get("calories"),
                 "elevation_gain_meters": summary.get("elevationGain"),

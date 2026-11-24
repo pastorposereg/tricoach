@@ -327,8 +327,31 @@ class IntervalsService:
             return self.sync_athlete_thresholds(save=True)
         return self._default_thresholds()
 
+    def _format_event_response(self, ev: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalizes an Intervals.icu calendar event (WORKOUT or NOTE) to app format."""
+        category = ev.get("category", "")
+        ev_type = ev.get("type") or ""
+        sport = self._map_sport_type(ev_type)
+        return {
+            "id": str(ev.get("id")),
+            "date": ev.get("start_date_local", "")[:10],
+            "start_time": ev.get("start_date_local", ""),
+            "name": ev.get("name", "Entrenamiento planificado"),
+            "sport_type": sport,
+            "category": category,
+            "is_note": category == "NOTE",
+            "is_workout": category == "WORKOUT",
+            "planned_duration_seconds": ev.get("moving_time") or ev.get("duration") or 0,
+            "planned_distance_meters": ev.get("distance") or 0,
+            "planned_load": ev.get("icu_training_load") or 0,
+            "description": ev.get("description") or "",
+            "target_zones": self._extract_target_zones(ev),
+            "target_zones_meters": self._extract_swim_target_zones_meters(ev) if sport == "swimming" else None,
+            "workout_doc": ev.get("workout_doc"),
+        }
+
     def get_event_detail(self, event_id: str) -> Optional[Dict[str, Any]]:
-        """Fetch full single planned workout details from Intervals.icu."""
+        """Fetch full single planned workout or note details from Intervals.icu."""
         if not self.config.intervals_api_key:
             return None
         athlete_id = self._get_athlete_id()
@@ -336,40 +359,29 @@ class IntervalsService:
         try:
             resp = requests.get(url, headers=self._get_auth_header(), timeout=8)
             if resp.status_code == 200:
-                ev = resp.json()
-                category = ev.get("category", "")
-                ev_type = ev.get("type") or ""
-                sport = self._map_sport_type(ev_type)
-                return {
-                    "id": str(ev.get("id")),
-                    "date": ev.get("start_date_local", "")[:10],
-                    "start_time": ev.get("start_date_local", ""),
-                    "name": ev.get("name", "Entrenamiento planificado"),
-                    "sport_type": sport,
-                    "category": category,
-                    "is_note": category == "NOTE",
-                    "is_workout": category == "WORKOUT",
-                    "planned_duration_seconds": ev.get("moving_time") or ev.get("duration") or 0,
-                    "planned_distance_meters": ev.get("distance") or 0,
-                    "planned_load": ev.get("icu_training_load") or 0,
-                    "description": ev.get("description", ""),
-                    "target_zones": self._extract_target_zones(ev),
-                    "target_zones_meters": self._extract_swim_target_zones_meters(ev) if sport == "swimming" else None,
-                    "workout_doc": ev.get("workout_doc"),
-                }
+                return self._format_event_response(resp.json())
         except Exception as e:
             logger.warning(f"Error fetching event {event_id}: {e}")
         return None
 
-    def update_event_date(self, event_id: str, new_date: str) -> Optional[Dict[str, Any]]:
-        """Updates the scheduled date of an event/workout directly in Intervals.icu."""
+    def update_event(
+        self,
+        event_id: str,
+        new_date: Optional[str] = None,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Updates date, title, and/or text description of a planned workout or NOTE
+        directly in Intervals.icu and returns the freshly parsed event detail.
+        """
         if not self.config.intervals_api_key:
             return None
         athlete_id = self._get_athlete_id()
         url = f"{INTERVALS_BASE_URL}/athlete/{athlete_id}/events/{event_id}"
         headers = self._get_auth_header()
 
-        # Preserve existing time suffix if present (default T00:00:00)
+        # Fetch current event to preserve time suffix and unchanged fields
+        cur_ev: Dict[str, Any] = {}
         time_suffix = "T00:00:00"
         try:
             cur_resp = requests.get(url, headers=headers, timeout=8)
@@ -379,26 +391,79 @@ class IntervalsService:
                 if len(cur_start) >= 19 and "T" in cur_start:
                     time_suffix = cur_start[10:19]
         except Exception as e:
-            logger.warning(f"Could not read existing event {event_id} before date update: {e}")
+            logger.warning(f"Could not read existing event {event_id} before update: {e}")
 
-        payload = {
-            "start_date_local": f"{new_date[:10]}{time_suffix}"
-        }
+        payload: Dict[str, Any] = {}
+        if new_date and len(new_date.strip()) >= 10:
+            payload["start_date_local"] = f"{new_date.strip()[:10]}{time_suffix}"
+        if name is not None and name.strip():
+            payload["name"] = name.strip()
+        if description is not None:
+            payload["description"] = description
+
+        if not payload:
+            return self._format_event_response(cur_ev) if cur_ev else None
+
         try:
-            resp = requests.put(url, headers=headers, json=payload, timeout=10)
+            resp = requests.put(url, headers=headers, json=payload, timeout=12)
             if resp.status_code in (200, 201):
-                ev = resp.json()
-                return {
-                    "id": str(ev.get("id", event_id)),
-                    "date": str(ev.get("start_date_local") or new_date)[:10],
-                    "start_time": ev.get("start_date_local", payload["start_date_local"]),
-                    "name": ev.get("name", ""),
-                }
+                updated_ev = resp.json()
+                return self._format_event_response(updated_ev)
             else:
-                logger.error(f"Failed to update event {event_id} date in Intervals: {resp.status_code} - {resp.text}")
+                logger.error(f"Failed to update event {event_id} in Intervals: {resp.status_code} - {resp.text}")
         except Exception as e:
-            logger.error(f"Error updating event {event_id} date in Intervals: {e}")
+            logger.error(f"Error updating event {event_id} in Intervals: {e}")
         return None
+
+    def update_event_date(self, event_id: str, new_date: str) -> Optional[Dict[str, Any]]:
+        """Updates the scheduled date of an event/workout directly in Intervals.icu."""
+        return self.update_event(event_id, new_date=new_date)
+
+    def get_activity_intervals(self, icu_id: str) -> List[Dict[str, Any]]:
+        """Fetches Intervals.icu detected intervals (including intra-interval decoupling, zone, max_watts, WORK/RECOVERY)."""
+        if not self.config.intervals_api_key or not icu_id:
+            return []
+        try:
+            ri = requests.get(
+                f"{INTERVALS_BASE_URL}/activity/{icu_id}/intervals",
+                headers=self._get_auth_header(),
+                timeout=10,
+            )
+            if ri.status_code != 200:
+                return []
+            iv_data = ri.json()
+            raw_ivs = iv_data.get("icu_intervals", []) if isinstance(iv_data, dict) else (iv_data if isinstance(iv_data, list) else [])
+            parsed: List[Dict[str, Any]] = []
+            for idx, iv in enumerate(raw_ivs):
+                if not isinstance(iv, dict):
+                    continue
+                dur = float(iv.get("moving_time") or iv.get("elapsed_time") or 0.0)
+                dist = float(iv.get("distance") or 0.0)
+                spd = float(iv.get("average_speed") or (dist / dur if dur > 0 else 0.0))
+                dec_val = iv.get("decoupling")
+                parsed.append({
+                    "interval_index": idx + 1,
+                    "type": str(iv.get("type") or "WORK").upper(),
+                    "label": iv.get("label") or "",
+                    "zone": iv.get("zone"),
+                    "duration_seconds": round(dur, 1),
+                    "elapsed_seconds": round(float(iv.get("elapsed_time") or dur), 1),
+                    "distance_meters": round(dist, 1),
+                    "avg_speed_mps": round(spd, 4) if spd else None,
+                    "gap_mps": round(float(iv["gap"]), 4) if iv.get("gap") else None,
+                    "avg_power": round(float(iv["average_watts"]), 1) if iv.get("average_watts") is not None else None,
+                    "weighted_power": round(float(iv["weighted_average_watts"]), 1) if iv.get("weighted_average_watts") is not None else None,
+                    "max_power": round(float(iv["max_watts"]), 1) if iv.get("max_watts") is not None else None,
+                    "avg_heart_rate": round(float(iv["average_heartrate"]), 1) if iv.get("average_heartrate") is not None else None,
+                    "max_heart_rate": round(float(iv["max_heartrate"]), 1) if iv.get("max_heartrate") is not None else None,
+                    "avg_cadence": round(float(iv["average_cadence"]), 1) if iv.get("average_cadence") is not None else None,
+                    "decoupling_percent": round(float(dec_val), 2) if dec_val is not None else None,
+                    "training_load": round(float(iv["training_load"]), 1) if iv.get("training_load") is not None else None,
+                })
+            return parsed
+        except Exception as e:
+            logger.warning(f"Error fetching Intervals.icu intervals for {icu_id}: {e}")
+            return []
 
     def get_activities_by_range(self, oldest: str, newest: str) -> List[Dict[str, Any]]:
         """Fetches completed activities from Intervals.icu for a date range, including TSS and zone times."""
@@ -430,6 +495,7 @@ class IntervalsService:
                         "avg_heart_rate": a.get("average_heartrate"),
                         "max_heart_rate": a.get("max_heartrate"),
                         "avg_power": a.get("icu_average_watts"),
+                        "max_power": a.get("max_watts") or a.get("p_max"),
                         "normalised_power": a.get("icu_weighted_avg_watts"),
                         "avg_speed_mps": a.get("average_speed"),
                         "elevation_gain": a.get("total_elevation_gain"),
@@ -459,28 +525,22 @@ class IntervalsService:
             sport = self._map_sport_type(atype)
             load = a.get("icu_training_load")
 
+            icu_intervals = self.get_activity_intervals(icu_id)
             splits = []
-            try:
-                ri = requests.get(f"{INTERVALS_BASE_URL}/activity/{icu_id}/intervals", headers=headers, timeout=10)
-                if ri.status_code == 200:
-                    iv_data = ri.json()
-                    raw_ivs = iv_data.get("icu_intervals", []) if isinstance(iv_data, dict) else (iv_data if isinstance(iv_data, list) else [])
-                    for idx, iv in enumerate(raw_ivs):
-                        dur = float(iv.get("moving_time") or iv.get("elapsed_time") or 0.0)
-                        dist = float(iv.get("distance") or 0.0)
-                        spd = float(iv.get("average_speed") or (dist / dur if dur > 0 else 0.0))
-                        splits.append({
-                            "lap_index": idx + 1,
-                            "distance_meters": dist,
-                            "duration_seconds": dur,
-                            "avg_heart_rate": iv.get("average_heartrate"),
-                            "max_heart_rate": iv.get("max_heartrate"),
-                            "avg_speed_mps": spd,
-                            "avg_power": iv.get("average_watts"),
-                            "elevation_gain_meters": iv.get("total_elevation_gain") or 0.0,
-                        })
-            except Exception:
-                pass
+            for idx, iv in enumerate(icu_intervals):
+                splits.append({
+                    "lap_index": idx + 1,
+                    "distance_meters": iv.get("distance_meters") or 0.0,
+                    "duration_seconds": iv.get("duration_seconds") or 0.0,
+                    "avg_heart_rate": iv.get("avg_heart_rate"),
+                    "max_heart_rate": iv.get("max_heart_rate"),
+                    "avg_speed_mps": iv.get("avg_speed_mps"),
+                    "avg_power": iv.get("avg_power"),
+                    "normalised_power": iv.get("weighted_power"),
+                    "max_power": iv.get("max_power"),
+                    "avg_cadence": iv.get("avg_cadence"),
+                    "elevation_gain_meters": 0.0,
+                })
 
             return {
                 "activity_id": str(a.get("external_id") or a.get("id")),
@@ -494,6 +554,7 @@ class IntervalsService:
                 "avg_heart_rate": a.get("average_heartrate"),
                 "max_heart_rate": a.get("max_heartrate"),
                 "avg_power": a.get("icu_average_watts"),
+                "max_power": a.get("max_watts") or a.get("p_max"),
                 "normalised_power": a.get("icu_weighted_avg_watts"),
                 "avg_speed_mps": a.get("average_speed"),
                 "calories": a.get("calories"),
@@ -502,6 +563,8 @@ class IntervalsService:
                 "tss": round(float(load)) if load is not None else None,
                 "pace_zone_times": a.get("pace_zone_times"),
                 "icu_zone_times": a.get("icu_zone_times"),
+                "icu_hr_zone_times": a.get("icu_hr_zone_times"),
+                "icu_intervals": icu_intervals,
                 "splits": splits,
                 "hr_zones": [],
             }

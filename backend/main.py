@@ -90,6 +90,12 @@ class UpdatePlannedDateRequest(BaseModel):
     date: str
 
 
+class UpdatePlannedEventRequest(BaseModel):
+    date: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
 # --- API Routes ---
 @app.get("/api/status")
 def get_status() -> Dict[str, Any]:
@@ -134,7 +140,7 @@ def get_status() -> Dict[str, Any]:
         },
         "ai": {
             "has_key": bool(cfg.gemini_api_key),
-            "model": "Gemini 2.5 Flash / Heurística Experta Triatlón",
+            "model": "Gemini 3 Flash / Heurística Experta Triatlón",
         },
         "thresholds": {
             "ftp": cfg.ftp,
@@ -280,6 +286,34 @@ def get_planned_event_detail(event_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.put("/api/planned/{event_id}")
+def update_planned_event(event_id: str, payload: UpdatePlannedEventRequest):
+    """Updates date, title, and/or text description of a planned workout or note in Intervals.icu."""
+    new_date = (payload.date or "").strip() if payload.date is not None else None
+    if new_date:
+        if len(new_date) != 10 or new_date[4] != "-" or new_date[7] != "-":
+            raise HTTPException(status_code=400, detail="Formato de fecha inválido. Debe ser YYYY-MM-DD.")
+    try:
+        updated = dm.update_planned_event(
+            event_id=event_id,
+            new_date=new_date,
+            name=payload.name,
+            description=payload.description,
+        )
+        if not updated:
+            raise HTTPException(status_code=500, detail="No se pudo actualizar el evento en Intervals.icu.")
+        return {
+            "status": "success",
+            "event": updated,
+            "message": "Cambios guardados y sincronizados con Intervals.icu"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating planned event {event_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.put("/api/planned/{event_id}/date")
 def update_planned_event_date(event_id: str, payload: UpdatePlannedDateRequest):
     """Updates the scheduled date of a planned workout in Intervals.icu and refreshes cache."""
@@ -407,6 +441,7 @@ def chat_activity_coach(activity_id: str, payload: ChatRequest):
 
         pmc = dm.get_pmc_data(range_days=14)
         cfg = load_config()
+        disc_th = dm.intervals.ensure_fresh_thresholds(max_age_seconds=300)
         athlete_context = {
             "athlete_name": cfg.garmin_athlete_name or "Pastor",
             "phase": cfg.athlete_phase,
@@ -420,6 +455,7 @@ def chat_activity_coach(activity_id: str, payload: ChatRequest):
             "current_atl": pmc.get("current_atl", 104),
             "current_tsb": pmc.get("current_tsb", -8),
             "acwr": pmc.get("acwr", 1.1),
+            "disciplines": disc_th,
         }
         coach_service = AICoachService(cfg.gemini_api_key)
         reply = coach_service.chat_about_activity(

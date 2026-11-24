@@ -16,6 +16,7 @@ from .config import AppConfig, load_config, HISTORICO_FILE, APP_DATA_DIR
 
 ACTIVITY_CACHE_DIR = APP_DATA_DIR / "cache" / "activities"
 ACTIVITY_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+ACTIVITY_CACHE_SCHEMA_VERSION = 4
 from .garmin_service import GarminService
 from .intervals_service import IntervalsService
 from .metrics import (
@@ -138,6 +139,12 @@ class DataManager:
                     if match.get("tss") is not None:
                         act["tss"] = match["tss"]
                         act["training_load"] = match.get("training_load")
+                    if act.get("normalised_power") is None and match.get("normalised_power") is not None:
+                        act["normalised_power"] = match["normalised_power"]
+                    if act.get("avg_power") is None and match.get("avg_power") is not None:
+                        act["avg_power"] = match["avg_power"]
+                    if act.get("max_power") is None and match.get("max_power") is not None:
+                        act["max_power"] = match["max_power"]
                     if match.get("pace_zone_times") is not None:
                         act["pace_zone_times"] = match["pace_zone_times"]
                     if match.get("icu_zone_times") is not None:
@@ -240,102 +247,240 @@ class DataManager:
         self._week_cache[offset_weeks] = (time.time(), result)
         return result
 
-    def _enrich_activity_with_intervals(self, activity_data: Dict[str, Any]) -> bool:
-        """Ensures a completed activity dict has exact authoritative TSS / zone metadata from Intervals.icu."""
+    def _enrich_activity_with_intervals(self, activity_data: Dict[str, Any], fetch_intervals: bool = True) -> bool:
+        """Ensures a completed activity dict has authoritative TSS, normalized power,
+        zone metadata, and per-interval telemetry (with intra-block decoupling) from Intervals.icu.
+        """
         if not isinstance(activity_data, dict):
             return False
-        if activity_data.get("icu_activity_id") and activity_data.get("tss") is not None:
-            return False
+
+        changed = False
+        needs_meta = (
+            not activity_data.get("icu_activity_id")
+            or activity_data.get("tss") is None
+            or (activity_data.get("sport_type") == "cycling" and activity_data.get("normalised_power") is None)
+            or (activity_data.get("sport_type") == "cycling" and activity_data.get("icu_zone_times") is None)
+            or (activity_data.get("sport_type") in ("running", "swimming") and activity_data.get("pace_zone_times") is None)
+        )
 
         act_id_str = str(activity_data.get("activity_id") or "")
-        # 1. Fast lookup inside already-cached week views
-        for _, wdata in self._week_cache.values():
-            for day in wdata.get("days", []):
-                for item in day.get("completed", []):
-                    if str(item.get("activity_id")) == act_id_str and item.get("tss") is not None:
-                        activity_data["tss"] = item["tss"]
-                        activity_data["training_load"] = item.get("training_load", item["tss"])
-                        if item.get("icu_activity_id"):
-                            activity_data["icu_activity_id"] = item["icu_activity_id"]
-                        if item.get("pace_zone_times") is not None:
-                            activity_data["pace_zone_times"] = item["pace_zone_times"]
-                        if item.get("icu_zone_times") is not None:
-                            activity_data["icu_zone_times"] = item["icu_zone_times"]
-                        return True
 
-        # 2. Direct lookup by activity date in Intervals.icu
-        day_str = (activity_data.get("start_time") or "")[:10]
-        if len(day_str) == 10:
-            try:
-                icu_acts = self.intervals.get_activities_by_range(day_str, day_str)
-                match = None
-                for cand in icu_acts:
-                    if cand.get("external_id") and str(cand["external_id"]) == act_id_str:
-                        match = cand
+        if needs_meta:
+            # 1. Fast lookup inside already-cached week views
+            matched_item = None
+            for _, wdata in self._week_cache.values():
+                for day in wdata.get("days", []):
+                    for item in day.get("completed", []):
+                        if str(item.get("activity_id")) == act_id_str:
+                            matched_item = item
+                            break
+                    if matched_item:
                         break
-                if not match:
-                    act_sport = activity_data.get("sport_type")
-                    act_dur = float(activity_data.get("duration_seconds") or 0)
-                    best_diff = 900.0
+                if matched_item:
+                    break
+
+            if matched_item:
+                for field in ("icu_activity_id", "tss", "training_load", "pace_zone_times", "icu_zone_times", "icu_hr_zone_times"):
+                    if matched_item.get(field) is not None and activity_data.get(field) != matched_item.get(field):
+                        activity_data[field] = matched_item[field]
+                        changed = True
+                for field in ("normalised_power", "avg_power", "max_power"):
+                    if activity_data.get(field) is None and matched_item.get(field) is not None:
+                        activity_data[field] = matched_item[field]
+                        changed = True
+
+            # 2. Direct lookup by activity date in Intervals.icu if still missing metadata
+            still_missing = (
+                not activity_data.get("icu_activity_id")
+                or activity_data.get("tss") is None
+                or (activity_data.get("sport_type") == "cycling" and activity_data.get("normalised_power") is None)
+                or (activity_data.get("sport_type") == "cycling" and activity_data.get("icu_zone_times") is None)
+                or (activity_data.get("sport_type") in ("running", "swimming") and activity_data.get("pace_zone_times") is None)
+            )
+            day_str = (activity_data.get("start_time") or "")[:10]
+            if still_missing and len(day_str) == 10:
+                try:
+                    icu_acts = self.intervals.get_activities_by_range(day_str, day_str)
+                    match = None
                     for cand in icu_acts:
-                        if cand.get("sport_type") == act_sport:
-                            diff = abs(float(cand.get("duration_seconds") or 0) - act_dur)
-                            if diff <= best_diff:
-                                best_diff = diff
-                                match = cand
-                if match and match.get("tss") is not None:
-                    activity_data["tss"] = match["tss"]
-                    activity_data["training_load"] = match.get("training_load", match["tss"])
-                    activity_data["icu_activity_id"] = match.get("icu_activity_id")
-                    if match.get("pace_zone_times") is not None:
-                        activity_data["pace_zone_times"] = match["pace_zone_times"]
-                    if match.get("icu_zone_times") is not None:
-                        activity_data["icu_zone_times"] = match["icu_zone_times"]
-                    return True
+                        if cand.get("external_id") and str(cand["external_id"]) == act_id_str:
+                            match = cand
+                            break
+                    if not match:
+                        act_sport = activity_data.get("sport_type")
+                        act_dur = float(activity_data.get("duration_seconds") or 0)
+                        best_diff = 900.0
+                        for cand in icu_acts:
+                            if cand.get("sport_type") == act_sport:
+                                diff = abs(float(cand.get("duration_seconds") or 0) - act_dur)
+                                if diff <= best_diff:
+                                    best_diff = diff
+                                    match = cand
+                    if match:
+                        for field in ("icu_activity_id", "tss", "training_load", "pace_zone_times", "icu_zone_times", "icu_hr_zone_times"):
+                            if match.get(field) is not None and activity_data.get(field) != match.get(field):
+                                activity_data[field] = match[field]
+                                changed = True
+                        for field in ("normalised_power", "avg_power", "max_power"):
+                            if activity_data.get(field) is None and match.get(field) is not None:
+                                activity_data[field] = match[field]
+                                changed = True
+                except Exception as e:
+                    logger.warning(f"Error enriching activity {act_id_str} with Intervals metadata: {e}")
+
+            # 3. Fallback to Garmin training_load if TSS still None
+            if activity_data.get("tss") is None and activity_data.get("training_load") is not None:
+                activity_data["tss"] = round(float(activity_data["training_load"]))
+                changed = True
+
+        # 4. Attach per-interval telemetry (with intra-block decoupling & WORK/RECOVERY types) from Intervals.icu
+        if fetch_intervals and activity_data.get("icu_activity_id") and activity_data.get("icu_intervals") is None:
+            try:
+                ivs = self.intervals.get_activity_intervals(str(activity_data["icu_activity_id"]))
+                activity_data["icu_intervals"] = ivs
+                changed = True
+                # If max_power was missing, derive from intervals
+                if activity_data.get("max_power") is None and ivs:
+                    max_ps = [iv.get("max_power") for iv in ivs if iv.get("max_power")]
+                    if max_ps:
+                        activity_data["max_power"] = max(max_ps)
             except Exception as e:
-                logger.warning(f"Error enriching activity {act_id_str} with Intervals TSS: {e}")
+                logger.warning(f"Error fetching Intervals intervals for {act_id_str}: {e}")
 
-        # 3. Fallback to Garmin training_load if present
-        if activity_data.get("training_load") is not None:
-            activity_data["tss"] = round(float(activity_data["training_load"]))
-            return True
-        return False
+        # 5. Attach matching planned workout context for the same day/sport (helps AI Coach recognize session intent)
+        day_str = (activity_data.get("start_time") or "")[:10]
+        if not activity_data.get("planned_workout_context") and len(day_str) == 10:
+            sport = activity_data.get("sport_type")
+            planned_match = None
+            for _, wdata in self._week_cache.values():
+                for d in wdata.get("days", []):
+                    if d.get("date") == day_str:
+                        for pl in d.get("planned", []):
+                            if not pl.get("is_note") and pl.get("sport_type") == sport:
+                                planned_match = pl
+                                break
+                if planned_match:
+                    break
+            if not planned_match:
+                try:
+                    evs = self.intervals.get_planned_events(day_str, day_str)
+                    for pl in evs:
+                        if not pl.get("is_note") and pl.get("sport_type") == sport:
+                            planned_match = pl
+                            break
+                except Exception:
+                    pass
+            if planned_match:
+                activity_data["planned_workout_context"] = {
+                    "name": planned_match.get("name", ""),
+                    "description": (planned_match.get("description") or "")[:600],
+                    "planned_load": planned_match.get("planned_load"),
+                }
+                changed = True
 
-    def update_planned_event_date(self, event_id: str, new_date: str) -> Optional[Dict[str, Any]]:
-        """Updates a planned workout's scheduled date in Intervals.icu and invalidates week cache."""
-        updated = self.intervals.update_event_date(event_id, new_date)
+        return changed
+
+    def update_planned_event(
+        self,
+        event_id: str,
+        new_date: Optional[str] = None,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Updates date, title, and/or description of a planned workout or note in Intervals.icu and clears cache."""
+        updated = self.intervals.update_event(
+            event_id=event_id,
+            new_date=new_date,
+            name=name,
+            description=description,
+        )
         if updated:
             self._week_cache.clear()
             return updated
         return None
 
+    def update_planned_event_date(self, event_id: str, new_date: str) -> Optional[Dict[str, Any]]:
+        """Updates a planned workout's scheduled date in Intervals.icu and invalidates week cache."""
+        return self.update_planned_event(event_id, new_date=new_date)
+
+    def _compute_activity_efficiency(self, activity_data: Dict[str, Any]) -> Dict[str, Any]:
+        sport = activity_data.get("sport_type", "running")
+        if sport == "cycling":
+            return calculate_bike_efficiency(
+                activity_data.get("normalised_power"),
+                activity_data.get("avg_power"),
+                activity_data.get("avg_heart_rate")
+            )
+        elif sport == "running":
+            return calculate_run_efficiency(
+                activity_data.get("avg_speed_mps"),
+                activity_data.get("avg_heart_rate")
+            )
+        elif sport == "swimming":
+            return calculate_swim_metrics(
+                activity_data.get("duration_seconds", 0),
+                activity_data.get("distance_meters", 0),
+                swolf=activity_data.get("avg_swim_swolf"),
+                strokes=activity_data.get("avg_swim_strokes")
+            )
+        return {}
+
     def get_activity_detail(self, activity_id: str) -> Dict[str, Any]:
         """Fetches full activity breakdown, calculates decoupling and triggers AI Coach review.
-        Includes fast in-memory & disk caching for instant sub-second loading.
+        Includes fast in-memory & disk caching with automatic schema upgrade so FEc/IV,
+        Intervals.icu per-block telemetry, and coach analysis are always accurate and consistent.
         """
         act_id_str = str(activity_id)
 
         # 0. Check in-memory cache
         if act_id_str in self._activity_cache:
             cached = self._activity_cache[act_id_str]
-            self._enrich_activity_with_intervals(cached.get("activity", {}))
-            return cached
+            if cached.get("_cache_version") == ACTIVITY_CACHE_SCHEMA_VERSION:
+                return cached
 
-        # Check disk cache
+        # Check disk cache (upgrade cleanly if older schema or missing NP/intervals)
         cache_file = ACTIVITY_CACHE_DIR / f"{act_id_str}.json"
         if cache_file.exists():
             try:
                 with open(cache_file, "r", encoding="utf-8") as f:
                     cached = json.load(f)
-                    updated_tss = self._enrich_activity_with_intervals(cached.get("activity", {}))
+                act_obj = cached.get("activity", {})
+                needs_upgrade = (
+                    cached.get("_cache_version") != ACTIVITY_CACHE_SCHEMA_VERSION
+                    or (act_obj.get("sport_type") == "cycling" and act_obj.get("normalised_power") is None)
+                    or act_obj.get("icu_intervals") is None
+                )
+                if not needs_upgrade:
                     self._activity_cache[act_id_str] = cached
-                    if updated_tss:
-                        try:
-                            with open(cache_file, "w", encoding="utf-8") as wf:
-                                json.dump(cached, wf, ensure_ascii=False)
-                        except Exception:
-                            pass
                     return cached
+
+                # Upgrade cached record in-place with authoritative Intervals.icu NP/TSS/intervals & refreshed analysis
+                self._enrich_activity_with_intervals(act_obj, fetch_intervals=True)
+                disciplines_thresholds = self.intervals.ensure_fresh_thresholds(max_age_seconds=300)
+                eff = self._compute_activity_efficiency(act_obj)
+                dec = calculate_decoupling_from_splits(act_obj.get("splits", []), act_obj.get("sport_type", "running"))
+                wellness = cached.get("wellness") or self._get_day_wellness((act_obj.get("start_time") or "")[:10])
+                coach_analysis = self.coach.analyze_workout(
+                    workout_data=act_obj,
+                    efficiency_data=eff,
+                    decoupling_data=dec,
+                    wellness_context=wellness,
+                    disciplines_thresholds=disciplines_thresholds,
+                    use_llm=False
+                )
+                cached["activity"] = act_obj
+                cached["efficiency"] = eff
+                cached["decoupling"] = dec
+                cached["wellness"] = wellness
+                cached["coach_analysis"] = coach_analysis
+                cached["_cache_version"] = ACTIVITY_CACHE_SCHEMA_VERSION
+                self._activity_cache[act_id_str] = cached
+                try:
+                    with open(cache_file, "w", encoding="utf-8") as wf:
+                        json.dump(cached, wf, ensure_ascii=False)
+                except Exception:
+                    pass
+                return cached
             except Exception:
                 pass
 
@@ -380,31 +525,13 @@ class DataManager:
         if not activity_data:
             activity_data = self._build_fallback_activity_details(activity_id)
 
-        self._enrich_activity_with_intervals(activity_data)
+        self._enrich_activity_with_intervals(activity_data, fetch_intervals=True)
+        disciplines_thresholds = self.intervals.ensure_fresh_thresholds(max_age_seconds=300)
 
         sport = activity_data.get("sport_type", "running")
 
-        # 2. Compute Efficiency Metrics
-        if sport == "cycling":
-            efficiency = calculate_bike_efficiency(
-                activity_data.get("normalised_power"),
-                activity_data.get("avg_power"),
-                activity_data.get("avg_heart_rate")
-            )
-        elif sport == "running":
-            efficiency = calculate_run_efficiency(
-                activity_data.get("avg_speed_mps"),
-                activity_data.get("avg_heart_rate")
-            )
-        elif sport == "swimming":
-            efficiency = calculate_swim_metrics(
-                activity_data.get("duration_seconds", 0),
-                activity_data.get("distance_meters", 0),
-                swolf=activity_data.get("avg_swim_swolf"),
-                strokes=activity_data.get("avg_swim_strokes")
-            )
-        else:
-            efficiency = {}
+        # 2. Compute Efficiency Metrics (guaranteed consistent with weekly cards)
+        efficiency = self._compute_activity_efficiency(activity_data)
 
         # 3. Compute Decoupling (Pw:HR or Pa:HR)
         splits = activity_data.get("splits", [])
@@ -414,16 +541,18 @@ class DataManager:
         day_str = (activity_data.get("start_time") or "")[:10]
         wellness = self._get_day_wellness(day_str)
 
-        # 5. Generate Coach AI Analysis (instant physiological evaluation)
+        # 5. Generate Coach AI Analysis (interval-aware physiological evaluation)
         coach_analysis = self.coach.analyze_workout(
             workout_data=activity_data,
             efficiency_data=efficiency,
             decoupling_data=decoupling,
             wellness_context=wellness,
+            disciplines_thresholds=disciplines_thresholds,
             use_llm=False
         )
 
         result = {
+            "_cache_version": ACTIVITY_CACHE_SCHEMA_VERSION,
             "activity": activity_data,
             "efficiency": efficiency,
             "decoupling": decoupling,
