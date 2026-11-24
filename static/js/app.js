@@ -905,10 +905,17 @@ async function openActivityModal(activityId) {
         splits: foundAct.splits || []
       },
       efficiency: {
-        fec: foundAct.normalized_power && foundAct.avg_heart_rate ? (foundAct.normalized_power / foundAct.avg_heart_rate).toFixed(2) : null,
-        iv: foundAct.normalized_power && foundAct.avg_power ? (foundAct.normalized_power / foundAct.avg_power).toFixed(2) : null,
-        fecp: speedMps && foundAct.avg_heart_rate ? ((speedMps * 3.6) / foundAct.avg_heart_rate).toFixed(2) : null,
-        pace_str: paceStr,
+        ...(foundAct.efficiency || {}),
+        fec: (foundAct.efficiency && foundAct.efficiency.fec != null)
+          ? foundAct.efficiency.fec
+          : (foundAct.avg_power && foundAct.avg_heart_rate ? Number((foundAct.avg_power / foundAct.avg_heart_rate).toFixed(2)) : null),
+        iv: (foundAct.efficiency && foundAct.efficiency.iv != null)
+          ? foundAct.efficiency.iv
+          : ((foundAct.normalised_power || foundAct.normalized_power) && foundAct.avg_power ? Number(((foundAct.normalised_power || foundAct.normalized_power) / foundAct.avg_power).toFixed(3)) : null),
+        fecp: (foundAct.efficiency && foundAct.efficiency.fecp != null)
+          ? foundAct.efficiency.fecp
+          : (speedMps && foundAct.avg_heart_rate ? Number(((speedMps * 60) / foundAct.avg_heart_rate).toFixed(2)) : null),
+        pace_str: (foundAct.efficiency && foundAct.efficiency.pace_str) || paceStr,
         avg_swolf: foundAct.avg_swim_swolf || null,
         dps_meters: foundAct.distance_meters && foundAct.avg_swim_strokes ? (foundAct.distance_meters / foundAct.avg_swim_strokes).toFixed(2) : null
       },
@@ -1556,7 +1563,7 @@ function renderActivityModalContent(data) {
   if (act.sport_type === 'cycling') {
     effMetricHtml = `
       <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col shadow-2xs">
-        <span class="text-xs text-slate-500">Factor de Eficiencia (FEc = NP/FC)</span>
+        <span class="text-xs text-slate-500">Factor de Eficiencia (FEc = Pmed/FC)</span>
         <span class="text-xl font-bold font-mono text-[#0284c7]">${eff.fec || 'N/A'} <span class="text-xs text-slate-400">W/bpm</span></span>
       </div>
       <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col shadow-2xs">

@@ -16,7 +16,7 @@ from .config import AppConfig, load_config, HISTORICO_FILE, APP_DATA_DIR
 
 ACTIVITY_CACHE_DIR = APP_DATA_DIR / "cache" / "activities"
 ACTIVITY_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-ACTIVITY_CACHE_SCHEMA_VERSION = 4
+ACTIVITY_CACHE_SCHEMA_VERSION = 5
 from .garmin_service import GarminService
 from .intervals_service import IntervalsService
 from .metrics import (

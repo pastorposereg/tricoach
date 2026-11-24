@@ -13,8 +13,8 @@ def calculate_bike_efficiency(
     avg_power: Optional[float],
     avg_hr: Optional[float]
 ) -> Dict[str, Any]:
-    """Calculate Bike Aerobic Efficiency (FEc) and Variability Index (IV)."""
-    p = norm_power or avg_power
+    """Calculate Bike Aerobic Efficiency (FEc = Avg Power / Avg HR) and Variability Index (IV = NP / Avg Power)."""
+    p = avg_power if (avg_power is not None and avg_power > 0) else norm_power
     if not p or not avg_hr or avg_hr <= 0:
         return {"fec": None, "iv": None}
 

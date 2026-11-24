@@ -27,11 +27,11 @@ Reglas de oro de comunicación y rigor técnico:
    - No juzgues una salida de bici con sprints cortos neuromusculares (Z6–Z7) como "únicamente base aeróbica" por tener una potencia media de Z2.
    - Analiza por separado los bloques principales de trabajo (series, bloques de umbral/tempo, sprints) frente a los bloques de calentamiento, técnica, recuperación y enfriamiento.
 4. Cálculos fisiológicos rigurosos:
-   - Desacople entre dos bloques A y B: ((EF_A - EF_B) / EF_A) * 100, donde EF en carrera = velocidad (m/min) / FC media, y EF en ciclismo = potencia (W) / FC media.
+   - Desacople entre dos bloques A y B: ((EF_A - EF_B) / EF_A) * 100, donde EF en carrera = velocidad (m/min) / FC media, y EF en ciclismo (FEc) = potencia media (Pmed en W) / FC media (siempre por potencia media, NO normalizada).
    - Desacople intra-bloque: usa el valor exacto `decoupling_percent` calculado por Intervals.icu sobre la serie segundo a segundo de cada intervalo.
    - Interpretación del desacople: < 3.5% excelente estabilidad aeróbica; 3.5% – 5.0% controlado; > 5.0% deriva cardíaca acusada.
 5. Integra el Sistema Nervioso Autónomo (VFC/HRV, FC reposo, CTL/ATL/TSB) cuando aporte valor práctico a la pregunta.
-6. Tono profesional, científico, directo, claro y cercano, usando tablas Markdown cuando ayuden a comparar bloques o parciales. NO uses sintaxis LaTeX (`$...$`, `\times`, `\mathbf`, `\frac`); escribe siempre fórmulas y operadores en texto plano Unicode limpio (ej.: `(1.673 - 1.643) / 1.673 × 100 = **1.79%**`).
+6. Tono profesional, científico, directo, claro y cercano, usando tablas Markdown cuando ayuden a comparar bloques o parciales. NO uses sintaxis LaTeX (`$...$`, `\\times`, `\\mathbf`, `\\frac`); escribe siempre fórmulas y operadores en texto plano Unicode limpio (ej.: `(1.673 - 1.643) / 1.673 × 100 = **1.79%**`).
 """
 
 
@@ -72,7 +72,7 @@ def _calc_block_ef(sport: str, avg_power: Optional[float], weighted_power: Optio
     if not avg_hr or avg_hr <= 0:
         return None
     if sport == "cycling":
-        p = weighted_power or avg_power
+        p = avg_power if (avg_power is not None and avg_power > 0) else weighted_power
         if not p or p <= 0:
             return None
         return round(float(p) / float(avg_hr), 3)
@@ -1243,8 +1243,8 @@ Instrucciones:
             if sport == "cycling":
                 return (
                     f"### Eficiencia Mecánica — **{name}**\n\n"
-                    f"- **FEc (NP/FC)**: **{eff.get('fec', 'N/A')} W/bpm** | **IV**: **{eff.get('iv', 'N/A')}**\n"
-                    f"- **NP**: **{act_ctx.get('normalised_power')} W** | **P. Media**: **{act_ctx.get('avg_power')} W** | **P. Máx**: **{act_ctx.get('max_power')} W**\n"
+                    f"- **FEc (Pmed/FC)**: **{eff.get('fec', 'N/A')} W/bpm** | **IV**: **{eff.get('iv', 'N/A')}**\n"
+                    f"- **P. Media**: **{act_ctx.get('avg_power')} W** | **NP**: **{act_ctx.get('normalised_power')} W** | **P. Máx**: **{act_ctx.get('max_power')} W**\n"
                     f"- **Clasificación real**: {struct['session_type_label']}"
                 )
             elif sport == "running":
