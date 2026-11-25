@@ -16,7 +16,7 @@ from .config import AppConfig, load_config, HISTORICO_FILE, APP_DATA_DIR
 
 ACTIVITY_CACHE_DIR = APP_DATA_DIR / "cache" / "activities"
 ACTIVITY_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-ACTIVITY_CACHE_SCHEMA_VERSION = 5
+ACTIVITY_CACHE_SCHEMA_VERSION = 6
 from .garmin_service import GarminService
 from .intervals_service import IntervalsService
 from .metrics import (
@@ -347,6 +347,27 @@ class DataManager:
             except Exception as e:
                 logger.warning(f"Error fetching Intervals intervals for {act_id_str}: {e}")
 
+        # 4b. Enrich EVERY exact Garmin device lap with second-by-second stream intra-lap decoupling & H1/H2 splits
+        splits_list = activity_data.get("splits") or []
+        if (
+            fetch_intervals
+            and activity_data.get("icu_activity_id")
+            and splits_list
+            and activity_data.get("sport_type") in ("cycling", "running")
+            and not any(s.get("stream_enriched") for s in splits_list)
+        ):
+            try:
+                ok_stream = self.intervals.enrich_splits_with_streams(
+                    icu_id=str(activity_data["icu_activity_id"]),
+                    splits=splits_list,
+                    sport_type=str(activity_data.get("sport_type") or "running"),
+                    icu_intervals=activity_data.get("icu_intervals"),
+                )
+                if ok_stream:
+                    changed = True
+            except Exception as e:
+                logger.warning(f"Error enriching splits with streams for {act_id_str}: {e}")
+
         # 5. Attach matching planned workout context for the same day/sport (helps AI Coach recognize session intent)
         day_str = (activity_data.get("start_time") or "")[:10]
         if not activity_data.get("planned_workout_context") and len(day_str) == 10:
@@ -438,23 +459,40 @@ class DataManager:
             if cached.get("_cache_version") == ACTIVITY_CACHE_SCHEMA_VERSION:
                 return cached
 
-        # Check disk cache (upgrade cleanly if older schema or missing NP/intervals)
+        # Check disk cache (upgrade cleanly if older schema or missing NP/intervals/stream lap offsets)
         cache_file = ACTIVITY_CACHE_DIR / f"{act_id_str}.json"
         if cache_file.exists():
             try:
                 with open(cache_file, "r", encoding="utf-8") as f:
                     cached = json.load(f)
                 act_obj = cached.get("activity", {})
+                cached_splits = act_obj.get("splits") or []
+                has_offsets = (not cached_splits) or any(s.get("start_offset_seconds") is not None for s in cached_splits)
+                needs_full_refetch = (
+                    cached.get("_cache_version", 0) < ACTIVITY_CACHE_SCHEMA_VERSION
+                    and not has_offsets
+                    and not act_id_str.startswith("i")
+                )
                 needs_upgrade = (
                     cached.get("_cache_version") != ACTIVITY_CACHE_SCHEMA_VERSION
                     or (act_obj.get("sport_type") == "cycling" and act_obj.get("normalised_power") is None)
                     or act_obj.get("icu_intervals") is None
+                    or (cached_splits and act_obj.get("sport_type") in ("cycling", "running") and not any(s.get("stream_enriched") for s in cached_splits))
                 )
                 if not needs_upgrade:
                     self._activity_cache[act_id_str] = cached
                     return cached
 
-                # Upgrade cached record in-place with authoritative Intervals.icu NP/TSS/intervals & refreshed analysis
+                # If older cache lacks Garmin start_offset_seconds, refresh splits from Garmin first (handles pauses cleanly!)
+                if needs_full_refetch:
+                    try:
+                        fresh_g = self.garmin.get_activity_details(activity_id)
+                        if fresh_g and fresh_g.get("splits"):
+                            act_obj["splits"] = fresh_g["splits"]
+                    except Exception:
+                        pass
+
+                # Upgrade cached record in-place with authoritative Intervals.icu NP/TSS/intervals/streams & refreshed analysis
                 self._enrich_activity_with_intervals(act_obj, fetch_intervals=True)
                 disciplines_thresholds = self.intervals.ensure_fresh_thresholds(max_age_seconds=300)
                 eff = self._compute_activity_efficiency(act_obj)

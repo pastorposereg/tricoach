@@ -20,18 +20,18 @@ logger = logging.getLogger(__name__)
 SYSTEM_COACH_PROMPT = """Eres el Entrenador Experto en Deportes de Resistencia y Fisiología del Ejercicio de Pastor, atleta de Triatlón de Media y Larga Distancia.
 
 Reglas de oro de comunicación y rigor técnico:
-1. RESPONDE DIRECTA Y ESPECÍFICAMENTE a lo que pregunta el atleta. NUNCA repitas un resumen genérico del entrenamiento ni vuelvas a volcar las métricas globales si te están haciendo una pregunta concreta (por ejemplo, el desacople dentro de cada bloque de Z3, la comparación entre el 2º y el 4º bloque, la potencia pico de los sprints o un lap específico).
-2. Usa SIEMPRE las cifras exactas de la telemetría por intervalos/bloques, zonas reales (Z1–Z7) y umbrales en vigor proporcionados en el contexto. No inventes datos ni te quedes solo con los promedios globales.
+1. RESPONDE DIRECTA Y ESPECÍFICAMENTE a lo que pregunta el atleta. NUNCA repitas un resumen genérico del entrenamiento ni vuelvas a volcar las métricas globales si te están haciendo una pregunta concreta (por ejemplo, el desacople dentro de cada bloque de Z3, la comparación entre el 2º y el 4º bloque, los tramos de 30' antes y después de los sprints, la potencia pico de los sprints o un lap específico).
+2. Usa SIEMPRE las cifras exactas de la tabla de laps exactos del dispositivo Garmin SIN FUSIONAR (con su tramo horario inicio–fin, duración, 1ª y 2ª mitad y desacople intra-lap calculado segundo a segundo sobre el stream), zonas reales (Z1–Z7) y umbrales en vigor proporcionados en el contexto. NUNCA afirmes que dos laps se han fusionado si aparecen separados en la tabla; filtra exclusivamente los laps o tramos que pide el atleta.
 3. DISTINGUE SIEMPRE la estructura real de la sesión:
    - No juzgues un entrenamiento de series en pista (que incluye calentamiento, técnica de carrera y recuperaciones lentas) como "base aeróbica" por tener un ritmo medio lento.
    - No juzgues una salida de bici con sprints cortos neuromusculares (Z6–Z7) como "únicamente base aeróbica" por tener una potencia media de Z2.
-   - Analiza por separado los bloques principales de trabajo (series, bloques de umbral/tempo, sprints) frente a los bloques de calentamiento, técnica, recuperación y enfriamiento.
+   - Analiza por separado los bloques principales de trabajo (series, bloques de umbral/tempo, sprints, tramos Z2) frente a los bloques de calentamiento, técnica, recuperación y enfriamiento.
 4. Cálculos fisiológicos rigurosos:
-   - Desacople entre dos bloques A y B: ((EF_A - EF_B) / EF_A) * 100, donde EF en carrera = velocidad (m/min) / FC media, y EF en ciclismo (FEc) = potencia media (Pmed en W) / FC media (siempre por potencia media, NO normalizada).
-   - Desacople intra-bloque: usa el valor exacto `decoupling_percent` calculado por Intervals.icu sobre la serie segundo a segundo de cada intervalo.
-   - Interpretación del desacople: < 3.5% excelente estabilidad aeróbica; 3.5% – 5.0% controlado; > 5.0% deriva cardíaca acusada.
+   - Desacople entre dos bloques/laps A y B: ((EF_A - EF_B) / EF_A) * 100, donde EF en carrera = velocidad (m/min) / FC media, y EF en ciclismo (FEc) = potencia media (Pmed en W) / FC media (siempre por potencia media, NO normalizada).
+   - Desacople intra-lap / intra-bloque: usa el valor exacto `intra_decoupling_percent` calculado segundo a segundo comparando la 1ª mitad frente a la 2ª mitad dentro de ese lap exacto.
+   - Interpretación del desacople: < 3.5% excelente estabilidad aeróbica; 3.5% – 5.0% controlado; > 5.0% deriva cardíaca acusada (un valor negativo indica mejora de eficiencia / menor pulso a igual potencia o ritmo).
 5. Integra el Sistema Nervioso Autónomo (VFC/HRV, FC reposo, CTL/ATL/TSB) cuando aporte valor práctico a la pregunta.
-6. Tono profesional, científico, directo, claro y cercano, usando tablas Markdown cuando ayuden a comparar bloques o parciales. NO uses sintaxis LaTeX (`$...$`, `\\times`, `\\mathbf`, `\\frac`); escribe siempre fórmulas y operadores en texto plano Unicode limpio (ej.: `(1.673 - 1.643) / 1.673 × 100 = **1.79%**`).
+6. Tono profesional, científico, directo, claro y cercano, usando tablas Markdown cuando ayuden a comparar bloques o parciales. NO uses sintaxis LaTeX (`$...$`, `\\times`, `\\mathbf`, `\\frac`); escribe siempre fórmulas y operadores en texto plano Unicode limpio (ej.: `(2.018 - 2.055) / 2.018 × 100 = **-1.83%**`).
 """
 
 
@@ -45,6 +45,33 @@ def _fmt_dur(sec: float) -> str:
     if m > 0:
         return f"{m}:{rem:02d}"
     return f"{rem}s"
+
+
+def _fmt_mmss(sec: Optional[float]) -> str:
+    if sec is None:
+        return "--:--"
+    s = int(round(max(0.0, float(sec))))
+    m = s // 60
+    rem = s % 60
+    return f"{m}:{rem:02d}"
+
+
+def _fmt_halves_str(sport: str, h1: Optional[Dict[str, Any]], h2: Optional[Dict[str, Any]]) -> str:
+    if not isinstance(h1, dict) or not isinstance(h2, dict):
+        return "--"
+    if sport == "cycling":
+        p1, hr1 = h1.get("power_w"), h1.get("hr")
+        p2, hr2 = h2.get("power_w"), h2.get("hr")
+        if p1 is not None and p2 is not None and hr1 and hr2:
+            return f"1ª: {p1}W/{hr1}bpm → 2ª: {p2}W/{hr2}bpm"
+    else:
+        v1, hr1 = h1.get("speed_mps"), h1.get("hr")
+        v2, hr2 = h2.get("speed_mps"), h2.get("hr")
+        if v1 and v2 and hr1 and hr2:
+            p1 = _fmt_run_pace(v1) if sport == "running" else _fmt_swim_pace(v1)
+            p2 = _fmt_run_pace(v2) if sport == "running" else _fmt_swim_pace(v2)
+            return f"1ª: {p1} ({hr1}bpm) → 2ª: {p2} ({hr2}bpm)"
+    return "--"
 
 
 def _fmt_run_pace(speed_mps: Optional[float]) -> str:
@@ -230,15 +257,101 @@ class AICoachService:
                 if secs > 0:
                     zone_secs[f"Z{i + 1}"] += secs
 
-        # 2. Build unified structured blocks list (prefer Intervals.icu intervals because they include intra-block decoupling!)
+        # 2. Build unified structured blocks list:
+        # ALWAYS prefer exact Garmin Device Laps (`splits`) whenever >= 2 laps exist
+        # (or splits >= icu_ivs), because Intervals.icu auto-detection frequently MERGES
+        # adjacent recovery/Z2 laps (e.g., merging 15' warm-up + 30' Z2 into one 45' interval).
+        # Each Garmin lap is enriched second-by-second from Intervals.icu streams with
+        # exact 1st/2nd half splits and intra-lap decoupling!
         icu_ivs = workout.get("icu_intervals") or []
         splits = workout.get("splits") or []
         blocks: List[Dict[str, Any]] = []
+        blocks_source = "garmin_laps"
 
-        if isinstance(icu_ivs, list) and len(icu_ivs) > 0:
+        use_garmin_splits = (
+            isinstance(splits, list)
+            and len(splits) > 0
+            and (len(splits) >= 2 or not icu_ivs or len(splits) >= len(icu_ivs))
+        )
+
+        if use_garmin_splits:
+            blocks_source = "garmin_laps"
+            cum_t = 0.0
+            for idx, sp in enumerate(splits):
+                dur = float(sp.get("duration_seconds") or 0.0)
+                elap = float(sp.get("elapsed_seconds") or dur)
+                dist = float(sp.get("distance_meters") or 0.0)
+                t0 = float(sp["start_offset_seconds"]) if sp.get("start_offset_seconds") is not None else cum_t
+                t1 = float(sp["end_offset_seconds"]) if sp.get("end_offset_seconds") is not None else (t0 + max(elap, dur))
+                cum_t = t1
+                if dur < 3.0:
+                    continue
+                avg_p = sp.get("avg_power")
+                w_p = sp.get("normalised_power")
+                max_p = sp.get("max_power")
+                spd = sp.get("avg_speed_mps") or (dist / dur if dur > 0 and dist > 0 else None)
+                hr = sp.get("avg_heart_rate")
+                max_hr_b = sp.get("max_heart_rate")
+                dec_intra = sp.get("intra_decoupling_percent")
+                if dec_intra is None:
+                    dec_intra = sp.get("icu_decoupling_percent")
+
+                if sport == "cycling":
+                    z_num = classify_power_zone(float(avg_p or w_p or 0), ftp, bike_pcts) if (avg_p or w_p) else 1
+                elif sport == "running":
+                    z_num = classify_speed_zone(float(spd or 0), run_tp, run_pcts) if spd else 1
+                elif sport == "swimming":
+                    z_num = classify_speed_zone(float(spd or 0), swim_tp, swim_pcts) if (spd and dist > 0) else 1
+                else:
+                    z_num = 1
+
+                is_rest_lap = (sport == "swimming" and dist <= 0)
+                if is_rest_lap:
+                    b_type = "REST"
+                elif (z_num >= 6 and dur <= 60) or (sport == "cycling" and max_p and float(max_p) >= ftp * 1.8 and dur <= 45):
+                    b_type = "SPRINT"
+                elif z_num >= 2:
+                    b_type = "WORK"
+                else:
+                    b_type = "RECOVERY"
+
+                ef = _calc_block_ef(sport, avg_p, w_p, spd, hr)
+                blocks.append({
+                    "index": sp.get("lap_index") or (idx + 1),
+                    "source": "garmin_laps",
+                    "type": b_type,
+                    "zone": z_num,
+                    "zone_label": f"Z{z_num}",
+                    "start_offset_seconds": round(t0, 1),
+                    "end_offset_seconds": round(t1, 1),
+                    "time_range": f"{_fmt_mmss(t0)}–{_fmt_mmss(t1)}",
+                    "duration_seconds": round(dur, 1),
+                    "duration_fmt": _fmt_dur(dur),
+                    "distance_meters": round(dist, 1),
+                    "avg_speed_mps": round(float(spd), 3) if spd else None,
+                    "pace_fmt": _fmt_run_pace(spd) if sport == "running" else (_fmt_swim_pace(spd) if sport == "swimming" else None),
+                    "avg_power": round(float(avg_p), 1) if avg_p is not None else None,
+                    "weighted_power": round(float(w_p), 1) if w_p is not None else None,
+                    "max_power": round(float(max_p), 1) if max_p is not None else None,
+                    "avg_heart_rate": round(float(hr), 1) if hr is not None else None,
+                    "max_heart_rate": round(float(max_hr_b), 1) if max_hr_b is not None else None,
+                    "avg_cadence": sp.get("avg_cadence"),
+                    "ef": ef,
+                    "half_1": sp.get("half_1"),
+                    "half_2": sp.get("half_2"),
+                    "intra_decoupling_percent": round(float(dec_intra), 2) if dec_intra is not None else None,
+                    "icu_decoupling_percent": sp.get("icu_decoupling_percent"),
+                    "is_rest": is_rest_lap,
+                })
+        elif isinstance(icu_ivs, list) and len(icu_ivs) > 0:
+            blocks_source = "intervals.icu"
+            cum_t = 0.0
             for idx, iv in enumerate(icu_ivs):
                 dur = float(iv.get("duration_seconds") or 0.0)
                 dist = float(iv.get("distance_meters") or 0.0)
+                t0 = float(iv["start_time_sec"]) if iv.get("start_time_sec") is not None else cum_t
+                t1 = float(iv["end_time_sec"]) if iv.get("end_time_sec") is not None else (t0 + dur)
+                cum_t = t1
                 if dur < 3.0:
                     continue
                 avg_p = iv.get("avg_power")
@@ -266,6 +379,9 @@ class AICoachService:
                     "type": str(iv.get("type") or "WORK").upper(),
                     "zone": z_num,
                     "zone_label": f"Z{z_num}",
+                    "start_offset_seconds": round(t0, 1),
+                    "end_offset_seconds": round(t1, 1),
+                    "time_range": f"{_fmt_mmss(t0)}–{_fmt_mmss(t1)}",
                     "duration_seconds": round(dur, 1),
                     "duration_fmt": _fmt_dur(dur),
                     "distance_meters": round(dist, 1),
@@ -278,51 +394,10 @@ class AICoachService:
                     "max_heart_rate": round(float(max_hr_b), 1) if max_hr_b is not None else None,
                     "avg_cadence": iv.get("avg_cadence"),
                     "ef": ef,
+                    "half_1": None,
+                    "half_2": None,
                     "intra_decoupling_percent": round(float(dec_intra), 2) if dec_intra is not None else None,
-                    "is_rest": (sport == "swimming" and dist <= 0),
-                })
-        elif isinstance(splits, list) and len(splits) > 0:
-            for idx, sp in enumerate(splits):
-                dur = float(sp.get("duration_seconds") or 0.0)
-                dist = float(sp.get("distance_meters") or 0.0)
-                if dur < 3.0:
-                    continue
-                avg_p = sp.get("avg_power")
-                w_p = sp.get("normalised_power")
-                max_p = sp.get("max_power")
-                spd = sp.get("avg_speed_mps") or (dist / dur if dur > 0 and dist > 0 else None)
-                hr = sp.get("avg_heart_rate")
-                max_hr_b = sp.get("max_heart_rate")
-
-                if sport == "cycling":
-                    z_num = classify_power_zone(float(avg_p or w_p or 0), ftp, bike_pcts) if (avg_p or w_p) else 1
-                elif sport == "running":
-                    z_num = classify_speed_zone(float(spd or 0), run_tp, run_pcts) if spd else 1
-                elif sport == "swimming":
-                    z_num = classify_speed_zone(float(spd or 0), swim_tp, swim_pcts) if (spd and dist > 0) else 1
-                else:
-                    z_num = 1
-
-                ef = _calc_block_ef(sport, avg_p, w_p, spd, hr)
-                blocks.append({
-                    "index": sp.get("lap_index") or (idx + 1),
-                    "source": "garmin_laps",
-                    "type": "WORK" if z_num >= 2 else "RECOVERY",
-                    "zone": z_num,
-                    "zone_label": f"Z{z_num}",
-                    "duration_seconds": round(dur, 1),
-                    "duration_fmt": _fmt_dur(dur),
-                    "distance_meters": round(dist, 1),
-                    "avg_speed_mps": round(float(spd), 3) if spd else None,
-                    "pace_fmt": _fmt_run_pace(spd) if sport == "running" else (_fmt_swim_pace(spd) if sport == "swimming" else None),
-                    "avg_power": round(float(avg_p), 1) if avg_p is not None else None,
-                    "weighted_power": round(float(w_p), 1) if w_p is not None else None,
-                    "max_power": round(float(max_p), 1) if max_p is not None else None,
-                    "avg_heart_rate": round(float(hr), 1) if hr is not None else None,
-                    "max_heart_rate": round(float(max_hr_b), 1) if max_hr_b is not None else None,
-                    "avg_cadence": sp.get("avg_cadence"),
-                    "ef": ef,
-                    "intra_decoupling_percent": None,
+                    "icu_decoupling_percent": round(float(dec_intra), 2) if dec_intra is not None else None,
                     "is_rest": (sport == "swimming" and dist <= 0),
                 })
 
@@ -429,21 +504,59 @@ class AICoachService:
                         {
                             "block_in_zone": idx + 1,
                             "interval_index": b["index"],
+                            "time_range": b.get("time_range", "--"),
                             "duration": b["duration_fmt"],
+                            "duration_seconds": b["duration_seconds"],
                             "distance_m": b["distance_meters"],
                             "pace": b["pace_fmt"],
                             "avg_power": b["avg_power"],
                             "max_power": b["max_power"],
                             "avg_hr": b["avg_heart_rate"],
                             "ef": b["ef"],
+                            "half_1": b.get("half_1"),
+                            "half_2": b.get("half_2"),
                             "intra_decoupling_percent": b["intra_decoupling_percent"],
                         }
                         for idx, b in enumerate(long_z)
                     ],
                 }
 
+        # 5b. Pre-compute same-duration lap groups (e.g., two 30:00 Z2 blocks before/after sprints,
+        #     or four 6:00 Z3 blocks, or six 5:00 recoveries) so queries like "solo los tramos de 30'"
+        #     have exact isolated intra-lap and inter-lap decoupling ready.
+        same_duration_groups: List[Dict[str, Any]] = []
+        used_group_ids: set = set()
+        long_active = [b for b in blocks if not b.get("is_rest") and b["duration_seconds"] >= 90 and b.get("ef")]
+        for b in long_active:
+            if b["index"] in used_group_ids:
+                continue
+            ref_d = b["duration_seconds"]
+            tol = max(15.0, ref_d * 0.06)
+            grp = [x for x in long_active if abs(x["duration_seconds"] - ref_d) <= tol and x["index"] not in used_group_ids]
+            if len(grp) >= 2:
+                for x in grp:
+                    used_group_ids.add(x["index"])
+                avg_d = sum(x["duration_seconds"] for x in grp) / len(grp)
+                drift_fl = _calc_inter_block_decoupling(grp[0]["ef"], grp[-1]["ef"])
+                pw_dur = {}
+                for i in range(len(grp)):
+                    for j in range(i + 1, len(grp)):
+                        d_ij = _calc_inter_block_decoupling(grp[i]["ef"], grp[j]["ef"])
+                        if d_ij is not None:
+                            pw_dur[f"Lap #{grp[i]['index']}→Lap #{grp[j]['index']}"] = d_ij
+                same_duration_groups.append({
+                    "duration_label": _fmt_dur(avg_d),
+                    "approx_duration_seconds": round(avg_d, 1),
+                    "count": len(grp),
+                    "first_to_last_decoupling_percent": drift_fl,
+                    "pairwise_decoupling_percent": pw_dur,
+                    "laps": grp,
+                })
+        same_duration_groups.sort(key=lambda g: g["approx_duration_seconds"], reverse=True)
+
         return {
             "sport": sport,
+            "blocks_source": blocks_source,
             "session_type_key": session_type_key,
             "session_type_label": session_type_label,
             "zone_secs": zone_secs,
@@ -454,6 +567,7 @@ class AICoachService:
             "sprint_blocks": sprint_blocks,
             "aerobic_z2_blocks": aerobic_z2_blocks,
             "zone_block_drifts": zone_block_drifts,
+            "same_duration_groups": same_duration_groups,
             "max_power": round(max_power, 1) if max_power else None,
             "ftp": ftp,
             "run_threshold_mps": run_tp,
@@ -464,7 +578,8 @@ class AICoachService:
 
     def _format_blocks_for_prompt(self, struct: Dict[str, Any]) -> str:
         """Creates a crisp, token-efficient Markdown telemetry table for Gemini containing
-        every interval/block, exact intra-block decoupling, and pre-calculated inter-block drifts.
+        every exact unmerged Garmin lap (with 1st/2nd half & stream intra-lap decoupling),
+        zone drifts, and same-duration lap comparisons.
         """
         sport = struct["sport"]
         lines = [
@@ -478,27 +593,60 @@ class AICoachService:
 
         blocks = struct.get("blocks") or []
         if blocks:
-            lines.append("\nDESGLOSE COMPLETO DE BLOQUES / INTERVALOS (con desacople intra-bloque exacto de Intervals.icu):")
+            if struct.get("blocks_source") == "garmin_laps":
+                lines.append(
+                    f"\nDESGLOSE COMPLETO DE TODOS LOS LAPS EXACTOS DEL DISPOSITIVO GARMIN "
+                    f"({len(blocks)} laps SIN FUSIONAR, con 1ª/2ª mitad y desacople intra-lap calculado segundo a segundo sobre el stream):"
+                )
+            else:
+                lines.append(
+                    f"\nDESGLOSE COMPLETO DE INTERVALOS DETECTADOS ({len(blocks)} intervalos de Intervals.icu):"
+                )
+
             if sport == "cycling":
-                lines.append("| # | Tipo | Zona | Duración | Pot. Media | Pot. Máx | FC Media | FEc (W/bpm) | Desacople Intra-Bloque |")
-                lines.append("|---|---|---|---|---|---|---|---|---|")
-                for b in blocks[:35]:
+                lines.append("| Lap # | Tramo (min) | Tipo | Zona | Duración | Pot. Media | Pot. Máx | FC Media | FEc (Pmed/FC) | 1ª → 2ª Mitad | Desacople Intra-Lap |")
+                lines.append("|---|---|---|---|---|---|---|---|---|---|---|")
+                for b in blocks[:50]:
                     dec_s = f"{b['intra_decoupling_percent']}%" if b["intra_decoupling_percent"] is not None else "N/A"
+                    h_s = _fmt_halves_str(sport, b.get("half_1"), b.get("half_2"))
                     lines.append(
-                        f"| #{b['index']} | {b['type']} | {b['zone_label']} | {b['duration_fmt']} | "
+                        f"| Lap #{b['index']} | {b.get('time_range', '--')} | {b['type']} | {b['zone_label']} | {b['duration_fmt']} | "
                         f"{b['avg_power'] or '--'}W | {b['max_power'] or '--'}W | {b['avg_heart_rate'] or '--'} bpm | "
-                        f"{b['ef'] or '--'} | {dec_s} |"
+                        f"{b['ef'] or '--'} | {h_s} | {dec_s} |"
                     )
             else:
-                lines.append("| # | Tipo | Zona | Duración | Dist(m) | Ritmo | Potencia | FC Media | EF | Desacople Intra-Bloque |")
-                lines.append("|---|---|---|---|---|---|---|---|---|---|")
-                for b in blocks[:35]:
+                lines.append("| Lap # | Tramo (min) | Tipo | Zona | Duración | Dist(m) | Ritmo | Potencia | FC Media | EF | 1ª → 2ª Mitad | Desacople Intra-Lap |")
+                lines.append("|---|---|---|---|---|---|---|---|---|---|---|---|")
+                for b in blocks[:50]:
                     dec_s = f"{b['intra_decoupling_percent']}%" if b["intra_decoupling_percent"] is not None else "N/A"
+                    h_s = _fmt_halves_str(sport, b.get("half_1"), b.get("half_2"))
                     lines.append(
-                        f"| #{b['index']} | {b['type']} | {b['zone_label']} | {b['duration_fmt']} | "
+                        f"| Lap #{b['index']} | {b.get('time_range', '--')} | {b['type']} | {b['zone_label']} | {b['duration_fmt']} | "
                         f"{int(round(b['distance_meters']))} | {b['pace_fmt'] or '--'} | {b['avg_power'] or '--'}W | "
-                        f"{b['avg_heart_rate'] or '--'} bpm | {b['ef'] or '--'} | {dec_s} |"
+                        f"{b['avg_heart_rate'] or '--'} bpm | {b['ef'] or '--'} | {h_s} | {dec_s} |"
                     )
+
+        same_dur = struct.get("same_duration_groups") or []
+        if same_dur:
+            lines.append("\nCOMPARATIVA DE LAPS DE IGUAL DURACIÓN PRECALCULADA (aislando tramos equivalentes sin fusionar):")
+            for grp in same_dur:
+                lap_nums = ", ".join(f"Lap #{x['index']}" for x in grp["laps"])
+                lines.append(
+                    f"- **Tramos de ~{grp['duration_label']}** ({grp['count']} laps: {lap_nums}; "
+                    f"desacople 1º→último: {grp['first_to_last_decoupling_percent']}%):"
+                )
+                for x in grp["laps"]:
+                    metric_s = f"{x['avg_power']}W (máx {x['max_power'] or '--'}W)" if sport == "cycling" else f"{x['pace_fmt']} ({x['avg_power'] or '--'}W)"
+                    intra_s = f"{x['intra_decoupling_percent']}%" if x.get("intra_decoupling_percent") is not None else "N/A"
+                    h_s = _fmt_halves_str(sport, x.get("half_1"), x.get("half_2"))
+                    h_part = f", {h_s}" if h_s != "--" else ""
+                    lines.append(
+                        f"    * Lap #{x['index']} ({x.get('time_range', '--')}, {x['duration_fmt']}, {x['zone_label']}): "
+                        f"{metric_s}, FC {x['avg_heart_rate']} bpm, EF={x['ef']}{h_part}, desacople intra-lap={intra_s}"
+                    )
+                if grp.get("pairwise_decoupling_percent"):
+                    pw_str = ", ".join(f"{k}: {v}%" for k, v in grp["pairwise_decoupling_percent"].items())
+                    lines.append(f"    * Desacople entre pares de tramos de {grp['duration_label']}: {pw_str}")
 
         drifts = struct.get("zone_block_drifts") or {}
         if drifts:
@@ -509,8 +657,8 @@ class AICoachService:
                     metric_s = f"{blk['avg_power']}W (máx {blk['max_power']}W)" if sport == "cycling" else f"{blk['pace']} ({blk['avg_power'] or '--'}W)"
                     intra_s = f"{blk['intra_decoupling_percent']}%" if blk["intra_decoupling_percent"] is not None else "N/A"
                     lines.append(
-                        f"    * Bloque {z_lbl} #{blk['block_in_zone']} (Lap/Int #{blk['interval_index']}, {blk['duration']}): "
-                        f"{metric_s}, FC {blk['avg_hr']} bpm, EF={blk['ef']}, desacople intra-bloque={intra_s}"
+                        f"    * Bloque {z_lbl} #{blk['block_in_zone']} (Lap #{blk['interval_index']}, {blk.get('time_range', '--')}, {blk['duration']}): "
+                        f"{metric_s}, FC {blk['avg_hr']} bpm, EF={blk['ef']}, desacople intra-lap={intra_s}"
                     )
                 if dinfo.get("pairwise_decoupling_percent"):
                     pw_str = ", ".join(f"B{k.replace('_to_', '→B')}: {v}%" for k, v in dinfo["pairwise_decoupling_percent"].items())
@@ -694,14 +842,21 @@ Estructura la valoración en 4 secciones claras en Markdown basadas en los BLOQU
             ) if sp_rows else ""
 
             aero_note = ""
-            if len(aerobic_z2_blocks) >= 2:
-                b_first, b_last = aerobic_z2_blocks[0], aerobic_z2_blocks[-1]
+            main_z2 = aerobic_z2_blocks
+            if len(main_z2) >= 2:
+                max_z2_dur = max(b["duration_seconds"] for b in main_z2)
+                longest_z2 = [b for b in main_z2 if b["duration_seconds"] >= max_z2_dur * 0.75]
+                if len(longest_z2) >= 2:
+                    main_z2 = longest_z2
+                b_first, b_last = main_z2[0], main_z2[-1]
                 z2_drift = _calc_inter_block_decoupling(b_first.get("ef"), b_last.get("ef"))
+                dec1_s = f", desacople interno **{b_first['intra_decoupling_percent']}%**" if b_first.get("intra_decoupling_percent") is not None else ""
+                dec2_s = f", desacople interno **{b_last['intra_decoupling_percent']}%**" if b_last.get("intra_decoupling_percent") is not None else ""
                 aero_note = (
-                    f"\n\n**Estabilidad de los Bloques Aeróbicos Z2 (aislando los sprints)**:\n"
-                    f"- 1er bloque Z2 ({b_first['duration_fmt']}): **{b_first['avg_power']} W** @ **{b_first['avg_heart_rate']} bpm** (FEc **{b_first['ef']}**)\n"
-                    f"- Último bloque Z2 ({b_last['duration_fmt']}): **{b_last['avg_power']} W** @ **{b_last['avg_heart_rate']} bpm** (FEc **{b_last['ef']}**)\n"
-                    f"- **Desacople entre bloques Z2**: **{z2_drift}%** "
+                    f"\n\n**Estabilidad de los Bloques Aeróbicos Z2 Principales (aislando calentamiento y sprints)**:\n"
+                    f"- 1er tramo Z2 (Lap #{b_first['index']}, {b_first['duration_fmt']}): **{b_first['avg_power']} W** @ **{b_first['avg_heart_rate']} bpm** (FEc **{b_first['ef']}**{dec1_s})\n"
+                    f"- Último tramo Z2 (Lap #{b_last['index']}, {b_last['duration_fmt']}): **{b_last['avg_power']} W** @ **{b_last['avg_heart_rate']} bpm** (FEc **{b_last['ef']}**{dec2_s})\n"
+                    f"- **Desacople entre ambos tramos Z2**: **{z2_drift}%** "
                     + ("(estabilidad aeróbica excelente incluso tras los toques neuromusculares)." if (z2_drift is not None and z2_drift < 3.5) else "(fatiga periférica moderada tras los sprints).")
                 )
 
@@ -960,12 +1115,15 @@ RESUMEN DE TELEMETRÍA DE LA SESIÓN:
 
 INSTRUCCIONES CRÍTICAS PARA ESTA RESPUESTA:
 1. Ve DIRECTO a responder la pregunta exacta del atleta. NO empieces ni termines repitiendo el resumen general de la sesión.
-2. Si pregunta por el desacople dentro de cada bloque de una zona (ej. Z3, Z4, Z2) o entre bloques específicos (ej. entre el 2º y el 4º bloque):
-   - Muestra una tabla con cada bloque solicitado (número, duración, ritmo/potencia, FC media, EF y **desacople intra-bloque exacto**).
-   - Calcula y destaca explícitamente el **desacople inter-bloque** entre los bloques que pidió comparar (ej. Bloque 2 → Bloque 4) usando `((EF_a - EF_b) / EF_a) * 100`.
-   - Interpreta fisiológicamente lo que significa esa evolución (estabilidad del volumen sistólico, fatiga periférica o deriva térmica).
-3. Si pregunta por sprints, series, calidad o esfuerzo real, analiza los bloques principales (y su fatiga/estabilidad entre repeticiones), diferenciándolos claramente de calentamiento, técnica y recuperaciones.
-4. Si un dato puntual no existe en la telemetría (por ejemplo, lactato en sangre), dilo claramente en 1 frase y responde con los datos reales que sí tienes, sin rellenar con datos generales irrelevantes.
+2. La tabla de telemetría contiene TODOS los laps exactos marcados en el dispositivo Garmin SIN FUSIONAR (con su tramo horario inicio–fin, duración, 1ª y 2ª mitad, FEc/EF y desacople intra-lap calculado segundo a segundo sobre el stream), además de la comparativa precalculada de laps de igual duración.
+   - NUNCA digas que los laps de antes y después de unas series/sprints se han fusionado si aparecen separados en la tabla de laps.
+   - Si el atleta pregunta SOLO por unos tramos concretos (por ejemplo, "solo los tramos de 30' antes y después de los sprints", o "los bloques de Z3", o "entre el 2º y el 4º bloque"), filtra EXCLUSIVAMENTE esos laps exactos.
+3. Cuando respondas sobre bloques o tramos específicos:
+   - Muestra una tabla Markdown con cada lap/bloque solicitado (Lap #, tramo horario, duración, ritmo/potencia, FC media, FEc/EF, 1ª→2ª mitad y **desacople intra-lap exacto**).
+   - Calcula y destaca explícitamente el **desacople inter-bloque / inter-lap** entre los tramos comparados usando `((EF_a - EF_b) / EF_a) × 100` (en ciclismo, SIEMPRE FEc = Pmed / FC media).
+   - Interpreta fisiológicamente esa evolución (estabilidad del volumen sistólico, efecto post-activación, fatiga periférica o deriva térmica).
+4. Si pregunta por sprints, series, calidad o esfuerzo real, analiza los bloques principales (y su fatiga/estabilidad entre repeticiones), diferenciándolos claramente de calentamiento, técnica y recuperaciones.
+5. Si un dato puntual no existe en la telemetría (por ejemplo, lactato en sangre), dilo claramente en 1 frase y responde con los datos reales que sí tienes, sin rellenar con datos generales irrelevantes.
 """
 
         if self.api_key:
@@ -1153,45 +1311,59 @@ Instrucciones:
         key_blocks = struct.get("key_blocks") or []
 
         # -----------------------------------------------------------------
-        # 1. SPECIFIC ZONE / BLOCK DECOUPLING OR BLOCK-TO-BLOCK COMPARISON
-        #    (e.g. "desacople dentro de cada bloque de z3, entre el segundo y el cuarto")
+        # 1. SPECIFIC DURATION / ZONE / BLOCK DECOUPLING OR COMPARISON
+        #    (e.g. "solo los tramos de 30'" or "desacople de cada bloque de z3, entre el 2º y el 4º")
         # -----------------------------------------------------------------
         zone_match = re.search(r"\bz\s*([1-7])\b", q)
         requested_zone = f"Z{zone_match.group(1)}" if zone_match else None
+        dur_match = re.search(r"\b(\d{1,3})\s*(?:'|′|’|min(?:utos?)?\b)", q)
+        requested_dur_sec = int(dur_match.group(1)) * 60 if dur_match else None
         requested_indices = self._parse_block_indices_from_query(q)
         asks_block_analysis = (
             requested_zone is not None
+            or requested_dur_sec is not None
             or len(requested_indices) >= 1
-            or any(k in q for k in ["bloque", "intervalo", "serie", "repetici", "cada bloque", "entre el", "sprint"])
+            or any(k in q for k in ["bloque", "intervalo", "serie", "repetici", "cada bloque", "entre el", "sprint", "tramo", "lap", "antes y despu"])
         )
 
-        if asks_block_analysis and (any(k in q for k in ["desacople", "deriva", "eficiencia", "bloque", "entre el", "compar", "sprint", "pulso", "ritmo", "potencia"]) or requested_zone):
+        if asks_block_analysis and (any(k in q for k in ["desacople", "deriva", "eficiencia", "bloque", "tramo", "lap", "entre el", "compar", "sprint", "pulso", "ritmo", "potencia", "datos", "analiz", "antes y despu"]) or requested_zone or requested_dur_sec):
             target_blocks: List[Dict[str, Any]] = []
             target_label = ""
-            if "sprint" in q and sprint_blocks:
-                target_blocks = sprint_blocks
-                target_label = "Sprints Neuromusculares"
-            elif requested_zone and struct["blocks_by_zone"].get(requested_zone):
-                target_blocks = [b for b in struct["blocks_by_zone"][requested_zone] if b["duration_seconds"] >= 15]
-                target_label = f"Bloques en {requested_zone}"
-            elif key_blocks:
-                target_blocks = key_blocks
-                target_label = "Bloques Principales"
-            else:
-                target_blocks = [b for b in blocks if not b.get("is_rest")]
-                target_label = "Bloques de la Sesión"
+            if requested_dur_sec is not None:
+                tol = max(20.0, requested_dur_sec * 0.12)
+                dur_blocks = [
+                    b for b in blocks
+                    if not b.get("is_rest") and abs(b["duration_seconds"] - requested_dur_sec) <= tol
+                ]
+                if dur_blocks:
+                    target_blocks = dur_blocks
+                    target_label = f"Tramos de ~{dur_match.group(1)} min"
+            if not target_blocks:
+                if "sprint" in q and sprint_blocks:
+                    target_blocks = sprint_blocks
+                    target_label = "Sprints Neuromusculares"
+                elif requested_zone and struct["blocks_by_zone"].get(requested_zone):
+                    target_blocks = [b for b in struct["blocks_by_zone"][requested_zone] if b["duration_seconds"] >= 15]
+                    target_label = f"Bloques en {requested_zone}"
+                elif key_blocks:
+                    target_blocks = key_blocks
+                    target_label = "Bloques Principales"
+                else:
+                    target_blocks = [b for b in blocks if not b.get("is_rest")]
+                    target_label = "Bloques de la Sesión"
 
             if target_blocks:
                 rows = []
                 for idx, b in enumerate(target_blocks, start=1):
                     out_s = f"**{b['avg_power']} W** (máx {b['max_power'] or '--'}W)" if sport == "cycling" else f"**{b['pace_fmt']}**"
                     dec_s = f"**{b['intra_decoupling_percent']}%**" if b.get("intra_decoupling_percent") is not None else "N/A"
+                    h_s = _fmt_halves_str(sport, b.get("half_1"), b.get("half_2"))
                     rows.append(
-                        f"| **Bloque #{idx}** (Int. #{b['index']}) | {b['duration_fmt']} | {out_s} | **{b['avg_heart_rate'] or '--'} bpm** | {b['ef'] or '--'} | {dec_s} |"
+                        f"| **Lap #{b['index']}** ({b.get('time_range', '--')}) | {b['duration_fmt']} | {out_s} | **{b['avg_heart_rate'] or '--'} bpm** | {b['ef'] or '--'} | {h_s} | {dec_s} |"
                     )
                 table_md = (
-                    "| Bloque | Duración | Ritmo / Potencia | FC Media | EF | Desacople Intra-Bloque |\n"
-                    "| :--- | :--- | :--- | :--- | :--- | :--- |\n"
+                    "| Lap (Tramo) | Duración | Ritmo / Potencia | FC Media | EF | 1ª → 2ª Mitad | Desacople Intra-Lap |\n"
+                    "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n"
                     + "\n".join(rows)
                 )
 
@@ -1204,18 +1376,19 @@ Instrucciones:
                         d12 = _calc_inter_block_decoupling(b1.get("ef"), b2.get("ef"))
                         hr_diff = round((b2.get("avg_heart_rate") or 0) - (b1.get("avg_heart_rate") or 0), 1)
                         comp_lines.append(
-                            f"### Comparativa Directa: Bloque #{i1} vs Bloque #{i2}\n"
-                            f"- **Bloque #{i1}**: {b1['pace_fmt'] or str(b1['avg_power']) + ' W'} @ **{b1['avg_heart_rate']} bpm** (EF: **{b1['ef']}**, desacople interno: **{b1['intra_decoupling_percent']}%**)\n"
-                            f"- **Bloque #{i2}**: {b2['pace_fmt'] or str(b2['avg_power']) + ' W'} @ **{b2['avg_heart_rate']} bpm** (EF: **{b2['ef']}**, desacople interno: **{b2['intra_decoupling_percent']}%**)\n"
-                            f"- **Desacople entre Bloque #{i1} y Bloque #{i2}**: **{d12}%** (diferencia de pulso: **{'+' if hr_diff >= 0 else ''}{hr_diff} bpm**)."
+                            f"### Comparativa Directa: Bloque #{i1} (Lap #{b1['index']}) vs Bloque #{i2} (Lap #{b2['index']})\n"
+                            f"- **Lap #{b1['index']}**: {b1['pace_fmt'] or str(b1['avg_power']) + ' W'} @ **{b1['avg_heart_rate']} bpm** (EF: **{b1['ef']}**, desacople interno: **{b1['intra_decoupling_percent']}%**)\n"
+                            f"- **Lap #{b2['index']}**: {b2['pace_fmt'] or str(b2['avg_power']) + ' W'} @ **{b2['avg_heart_rate']} bpm** (EF: **{b2['ef']}**, desacople interno: **{b2['intra_decoupling_percent']}%**)\n"
+                            f"- **Desacople entre ambos**: **{d12}%** (diferencia de pulso: **{'+' if hr_diff >= 0 else ''}{hr_diff} bpm**)."
                         )
                 elif len(target_blocks) >= 2:
                     b1, b2 = target_blocks[0], target_blocks[-1]
                     d_fl = _calc_inter_block_decoupling(b1.get("ef"), b2.get("ef"))
                     if d_fl is not None:
+                        hr_diff = round((b2.get("avg_heart_rate") or 0) - (b1.get("avg_heart_rate") or 0), 1)
                         comp_lines.append(
-                            f"- **Desacople entre el 1er bloque y el último (#{len(target_blocks)})**: **{d_fl}%** "
-                            f"(EF **{b1['ef']}** → **{b2['ef']}**)."
+                            f"- **Desacople entre Lap #{b1['index']} y Lap #{b2['index']}**: **{d_fl}%** "
+                            f"(EF **{b1['ef']}** → **{b2['ef']}**, diferencia de pulso **{'+' if hr_diff >= 0 else ''}{hr_diff} bpm**)."
                         )
 
                 comp_block = ("\n\n" + "\n".join(comp_lines)) if comp_lines else ""

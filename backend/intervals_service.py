@@ -446,6 +446,8 @@ class IntervalsService:
                     "type": str(iv.get("type") or "WORK").upper(),
                     "label": iv.get("label") or "",
                     "zone": iv.get("zone"),
+                    "start_time_sec": round(float(iv.get("start_time") or 0.0), 1) if iv.get("start_time") is not None else None,
+                    "end_time_sec": round(float(iv.get("end_time") or 0.0), 1) if iv.get("end_time") is not None else None,
                     "duration_seconds": round(dur, 1),
                     "elapsed_seconds": round(float(iv.get("elapsed_time") or dur), 1),
                     "distance_meters": round(dist, 1),
@@ -464,6 +466,127 @@ class IntervalsService:
         except Exception as e:
             logger.warning(f"Error fetching Intervals.icu intervals for {icu_id}: {e}")
             return []
+
+    def enrich_splits_with_streams(
+        self,
+        icu_id: str,
+        splits: List[Dict[str, Any]],
+        sport_type: str,
+        icu_intervals: Optional[List[Dict[str, Any]]] = None,
+    ) -> bool:
+        """Aligns every exact Garmin device lap with Intervals.icu second-by-second streams
+        (time, watts, heartrate, velocity_smooth) to compute exact 1st-half/2nd-half metrics,
+        intra-lap decoupling (Pw:HR / Pa:HR), and peak power WITHOUT merging any laps!
+        """
+        if not self.config.intervals_api_key or not icu_id or not splits:
+            return False
+        if sport_type not in ("cycling", "running"):
+            return False
+
+        try:
+            rs = requests.get(
+                f"{INTERVALS_BASE_URL}/activity/{icu_id}/streams.json?types=time,watts,heartrate,velocity_smooth",
+                headers=self._get_auth_header(),
+                timeout=12,
+            )
+            if rs.status_code != 200:
+                return False
+            raw_streams = rs.json()
+            if not isinstance(raw_streams, list):
+                return False
+
+            smap = {s.get("type"): s.get("data", []) for s in raw_streams if isinstance(s, dict) and s.get("type")}
+            t_arr = smap.get("time") or []
+            w_arr = smap.get("watts") or []
+            hr_arr = smap.get("heartrate") or []
+            v_arr = smap.get("velocity_smooth") or []
+            if not t_arr:
+                return False
+
+            def _avg_idx(arr: List[Any], indices: List[int]) -> Optional[float]:
+                vals = [float(arr[i]) for i in indices if i < len(arr) and arr[i] is not None]
+                return (sum(vals) / len(vals)) if vals else None
+
+            def _max_idx(arr: List[Any], indices: List[int]) -> Optional[float]:
+                vals = [float(arr[i]) for i in indices if i < len(arr) and arr[i] is not None]
+                return max(vals) if vals else None
+
+            cum_t = 0.0
+            enriched_any = False
+            used_icu_iv_idxs = set()
+            for sp in splits:
+                dur = float(sp.get("duration_seconds") or 0.0)
+                elap = float(sp.get("elapsed_seconds") or dur)
+                if sp.get("start_offset_seconds") is not None:
+                    t0 = float(sp["start_offset_seconds"])
+                else:
+                    t0 = cum_t
+                t1 = t0 + max(elap, dur)
+                cum_t = t1
+                sp["start_offset_seconds"] = round(t0, 1)
+                sp["end_offset_seconds"] = round(t1, 1)
+
+                if dur < 6.0:
+                    sp["stream_enriched"] = True
+                    continue
+
+                idxs = [i for i, tv in enumerate(t_arr) if tv is not None and t0 <= float(tv) < t1]
+                if len(idxs) < 4:
+                    sp["stream_enriched"] = True
+                    continue
+
+                # Fill peak power from stream if missing or higher
+                p_max = _max_idx(w_arr, idxs)
+                if p_max is not None and (sp.get("max_power") is None or p_max > float(sp.get("max_power") or 0)):
+                    sp["max_power"] = round(p_max, 1)
+
+                # Exact 1st half vs 2nd half inside THIS device lap
+                mid = len(idxs) // 2
+                h1_idx, h2_idx = idxs[:mid], idxs[mid:]
+                hr1 = _avg_idx(hr_arr, h1_idx)
+                hr2 = _avg_idx(hr_arr, h2_idx)
+
+                if sport_type == "cycling":
+                    o1 = _avg_idx(w_arr, h1_idx)
+                    o2 = _avg_idx(w_arr, h2_idx)
+                    if o1 is not None and o2 is not None and hr1 and hr2 and o1 > 0 and hr1 > 0:
+                        ef1 = o1 / hr1
+                        ef2 = o2 / hr2
+                        dec = round(((ef1 - ef2) / ef1) * 100.0, 2)
+                        sp["intra_decoupling_percent"] = dec
+                        sp["half_1"] = {"power_w": round(o1, 1), "hr": round(hr1, 1), "ef": round(ef1, 3)}
+                        sp["half_2"] = {"power_w": round(o2, 1), "hr": round(hr2, 1), "ef": round(ef2, 3)}
+                else:  # running
+                    v1 = _avg_idx(v_arr, h1_idx)
+                    v2 = _avg_idx(v_arr, h2_idx)
+                    if v1 is not None and v2 is not None and hr1 and hr2 and v1 > 0 and hr1 > 0:
+                        ef1 = (v1 * 60.0) / hr1
+                        ef2 = (v2 * 60.0) / hr2
+                        dec = round(((ef1 - ef2) / ef1) * 100.0, 2)
+                        sp["intra_decoupling_percent"] = dec
+                        sp["half_1"] = {"speed_mps": round(v1, 3), "hr": round(hr1, 1), "ef": round(ef1, 3)}
+                        sp["half_2"] = {"speed_mps": round(v2, 3), "hr": round(hr2, 1), "ef": round(ef2, 3)}
+
+                # Also match exact Intervals.icu interval decoupling if it corresponds 1-to-1 with this exact lap
+                if isinstance(icu_intervals, list):
+                    for iv_idx, iv in enumerate(icu_intervals):
+                        if iv_idx in used_icu_iv_idxs:
+                            continue
+                        iv_dur = float(iv.get("duration_seconds") or 0)
+                        iv_t0 = iv.get("start_time_sec")
+                        if iv_dur > 0 and abs(iv_dur - dur) <= max(10.0, dur * 0.08):
+                            if iv_t0 is None or abs(float(iv_t0) - t0) <= 20.0:
+                                used_icu_iv_idxs.add(iv_idx)
+                                if iv.get("decoupling_percent") is not None:
+                                    sp["icu_decoupling_percent"] = iv["decoupling_percent"]
+                                break
+
+                sp["stream_enriched"] = True
+                enriched_any = True
+            return enriched_any
+        except Exception as e:
+            logger.warning(f"Error enriching splits with streams for {icu_id}: {e}")
+            return False
 
     def get_activities_by_range(self, oldest: str, newest: str) -> List[Dict[str, Any]]:
         """Fetches completed activities from Intervals.icu for a date range, including TSS and zone times."""

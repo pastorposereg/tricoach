@@ -170,14 +170,39 @@ class GarminService:
             activity_name = details.get("activityName") or summary.get("activityName", "Actividad")
             sport_type = self._map_sport_type(activity_type)
 
-            # Process splits for decoupling & per-lap telemetry
+            # Process splits for decoupling & per-lap telemetry (preserving exact elapsed start offset for stream alignment)
+            def _parse_iso_gmt(ts_str: Optional[str]) -> Optional[datetime]:
+                if not ts_str or not isinstance(ts_str, str):
+                    return None
+                try:
+                    return datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                except Exception:
+                    return None
+
+            act_start_gmt = summary.get("startTimeGMT")
+            t_act0 = _parse_iso_gmt(act_start_gmt)
+
             splits = []
             if splits_data and "lapDTOs" in splits_data:
+                cum_offset = 0.0
                 for lap in splits_data["lapDTOs"]:
+                    lap_dur = float(lap.get("duration") or 0.0)
+                    lap_elapsed = float(lap.get("elapsedDuration") or lap_dur)
+                    lap_start_gmt = lap.get("startTimeGMT")
+                    t_lap = _parse_iso_gmt(lap_start_gmt)
+                    if t_act0 is not None and t_lap is not None:
+                        start_offset = max(0.0, round((t_lap - t_act0).total_seconds(), 1))
+                    else:
+                        start_offset = round(cum_offset, 1)
+                    cum_offset = start_offset + lap_elapsed
+
                     splits.append({
                         "lap_index": lap.get("lapIndex", 1),
+                        "start_time_gmt": lap_start_gmt,
+                        "start_offset_seconds": start_offset,
+                        "elapsed_seconds": round(lap_elapsed, 1),
                         "distance_meters": lap.get("distance", 0.0),
-                        "duration_seconds": lap.get("duration", 0.0),
+                        "duration_seconds": lap_dur,
                         "avg_heart_rate": lap.get("averageHR"),
                         "max_heart_rate": lap.get("maxHR"),
                         "avg_speed_mps": lap.get("averageSpeed"),
